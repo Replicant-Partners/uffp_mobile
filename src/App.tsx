@@ -7,6 +7,7 @@ import { CreateForecastScreen } from "./screens/CreateForecastScreen";
 import { CompareScreen } from "./screens/CompareScreen";
 import { BrierScoreScreen } from "./screens/BrierScoreScreen";
 import { CalibrationScreen } from "./screens/CalibrationScreen";
+import ResearchScreen from "./screens/ResearchScreen";
 import { ForecastConfig } from "./types";
 import { TufteColors } from "./styles/tufte";
 
@@ -17,6 +18,7 @@ export type RootStackParamList = {
   Compare: { configs: ForecastConfig[] };
   BrierScore: undefined;
   Calibration: undefined;
+  Research: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -38,7 +40,11 @@ export default function App() {
           headerShadowVisible: true,
         }}
       >
-        <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+        <Stack.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen
           name="CreateForecast"
           component={CreateForecastScreen}
@@ -63,6 +69,11 @@ export default function App() {
           name="Calibration"
           component={CalibrationScreen}
           options={{ title: "Calibration & Leaderboard" }}
+        />
+        <Stack.Screen
+          name="Research"
+          component={ResearchScreen}
+          options={{ title: "Research Agents" }}
         />
       </Stack.Navigator>
     </NavigationContainer>

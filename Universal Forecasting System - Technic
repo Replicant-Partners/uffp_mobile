@@ -1,0 +1,2071 @@
+# Universal Forecasting System - Technical Architecture
+
+## Overview
+
+This document provides a comprehensive technical overview of the Universal Forecasting Platform's architecture, specifically focusing on agent configurations, research workflows, prompt templates, data models, user interfaces, and scheduling logic.
+
+**Target Audience**: Developers integrating or extending the forecasting system  
+**Framework**: ElizaOS Plugin Architecture  
+**Language**: TypeScript  
+**Database**: PostgreSQL (Supabase)
+
+---
+
+## Table of Contents
+
+1. [Agent Configurations](#1-agent-configurations)
+2. [Research Workflows](#2-research-workflows)
+3. [Prompt Templates](#3-prompt-templates)
+4. [Data Models](#4-data-models)
+5. [User Interface Concepts](#5-user-interface-concepts)
+6. [Scheduling Logic](#6-scheduling-logic)
+7. [Integration Guide](#7-integration-guide)
+
+---
+
+## 1. Agent Configurations
+
+### 1.1 Character Configuration
+
+The forecasting agent is configured via a character file that defines personality, behavior, and capabilities.
+
+**File**: `characters/universal-forecaster.json`
+
+```json
+{
+  "name": "Universal Forecaster",
+  "username": "forecaster",
+  "plugins": ["@forecast-intel/plugin-eliza"],
+  "clients": [],
+  "modelProvider": "anthropic",
+  "settings": {
+    "secrets": {},
+    "voice": {
+      "model": "en_US-hfc_female-medium"
+    }
+  },
+  "system": "You are a Universal Forecasting Assistant...",
+  "bio": [
+    "Expert in probabilistic forecasting across all domains",
+    "Guides users through Tetlock Superforecaster methodology",
+    "Provides research agents for automated evidence collection",
+    "Supports forecasts in finance, weather, politics, sports, technology, and general domains"
+  ],
+  "lore": [
+    "Trained on Superforecaster principles from Philip Tetlock's research",
+    "Emphasizes outside view (base rates) before inside view",
+    "Decomposes complex questions into independent drivers",
+    "Uses probability distributions (P5/P50/P95) for uncertainty quantification"
+  ],
+  "messageExamples": [
+    [
+      {
+        "user": "{{user1}}",
+        "content": {
+          "text": "Will it rain tomorrow in Seattle?"
+        }
+      },
+      {
+        "user": "Universal Forecaster",
+        "content": {
+          "text": "Let me help you forecast rain in Seattle tomorrow. First, what's the base rate - how often does it rain this time of year?"
+        }
+      }
+    ]
+  ],
+  "postExamples": [],
+  "topics": [
+    "probabilistic forecasting",
+    "superforecaster methodology",
+    "evidence-based predictions",
+    "research automation",
+    "uncertainty quantification"
+  ],
+  "style": {
+    "all": [
+      "be clear and methodical",
+      "guide users step-by-step",
+      "provide domain-specific examples",
+      "suggest relevant research agents",
+      "explain probabilistic reasoning"
+    ],
+    "chat": [
+      "use conversational tone",
+      "ask one question at a time",
+      "provide clear next steps",
+      "show progress through forecast stages"
+    ],
+    "post": [
+      "share forecasting insights",
+      "explain methodology",
+      "highlight interesting predictions"
+    ]
+  },
+  "adjectives": [
+    "analytical",
+    "methodical",
+    "evidence-focused",
+    "probabilistic",
+    "helpful"
+  ]
+}
+```
+
+### 1.2 Research Agent Configurations
+
+Each research agent follows a consistent configuration pattern using the **Factory Pattern**.
+
+**Base Configuration** (`src/agents/baseResearchAgent.ts`):
+
+```typescript
+export abstract class BaseResearchAgent {
+  protected agentType: ResearchAgentType;
+  protected runtime: IAgentRuntime;
+
+  constructor(agentType: ResearchAgentType, runtime: IAgentRuntime) {
+    this.agentType = agentType;
+    this.runtime = runtime;
+  }
+
+  // Abstract method each agent must implement
+  abstract executeResearch(query: ResearchQuery): Promise<ResearchResult>;
+
+  // Shared confidence calculation logic
+  protected calculateConfidence(
+    sources: string[],
+    dataQuality: number,
+    recency: number
+  ): number {
+    let confidence = 0.5; // Base confidence
+
+    // More sources increase confidence
+    if (sources.length >= 5) confidence += 0.2;
+    else if (sources.length >= 3) confidence += 0.1;
+
+    // Data quality factor
+    confidence += dataQuality * 0.3;
+
+    // Recency factor (within last 30 days)
+    confidence += recency * 0.2;
+
+    return Math.min(confidence, 1.0);
+  }
+
+  // Shared source quality rating
+  protected rateSourceQuality(url: string): number {
+    const officialDomains = ['.gov', 'sec.gov', '.edu'];
+    const peerReviewed = ['arxiv.org', 'scholar.google'];
+    const industryReports = ['gartner.com', 'forrester.com', 'idc.com'];
+    const newsOrgs = ['reuters.com', 'bloomberg.com', 'wsj.com'];
+
+    if (officialDomains.some(d => url.includes(d))) return 1.0;
+    if (peerReviewed.some(d => url.includes(d))) return 1.0;
+    if (industryReports.some(d => url.includes(d))) return 0.9;
+    if (newsOrgs.some(d => url.includes(d))) return 0.8;
+    
+    return 0.5; // Default for unknown sources
+  }
+}
+```
+
+**Specific Agent Configuration Example** (`src/agents/sentimentTrackingAgent.ts`):
+
+```typescript
+export class SentimentTrackingAgent extends BaseResearchAgent {
+  constructor(runtime: IAgentRuntime) {
+    super("sentiment_tracking", runtime);
+  }
+
+  async executeResearch(query: ResearchQuery): Promise<ResearchResult> {
+    const { query: searchQuery, timeframe, domain } = query;
+
+    // 1. Gather sentiment data from multiple sources
+    const sentimentData = await this.gatherSentiment(searchQuery, timeframe);
+
+    // 2. Analyze and aggregate
+    const analysis = this.analyzeSentiment(sentimentData);
+
+    // 3. Generate findings
+    const findings = this.generateFindings(analysis);
+
+    // 4. Create evidence objects
+    const evidence = this.createEvidence(findings, sentimentData.sources);
+
+    // 5. Calculate confidence
+    const confidence = this.calculateConfidence(
+      sentimentData.sources,
+      analysis.dataQuality,
+      analysis.recency
+    );
+
+    // 6. Return structured result
+    return {
+      agentType: "sentiment_tracking",
+      query: searchQuery,
+      summary: `Sentiment analysis for "${searchQuery}": ${analysis.overall > 0 ? 'Positive' : 'Negative'} (${Math.abs(analysis.overall * 100).toFixed(1)}%)`,
+      findings,
+      evidence,
+      confidence,
+      sources: sentimentData.sources,
+      timestamp: Date.now(),
+      structuredData: [
+        {
+          type: "sentiment",
+          title: `${searchQuery} Sentiment`,
+          data: {
+            overall: analysis.overall,
+            positive: analysis.positive,
+            neutral: analysis.neutral,
+            negative: analysis.negative,
+            volume: analysis.totalMentions,
+            sources: ["twitter", "reddit", "news"]
+          }
+        }
+      ],
+      metadata: {
+        domain,
+        timeframe,
+        dataSources: sentimentData.sourceBreakdown
+      }
+    };
+  }
+
+  // Private helper methods
+  private async gatherSentiment(query: string, timeframe?: string) {
+    // Implementation: API calls to Twitter, Reddit, news sources
+    // Returns raw sentiment data
+  }
+
+  private analyzeSentiment(data: any) {
+    // Implementation: Sentiment scoring algorithm
+    // Returns aggregated sentiment metrics
+  }
+
+  private generateFindings(analysis: any): string[] {
+    // Implementation: Convert analysis to human-readable findings
+  }
+
+  private createEvidence(findings: string[], sources: string[]): Evidence[] {
+    // Implementation: Generate evidence objects
+  }
+}
+```
+
+**Agent Factory** (`src/agents/researchAgentFactory.ts`):
+
+```typescript
+export class ResearchAgentFactory {
+  static createAgent(
+    agentType: ResearchAgentType,
+    runtime: IAgentRuntime
+  ): BaseResearchAgent {
+    switch (agentType) {
+      case "market_tam_sizing":
+        return new MarketTamSizingAgent(runtime);
+      case "sentiment_tracking":
+        return new SentimentTrackingAgent(runtime);
+      case "competitor_benchmarking":
+        return new CompetitorBenchmarkingAgent(runtime);
+      case "technology_validation":
+        return new TechnologyValidationAgent(runtime);
+      case "financial_fundamentals":
+        return new FinancialFundamentalsAgent(runtime);
+      case "expert_opinion_synthesis":
+        return new ExpertOpinionSynthesisAgent(runtime);
+      case "regulatory_monitoring":
+        return new RegulatoryMonitoringAgent(runtime);
+      case "hiring_trends":
+        return new HiringTrendsAgent(runtime);
+      case "user_growth_signals":
+        return new UserGrowthSignalsAgent(runtime);
+      case "pricing_intelligence":
+        return new PricingIntelligenceAgent(runtime);
+      default:
+        throw new Error(`Unknown research agent type: ${agentType}`);
+    }
+  }
+
+  static getAvailableAgents(): ResearchAgentType[] {
+    return [
+      "market_tam_sizing",
+      "competitor_benchmarking",
+      "technology_validation",
+      "sentiment_tracking",
+      "financial_fundamentals",
+      "expert_opinion_synthesis",
+      "regulatory_monitoring",
+      "hiring_trends",
+      "user_growth_signals",
+      "pricing_intelligence"
+    ];
+  }
+}
+```
+
+### 1.3 Agent Registration
+
+Agents are registered with ElizaOS via the plugin system:
+
+**File**: `src/index.ts`
+
+```typescript
+import { Plugin } from "@ai16z/eliza";
+import { universalForecastAction } from "./actions/universalForecastAction";
+import { researchAction } from "./actions/researchAction";
+import { scheduleResearchAction } from "./actions/scheduleResearchAction";
+import { resolveForecastAction } from "./actions/resolveForecastAction";
+import { leaderboardAction } from "./actions/leaderboardAction";
+import { universalForecastingProvider } from "./providers/universalFinancialProvider";
+
+export const universalForecastPlugin: Plugin = {
+  name: "universal-forecast-intel",
+  description: "Universal forecasting for any event with research agents and scheduled execution",
+  actions: [
+    universalForecastAction,      // Main forecasting workflow
+    resolveForecastAction,         // Resolve forecasts
+    leaderboardAction,             // View accuracy leaderboard
+    researchAction,                // Launch research agents
+    scheduleResearchAction,        // Schedule recurring research
+  ],
+  providers: [
+    universalForecastingProvider   // Data provider for forecast context
+  ],
+  services: [],
+};
+
+export default universalForecastPlugin;
+```
+
+---
+
+## 2. Research Workflows
+
+### 2.1 Research Flow Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     User Interaction                         │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Research Action Handler                         │
+│  • Parse user command                                        │
+│  • Validate agent type                                       │
+│  • Extract research query                                    │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│            Research Coordinator                              │
+│  • Suggest relevant agents                                   │
+│  • Orchestrate multiple agents                               │
+│  • Aggregate results                                         │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│            Research Agent Factory                            │
+│  • Instantiate specific agent                                │
+│  • Inject runtime dependencies                               │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│         Specific Research Agent                              │
+│  • Execute research logic                                    │
+│  • Gather data from sources                                  │
+│  • Calculate confidence                                      │
+│  • Generate structured output                                │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Evidence Generator                              │
+│  • Convert findings to evidence objects                      │
+│  • Attach sources                                            │
+│  • Add metadata                                              │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│               State Manager                                  │
+│  • Store research results                                    │
+│  • Update forecast state                                     │
+│  • Cache for performance                                     │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│             Response to User                                 │
+│  • Display summary                                           │
+│  • Show findings                                             │
+│  • Present confidence                                        │
+│  • List sources                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 2.2 Research Coordinator Logic
+
+**File**: `src/utils/researchCoordinator.ts`
+
+```typescript
+export class ResearchCoordinator {
+  /**
+   * Suggests relevant agents based on query and domain
+   */
+  static suggestAgents(
+    query: string,
+    domain?: string
+  ): ResearchAgentType[] {
+    const suggestions: ResearchAgentType[] = [];
+    const lowerQuery = query.toLowerCase();
+
+    // Domain-based suggestions
+    if (domain === "finance" || lowerQuery.match(/\b(stock|revenue|market cap|price|valuation)\b/)) {
+      suggestions.push("financial_fundamentals", "market_tam_sizing");
+    }
+
+    if (domain === "technology" || lowerQuery.match(/\b(tech|software|launch|feature)\b/)) {
+      suggestions.push("technology_validation", "user_growth_signals");
+    }
+
+    // Keyword-based suggestions
+    if (lowerQuery.match(/\b(sentiment|opinion|perception|reputation)\b/)) {
+      suggestions.push("sentiment_tracking");
+    }
+
+    if (lowerQuery.match(/\b(competitor|competition|market share|vs)\b/)) {
+      suggestions.push("competitor_benchmarking");
+    }
+
+    if (lowerQuery.match(/\b(market|size|TAM|opportunity)\b/)) {
+      suggestions.push("market_tam_sizing");
+    }
+
+    if (lowerQuery.match(/\b(regulation|policy|law|compliance)\b/)) {
+      suggestions.push("regulatory_monitoring");
+    }
+
+    if (lowerQuery.match(/\b(expert|analyst|opinion|forecast)\b/)) {
+      suggestions.push("expert_opinion_synthesis");
+    }
+
+    if (lowerQuery.match(/\b(hiring|team|growth|jobs)\b/)) {
+      suggestions.push("hiring_trends");
+    }
+
+    if (lowerQuery.match(/\b(users|adoption|growth|engagement)\b/)) {
+      suggestions.push("user_growth_signals");
+    }
+
+    if (lowerQuery.match(/\b(price|pricing|cost|expensive)\b/)) {
+      suggestions.push("pricing_intelligence");
+    }
+
+    // Remove duplicates
+    return Array.from(new Set(suggestions));
+  }
+
+  /**
+   * Executes multiple research agents in parallel
+   */
+  static async executeMultipleAgents(
+    runtime: IAgentRuntime,
+    agentTypes: ResearchAgentType[],
+    query: ResearchQuery
+  ): Promise<ResearchResult[]> {
+    const results: ResearchResult[] = [];
+
+    // Execute agents in parallel
+    const promises = agentTypes.map(async (agentType) => {
+      try {
+        const agent = ResearchAgentFactory.createAgent(agentType, runtime);
+        return await agent.executeResearch(query);
+      } catch (error) {
+        console.error(`Research agent ${agentType} failed:`, error);
+        return null;
+      }
+    });
+
+    const settled = await Promise.allSettled(promises);
+
+    settled.forEach((result) => {
+      if (result.status === "fulfilled" && result.value) {
+        results.push(result.value);
+      }
+    });
+
+    return results;
+  }
+
+  /**
+   * Aggregates results from multiple agents
+   */
+  static aggregateResults(results: ResearchResult[]): {
+    summary: string;
+    findings: string[];
+    evidence: Evidence[];
+    confidence: number;
+    sources: string[];
+  } {
+    const allFindings: string[] = [];
+    const allEvidence: Evidence[] = [];
+    const allSources: string[] = [];
+    let totalConfidence = 0;
+
+    results.forEach((result) => {
+      allFindings.push(...result.findings);
+      allEvidence.push(...result.evidence);
+      allSources.push(...result.sources);
+      totalConfidence += result.confidence;
+    });
+
+    const avgConfidence = totalConfidence / results.length;
+
+    const summary = `Completed ${results.length} research agents. Found ${allFindings.length} key insights with ${avgConfidence.toFixed(0)}% average confidence.`;
+
+    return {
+      summary,
+      findings: allFindings,
+      evidence: allEvidence,
+      confidence: avgConfidence,
+      sources: Array.from(new Set(allSources)),
+    };
+  }
+}
+```
+
+### 2.3 Interaction Patterns
+
+#### Pattern 1: Single Agent Research
+
+```
+User → "research sentiment_tracking for Tesla"
+  ↓
+Action Handler
+  ↓
+Parse: agentType="sentiment_tracking", query="Tesla"
+  ↓
+Factory creates SentimentTrackingAgent
+  ↓
+Agent executes research
+  ↓
+Returns ResearchResult
+  ↓
+Display to user
+```
+
+#### Pattern 2: Multi-Agent Research
+
+```
+User → "research Tesla comprehensive"
+  ↓
+Coordinator suggests agents:
+  - sentiment_tracking
+  - financial_fundamentals
+  - competitor_benchmarking
+  ↓
+Execute all 3 in parallel
+  ↓
+Aggregate results
+  ↓
+Display combined findings
+```
+
+#### Pattern 3: Scheduled Research
+
+```
+User → "schedule research sentiment_tracking for Tesla daily"
+  ↓
+Create ScheduledResearch record
+  ↓
+Store in database
+  ↓
+Background scheduler (cron-like)
+  ↓
+At scheduled time: Execute agent
+  ↓
+Store result
+  ↓
+Update forecast evidence
+  ↓
+Notify user (optional)
+```
+
+---
+
+## 3. Prompt Templates
+
+### 3.1 Forecast Conversation Prompts
+
+**File**: `src/utils/forecastConversation.ts`
+
+The system uses domain-aware prompt templates for each stage of the forecasting workflow.
+
+#### Template: Initial Prompt
+
+```typescript
+static async promptInitial(
+  callback: HandlerCallback,
+  state: ForecastState
+): Promise<void> {
+  const domain = state.domain || "general";
+  
+  // Research agent suggestions
+  const suggestedAgents = ResearchCoordinator.suggestAgents(
+    state.question,
+    domain
+  );
+  
+  let researchSuggestion = "";
+  if (suggestedAgents.length > 0) {
+    researchSuggestion = `\n\n💡 **Research Agents Available**: I can help gather evidence using:\n`;
+    suggestedAgents.slice(0, 3).forEach((agentType) => {
+      researchSuggestion += `- \`research ${agentType}\` - automated data gathering\n`;
+    });
+    researchSuggestion += `\nType \`list research agents\` to see all ${ResearchCoordinator.getAvailableAgents().length} agents.`;
+  }
+
+  await callback({
+    text: `Let's create a forecast for: **"${state.question}"**${state.timeframe ? ` (${state.timeframe})` : ""}${researchSuggestion}
+
+**Step 1: Base Rate (Outside View)**
+
+Before analyzing specifics, let's establish a base rate. What's the reference class - similar situations we can learn from?
+
+**Examples for ${domain}**:
+${this.getExamplesForDomain(domain, "base_rate")}
+
+What similar events/situations should we compare this to?`,
+    action: "CONTINUE_FORECAST",
+  });
+}
+```
+
+#### Template: Base Rate Prompt
+
+```typescript
+static async promptBaseRate(
+  callback: HandlerCallback,
+  state: ForecastState
+): Promise<void> {
+  const domain = state.domain || "general";
+
+  await callback({
+    text: `Great! Reference class: **"${state.baseRate?.referenceClass}"**
+
+Now, what percentage of similar cases succeeded/occurred?
+
+**Examples for ${domain}**:
+${this.getExamplesForDomain(domain, "base_rate_percentage")}
+
+💡 **Adding Evidence**: You can include evidence in your response:
+- Paste URLs directly in your message
+- Add quotes from experts (use "quotes")
+- Share your reasoning and data sources
+- Or add evidence later: \`add evidence to base rate\`
+
+🤖 **Research Agents**: Type \`research [agent_type]\` to gather data automatically
+
+What's the historical success rate?`,
+    action: "CONTINUE_FORECAST",
+  });
+}
+```
+
+#### Template: Driver Decomposition Prompt
+
+```typescript
+static async promptDecomposition(
+  callback: HandlerCallback,
+  state: ForecastState
+): Promise<void> {
+  const domain = state.domain || "general";
+
+  await callback({
+    text: `Base rate established: **${state.baseRate?.historicalRate}%**
+${state.baseRate?.evidence?.length ? `\nEvidence collected: ${state.baseRate.evidence.length} items` : ""}
+
+**Step 2: Decomposition (Break It Down)**
+
+What are the 3-5 key independent drivers that will determine this outcome?
+
+Think of factors that:
+- Are largely independent of each other
+- Have measurable impact on the outcome
+- Can be estimated separately
+
+**Examples for ${domain}**:
+${this.getExamplesForDomain(domain, "drivers")}
+
+Please list 3-5 drivers, one per line:`,
+    action: "CONTINUE_FORECAST",
+  });
+}
+```
+
+#### Template: Driver Details Prompt
+
+```typescript
+static async promptDriverDetails(
+  callback: HandlerCallback,
+  state: ForecastState
+): Promise<void> {
+  const currentIndex = state.currentDriverIndex || 0;
+  const driver = state.drivers[currentIndex];
+  const field = state.currentDriverField;
+
+  if (!field || field === "p5") {
+    await callback({
+      text: `**Step 3: Driver ${currentIndex + 1}/${state.drivers.length} - Probability Distribution**
+
+Driver: **${driver.name}**
+
+Provide your 90% confidence interval. You can choose:
+
+**Option A (Binary)**: A single probability
+Example: \`75% chance this driver succeeds\`
+
+**Option B (Continuous)**: Three values (P5/P50/P95)
+Example: 
+\`\`\`
+P5: 100M
+P50: 250M
+P95: 500M
+\`\`\`
+
+What's your estimate?`,
+      action: "CONTINUE_FORECAST",
+    });
+  } else if (field === "evidence") {
+    await callback({
+      text: `Great! Estimates for **${driver.name}**:
+- P5: ${driver.p5}
+- P50: ${driver.p50}
+- P95: ${driver.p95}
+
+Now let's add evidence for this driver.
+
+💡 **Adding Evidence**: You can:
+- Paste URLs directly
+- Add quotes (use "quotes")
+- Share data and reasoning
+- Type \`skip\` to add evidence later
+
+🤖 **Research Agents**: 
+${this.suggestAgentsForDriver(driver.name)}
+
+Share your evidence or type \`skip\`:`,
+      action: "CONTINUE_FORECAST",
+    });
+  }
+}
+```
+
+#### Template: Evidence Collection Prompt
+
+```typescript
+static async promptEvidenceCollection(
+  callback: HandlerCallback,
+  state: ForecastState
+): Promise<void> {
+  const driversWithEvidence = state.drivers.filter(
+    (d) => d.evidence && d.evidence.length > 0
+  ).length;
+  const totalEvidence = state.drivers.reduce(
+    (sum, d) => sum + (d.evidence?.length || 0),
+    0
+  );
+
+  await callback({
+    text: `**Step 4: Final Evidence Collection**
+
+Forecast ready! Current status:
+- Base rate: ${state.baseRate?.historicalRate}% (${state.baseRate?.evidence?.length || 0} evidence items)
+- Drivers: ${state.drivers.length} defined
+- Drivers with evidence: ${driversWithEvidence}/${state.drivers.length}
+- Total evidence: ${totalEvidence} items
+
+**Next Steps:**
+
+📊 **Manual Evidence**: 
+- Type: \`add evidence to driver X\` then paste URLs, data, or reasoning
+- Example: \`add evidence to driver 1\` → [your research/links]
+
+🤖 **Automated Research**:
+- Launch research agents: \`research [agent_type]\`
+- List all agents: \`list research agents\`
+- Schedule recurring: \`schedule research [agent_type] for [query] [daily|weekly|monthly]\`
+
+✅ **Finalize**:
+- Type \`run simulation\` or \`finalize\` when ready
+
+What would you like to do?`,
+    action: "CONTINUE_FORECAST",
+  });
+}
+```
+
+### 3.2 Domain-Specific Example Templates
+
+```typescript
+private static getExamplesForDomain(
+  domain: string,
+  stage: string
+): string {
+  const examples: Record<string, Record<string, string[]>> = {
+    finance: {
+      base_rate: [
+        "'Small cap space companies attempting profitability'",
+        "'Tech stocks under $5B market cap doubling in value'",
+        "'Pre-revenue satellite companies reaching positive cash flow'"
+      ],
+      base_rate_percentage: [
+        "'15% based on analysis of 20 similar companies'",
+        "'3 out of 15 succeeded (20%)'",
+        "'Historical data shows 25% success rate: https://data-source.com'"
+      ],
+      drivers: [
+        "Technical milestones (satellite deployment success)",
+        "Regulatory approval (FCC licensing)",
+        "Revenue generation (customer contracts)",
+        "Competition (market share vs Starlink)",
+        "Capital availability (funding rounds)"
+      ]
+    },
+    weather: {
+      base_rate: [
+        "'Days in January with similar atmospheric conditions'",
+        "'Historical precipitation patterns for this region'",
+        "'Weather events with similar pressure systems'"
+      ],
+      base_rate_percentage: [
+        "'40% of similar days had rain'",
+        "'Historical data: 15 out of 30 similar conditions resulted in rain'"
+      ],
+      drivers: [
+        "Atmospheric pressure trends",
+        "Temperature patterns",
+        "Humidity levels",
+        "Wind patterns",
+        "Seasonal factors"
+      ]
+    },
+    politics: {
+      base_rate: [
+        "'Bills with similar levels of bipartisan support'",
+        "'International treaties in similar geopolitical contexts'",
+        "'Electoral races with similar polling trends'"
+      ],
+      base_rate_percentage: [
+        "'65% of similar bills passed'",
+        "'8 out of 10 treaties with this support level were ratified'"
+      ],
+      drivers: [
+        "Legislative support (number of co-sponsors)",
+        "Public opinion (polling data)",
+        "Political timing (election cycles)",
+        "Opposition strength",
+        "Media coverage"
+      ]
+    },
+    sports: {
+      base_rate: [
+        "'Teams with similar season records'",
+        "'Athletes with comparable statistics'",
+        "'Historical playoff matchups'"
+      ],
+      base_rate_percentage: [
+        "'55% of teams with this record made playoffs'",
+        "'12 out of 20 similar matchups won by home team'"
+      ],
+      drivers: [
+        "Team performance metrics",
+        "Player health status",
+        "Home field advantage",
+        "Historical matchup results",
+        "Recent momentum"
+      ]
+    },
+    technology: {
+      base_rate: [
+        "'Product launches by similar companies'",
+        "'Technology adoption rates for comparable innovations'",
+        "'Startup success rates in this sector'"
+      ],
+      base_rate_percentage: [
+        "'30% of similar launches met targets'",
+        "'5 out of 12 comparable products achieved adoption goals'"
+      ],
+      drivers: [
+        "Technical readiness",
+        "Market demand signals",
+        "Competitive landscape",
+        "Team capability",
+        "Funding availability"
+      ]
+    },
+    general: {
+      base_rate: [
+        "'Similar events or situations in the past'",
+        "'Historical patterns for this type of outcome'",
+        "'Comparable scenarios we can learn from'"
+      ],
+      base_rate_percentage: [
+        "'Based on 10 similar cases, 6 succeeded (60%)'",
+        "'Historical data suggests 45% likelihood'"
+      ],
+      drivers: [
+        "Key factor 1 affecting outcome",
+        "Key factor 2 affecting outcome",
+        "Key factor 3 affecting outcome"
+      ]
+    }
+  };
+
+  return (examples[domain]?.[stage] || examples.general[stage])
+    .map((ex) => `- ${ex}`)
+    .join("\n");
+}
+```
+
+### 3.3 Research Agent Description Templates
+
+```typescript
+export const RESEARCH_AGENT_DESCRIPTIONS: Record<
+  ResearchAgentType,
+  string
+> = {
+  market_tam_sizing:
+    "Estimates total addressable market size using industry reports, analyst forecasts, and market data",
+  competitor_benchmarking:
+    "Analyzes competitors' market position, features, pricing, and performance metrics",
+  technology_validation:
+    "Assesses technical feasibility, readiness levels, and implementation challenges",
+  sentiment_tracking:
+    "Monitors public sentiment across social media, news, and forums with volume and trend analysis",
+  financial_fundamentals:
+    "Gathers financial metrics, revenue trends, profitability, and valuation data",
+  expert_opinion_synthesis:
+    "Aggregates expert forecasts, analyst opinions, and professional predictions",
+  regulatory_monitoring:
+    "Tracks regulatory changes, policy updates, and compliance requirements",
+  hiring_trends:
+    "Analyzes job postings, team growth, and hiring velocity as growth indicators",
+  user_growth_signals:
+    "Monitors user adoption, engagement metrics, and growth trajectories",
+  pricing_intelligence:
+    "Tracks pricing trends, competitive pricing, and market positioning",
+};
+```
+
+---
+
+## 4. Data Models
+
+### 4.1 Core Forecast Data Models
+
+**File**: `src/types/forecastState.ts`
+
+```typescript
+/**
+ * Main forecast state - tracks progress through conversation
+ */
+export interface ForecastState {
+  step: ForecastStep;
+  question: string;          // "Will it rain tomorrow?"
+  domain?: string;           // "weather", "finance", "politics", etc.
+  timeframe?: string;        // "tomorrow", "by end of 2026"
+  baseRate?: BaseRate;
+  drivers: Driver[];
+  currentDriverIndex?: number;
+  currentDriverField?: "p5" | "p50" | "p95" | "evidence";
+  conversationHistory: string[];
+  createdAt: number;
+  lastUpdated: number;
+}
+
+/**
+ * Conversation stages
+ */
+export type ForecastStep =
+  | "initial"
+  | "base_rate"
+  | "decomposition"
+  | "driver_details"
+  | "evidence_collection"
+  | "complete";
+
+/**
+ * Base rate (outside view)
+ */
+export interface BaseRate {
+  referenceClass: string;    // "Small cap satellite companies"
+  historicalRate: number;    // 0.15 (15%)
+  sampleSize?: number;       // 20
+  source?: string;
+  confidence?: number;       // 0-1
+  evidence?: Evidence[];
+}
+
+/**
+ * Independent driver
+ */
+export interface Driver {
+  name: string;              // "Technical success"
+  p5: number;                // 5th percentile
+  p50: number;               // 50th percentile (median)
+  p95: number;               // 95th percentile
+  evidence?: Evidence[];
+  notes?: string;
+}
+
+/**
+ * Evidence item
+ */
+export interface Evidence {
+  type: "url" | "data" | "reasoning" | "expert_opinion";
+  content: string;
+  source?: string;
+  timestamp: number;
+  metadata?: Record<string, unknown>;
+}
+```
+
+### 4.2 Research Data Models
+
+**File**: `src/types/researchAgent.ts`
+
+```typescript
+/**
+ * Research agent types
+ */
+export type ResearchAgentType =
+  | "market_tam_sizing"
+  | "competitor_benchmarking"
+  | "technology_validation"
+  | "sentiment_tracking"
+  | "financial_fundamentals"
+  | "expert_opinion_synthesis"
+  | "regulatory_monitoring"
+  | "hiring_trends"
+  | "user_growth_signals"
+  | "pricing_intelligence";
+
+/**
+ * Research query parameters
+ */
+export interface ResearchQuery {
+  query: string;             // "Tesla sentiment"
+  domain?: string;           // "finance"
+  timeframe?: string;        // "last 30 days"
+  depth?: "quick" | "standard" | "deep";
+  sources?: string[];        // Specific sources to use
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Research result from an agent
+ */
+export interface ResearchResult {
+  agentType: ResearchAgentType;
+  query: string;
+  summary: string;           // High-level summary
+  findings: string[];        // Key findings list
+  evidence: Evidence[];      // Auto-generated evidence objects
+  confidence: number;        // 0-1 confidence score
+  sources: string[];         // All source URLs
+  timestamp: number;
+  structuredData?: StructuredData[];  // Rich data formats
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Structured data types for visualization
+ */
+export type StructuredDataType =
+  | "time_series"
+  | "sentiment"
+  | "comparison"
+  | "distribution"
+  | "table";
+
+export interface StructuredData {
+  type: StructuredDataType;
+  title: string;
+  data: TimeSeriesData | SentimentData | ComparisonData | DistributionData | TableData;
+}
+
+/**
+ * Time series data points
+ */
+export interface TimeSeriesData {
+  dataPoints: TimeSeriesDataPoint[];
+  unit?: string;
+  source?: string;
+}
+
+export interface TimeSeriesDataPoint {
+  date: string;              // ISO 8601 format
+  value: number;
+  label?: string;
+}
+
+/**
+ * Sentiment analysis data
+ */
+export interface SentimentData {
+  overall: number;           // -1 to +1
+  positive: number;          // 0-1
+  neutral: number;           // 0-1
+  negative: number;          // 0-1
+  volume: number;            // Total mentions
+  sources: string[];
+}
+
+/**
+ * Comparison table data
+ */
+export interface ComparisonData {
+  headers: string[];
+  rows: (string | number)[][];
+  metadata?: {
+    sortBy?: string;
+    highlightBest?: boolean;
+  };
+}
+
+/**
+ * Distribution data (for probability distributions)
+ */
+export interface DistributionData {
+  p10?: number;
+  p25?: number;
+  p50: number;               // Median (required)
+  p75?: number;
+  p90?: number;
+  mean?: number;
+  stdDev?: number;
+  unit?: string;
+}
+
+/**
+ * Generic table data
+ */
+export interface TableData {
+  headers: string[];
+  rows: (string | number)[][];
+  footer?: string[];
+}
+```
+
+### 4.3 Scheduled Research Data Models
+
+```typescript
+/**
+ * Scheduled research configuration
+ */
+export interface ScheduledResearch {
+  id: string;                // UUID
+  agentType: ResearchAgentType;
+  query: ResearchQuery;
+  schedule: ScheduleConfig;
+  enabled: boolean;
+  lastRun?: number;          // Timestamp
+  nextRun?: number;          // Timestamp
+  results: ResearchResult[]; // Last 10 results
+  createdAt: number;
+  createdBy: string;         // User/entity ID
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Schedule configuration
+ */
+export interface ScheduleConfig {
+  frequency: "daily" | "weekly" | "monthly";
+  time?: string;             // "09:00" (24-hour format)
+  dayOfWeek?: number;        // 0-6 (Sunday-Saturday) for weekly
+  dayOfMonth?: number;       // 1-31 for monthly
+  timezone?: string;         // "America/New_York"
+}
+
+/**
+ * Research subscription (for notifications)
+ */
+export interface ResearchSubscription {
+  scheduleId: string;
+  userId: string;
+  notifyOn: ("all" | "changes_only" | "significant_changes")[];
+  channels: ("in_app" | "email" | "webhook")[];
+  metadata?: Record<string, unknown>;
+}
+```
+
+### 4.4 Database Schema
+
+**File**: `supabase-schema.sql`
+
+```sql
+-- Forecasts table
+CREATE TABLE IF NOT EXISTS forecasts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  question TEXT NOT NULL,
+  domain TEXT,
+  timeframe TEXT,
+  base_rate JSONB,
+  drivers JSONB DEFAULT '[]',
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  resolved_at TIMESTAMP WITH TIME ZONE,
+  resolution BOOLEAN,
+  brier_score NUMERIC(10, 4),
+  metadata JSONB DEFAULT '{}'
+);
+
+-- Forecast state cache (for conversation)
+CREATE TABLE IF NOT EXISTS forecast_states (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  forecast_id UUID REFERENCES forecasts(id) ON DELETE CASCADE,
+  state JSONB NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  expires_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() + INTERVAL '24 hours')
+);
+
+-- Research results table
+CREATE TABLE IF NOT EXISTS research_results (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  forecast_id UUID REFERENCES forecasts(id) ON DELETE SET NULL,
+  agent_type TEXT NOT NULL,
+  query JSONB NOT NULL,
+  result JSONB NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Scheduled research table
+CREATE TABLE IF NOT EXISTS scheduled_research (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  agent_type TEXT NOT NULL,
+  query JSONB NOT NULL,
+  schedule JSONB NOT NULL,
+  enabled BOOLEAN DEFAULT true,
+  last_run TIMESTAMP WITH TIME ZONE,
+  next_run TIMESTAMP WITH TIME ZONE,
+  results JSONB DEFAULT '[]',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Evidence table
+CREATE TABLE IF NOT EXISTS evidence (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  forecast_id UUID REFERENCES forecasts(id) ON DELETE CASCADE,
+  driver_index INTEGER,
+  type TEXT NOT NULL,
+  content TEXT NOT NULL,
+  source TEXT,
+  confidence NUMERIC(3, 2),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  metadata JSONB DEFAULT '{}'
+);
+
+-- User leaderboard table
+CREATE TABLE IF NOT EXISTS leaderboard (
+  user_id TEXT PRIMARY KEY,
+  total_forecasts INTEGER DEFAULT 0,
+  resolved_forecasts INTEGER DEFAULT 0,
+  average_brier_score NUMERIC(10, 4),
+  best_brier_score NUMERIC(10, 4),
+  accuracy_by_domain JSONB DEFAULT '{}',
+  last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX idx_forecasts_user ON forecasts(user_id);
+CREATE INDEX idx_forecasts_status ON forecasts(status);
+CREATE INDEX idx_forecast_states_user ON forecast_states(user_id);
+CREATE INDEX idx_research_user ON research_results(user_id);
+CREATE INDEX idx_research_forecast ON research_results(forecast_id);
+CREATE INDEX idx_scheduled_research_user ON scheduled_research(user_id);
+CREATE INDEX idx_scheduled_research_next_run ON scheduled_research(next_run) WHERE enabled = true;
+CREATE INDEX idx_evidence_forecast ON evidence(forecast_id);
+```
+
+---
+
+## 5. User Interface Concepts
+
+### 5.1 Command-Based Interface
+
+The system uses natural language commands that trigger specific actions.
+
+#### Forecast Commands
+
+```typescript
+// Start new forecast
+"forecast [question]"
+"Will it rain tomorrow?"
+"predict Tesla reaching $500"
+
+// Continue workflow
+[Respond to prompts naturally]
+"Small cap satellite companies"
+"P5: 100M, P50: 250M, P95: 500M"
+
+// Add evidence
+"add evidence to driver 2"
+[Then paste URLs, data, or reasoning]
+
+// Cancel/restart
+"cancel"
+"start over"
+
+// Finalize
+"run simulation"
+"finalize"
+```
+
+#### Research Commands
+
+```typescript
+// List available agents
+"list research agents"
+"show research agents"
+
+// Launch single agent
+"research sentiment_tracking for Tesla"
+"research market_tam_sizing for EV market"
+
+// Launch multiple agents
+"research Tesla comprehensive"
+[System suggests relevant agents]
+
+// View results
+"show research results"
+"show latest research"
+```
+
+#### Schedule Commands
+
+```typescript
+// Create schedule
+"schedule research sentiment_tracking for Tesla daily"
+"schedule research market_tam_sizing for EV market weekly"
+"schedule research financial_fundamentals for ASTS monthly at 9:00"
+
+// Manage schedules
+"list schedules"
+"list my research schedules"
+
+"pause schedule [id]"
+"resume schedule [id]"
+"delete schedule [id]"
+
+// View results
+"show results [schedule_id]"
+"show latest results for [schedule_id]"
+```
+
+### 5.2 Conversation Flow UI
+
+```
+┌────────────────────────────────────────────────────────────┐
+│  Universal Forecaster                                       │
+├────────────────────────────────────────────────────────────┤
+│                                                             │
+│  User: Will Tesla reach $500 by end of 2026?              │
+│                                                             │
+│  Agent: Let's create forecast for:                         │
+│         "Tesla reaching $500?" (by end of 2026)            │
+│                                                             │
+│         💡 Research Agents Available:                      │
+│         - research market_tam_sizing                       │
+│         - research financial_fundamentals                  │
+│         - research sentiment_tracking                      │
+│                                                             │
+│         Step 1: Base Rate                                  │
+│                                                             │
+│         What's the reference class?                        │
+│                                                             │
+│  User: Tech stocks under $1T market cap doubling           │
+│                                                             │
+│  Agent: Great! What percentage succeeded?                  │
+│                                                             │
+│  User: 15% based on historical data                        │
+│         https://market-research.com/doubling-rates         │
+│                                                             │
+│  Agent: Base rate: 15% ✓                                   │
+│         Evidence: 1 URL collected                          │
+│                                                             │
+│         Step 2: Decomposition                              │
+│                                                             │
+│         What are 3-5 key drivers?                          │
+│                                                             │
+│  User: 1. Revenue growth                                   │
+│        2. Profit margins                                   │
+│        3. Market sentiment                                 │
+│        4. Competition                                      │
+│                                                             │
+│  Agent: Excellent! 4 drivers identified.                   │
+│                                                             │
+│         Step 3: Driver 1/4 - Probability Distribution      │
+│                                                             │
+│         Driver: Revenue growth                             │
+│                                                             │
+│         Provide P5/P50/P95 estimates:                      │
+│                                                             │
+│  [Continues through each driver...]                        │
+│                                                             │
+└────────────────────────────────────────────────────────────┘
+```
+
+### 5.3 Research Results Display
+
+```
+┌────────────────────────────────────────────────────────────┐
+│  Research Complete: Sentiment Tracking                      │
+├────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Query: Tesla                                              │
+│  Confidence: 87% (High) ⭐⭐⭐⭐                             │
+│  Duration: 12s                                             │
+│                                                             │
+│  📊 Summary:                                               │
+│  Tesla sentiment improved 15% over past week, driven by    │
+│  Cybertruck news and strong delivery numbers. Positive     │
+│  mentions increased from 58% to 67%.                       │
+│                                                             │
+│  🔍 Key Findings:                                          │
+│  • Cybertruck delivery announcement drove 23% spike        │
+│  • Reddit sentiment: 71% positive (r/teslamotors)          │
+│  • Twitter mentions increased 45% (15,430 total)           │
+│  • Analyst opinions: 8/10 bullish                          │
+│  • Negative sentiment primarily around pricing             │
+│                                                             │
+│  📈 Sentiment Breakdown:                                   │
+│  ├─ Positive: 67% ████████████████████░░░░░░░░░░          │
+│  ├─ Neutral:  18% ██████░░░░░░░░░░░░░░░░░░░░░░░░          │
+│  └─ Negative: 15% █████░░░░░░░░░░░░░░░░░░░░░░░░░          │
+│                                                             │
+│  📚 Sources (12 total):                                    │
+│  • Twitter API (Social ⭐⭐)                               │
+│  • Reddit API (Social ⭐⭐)                                │
+│  • Bloomberg article (News ⭐⭐⭐)                         │
+│  • Reuters report (News ⭐⭐⭐)                            │
+│  • [View all 12 sources]                                   │
+│                                                             │
+│  💾 Evidence Generated: 5 items                            │
+│                                                             │
+│  Next Steps:                                               │
+│  • Type "add evidence to driver X" to attach              │
+│  • Type "show structured data" for charts                 │
+│  • Type "schedule daily" to monitor continuously          │
+│                                                             │
+└────────────────────────────────────────────────────────────┘
+```
+
+### 5.4 Schedule Management Display
+
+```
+┌────────────────────────────────────────────────────────────┐
+│  Your Research Schedules                                    │
+├────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. Sentiment Tracking: Tesla                              │
+│     ├─ Frequency: Daily at 09:00 EST                       │
+│     ├─ Status: ✓ Enabled                                   │
+│     ├─ Last Run: 2 hours ago                               │
+│     ├─ Next Run: Tomorrow at 09:00                         │
+│     ├─ Results: 15 stored                                  │
+│     └─ Commands: pause abc123 | show results abc123        │
+│                                                             │
+│  2. Market TAM Sizing: EV Market                           │
+│     ├─ Frequency: Weekly (Mondays at 09:00 EST)            │
+│     ├─ Status: ✓ Enabled                                   │
+│     ├─ Last Run: 3 days ago                                │
+│     ├─ Next Run: Monday at 09:00                           │
+│     ├─ Results: 8 stored                                   │
+│     └─ Commands: pause def456 | show results def456        │
+│                                                             │
+│  3. Financial Fundamentals: ASTS                           │
+│     ├─ Frequency: Monthly (1st at 09:00 EST)               │
+│     ├─ Status: ⏸ Paused                                    │
+│     ├─ Last Run: 18 days ago                               │
+│     ├─ Next Run: (paused)                                  │
+│     ├─ Results: 3 stored                                   │
+│     └─ Commands: resume ghi789 | delete ghi789             │
+│                                                             │
+│  Commands:                                                  │
+│  • "list schedules" - Show all schedules                   │
+│  • "schedule research [type] for [query] [freq]" - Create │
+│  • "show results [id]" - View latest research              │
+│  • "pause schedule [id]" - Temporarily disable             │
+│  • "resume schedule [id]" - Re-enable                      │
+│  • "delete schedule [id]" - Remove permanently             │
+│                                                             │
+└────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 6. Scheduling Logic
+
+### 6.1 Scheduler Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Background Scheduler                      │
+│                   (Cron-like Service)                        │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ├─ Every 5 minutes: Check for due tasks
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Query scheduled_research table                  │
+│  WHERE enabled = true                                        │
+│    AND next_run <= NOW()                                     │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+         ┌───────────┴───────────┐
+         │                       │
+         ▼                       ▼
+┌──────────────────┐    ┌──────────────────┐
+│  Schedule 1      │    │  Schedule 2      │
+│  Execute Agent   │    │  Execute Agent   │
+└────────┬─────────┘    └────────┬─────────┘
+         │                       │
+         ▼                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Research Agent Factory                          │
+│  • Create agent instance                                     │
+│  • Execute research                                          │
+│  • Handle errors                                             │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Store Results                                   │
+│  • Append to results array (keep last 10)                   │
+│  • Update last_run timestamp                                 │
+│  • Calculate next_run                                        │
+│  • Detect significant changes                               │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Notify Users (Optional)                         │
+│  • In-app notification                                       │
+│  • Email (if configured)                                     │
+│  • Webhook (if configured)                                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 6.2 Scheduler Implementation
+
+**File**: `src/utils/researchScheduler.ts`
+
+```typescript
+export class ResearchScheduler {
+  /**
+   * Creates a new scheduled research task
+   */
+  static async createSchedule(
+    runtime: IAgentRuntime,
+    agentType: ResearchAgentType,
+    query: ResearchQuery,
+    schedule: ScheduleConfig,
+    userId: string
+  ): Promise<ScheduledResearch> {
+    const id = uuidv4();
+    const now = Date.now();
+    const nextRun = this.calculateNextRun(schedule);
+
+    const scheduledResearch: ScheduledResearch = {
+      id,
+      agentType,
+      query,
+      schedule,
+      enabled: true,
+      nextRun,
+      results: [],
+      createdAt: now,
+      createdBy: userId,
+    };
+
+    // Store in database
+    await this.saveSchedule(runtime, scheduledResearch);
+
+    return scheduledResearch;
+  }
+
+  /**
+   * Calculates the next run time based on schedule configuration
+   */
+  static calculateNextRun(schedule: ScheduleConfig): number {
+    const now = new Date();
+
+    switch (schedule.frequency) {
+      case "daily": {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        if (schedule.time) {
+          const [hours, minutes] = schedule.time.split(":").map(Number);
+          tomorrow.setHours(hours, minutes, 0, 0);
+        } else {
+          tomorrow.setHours(9, 0, 0, 0); // Default 9 AM
+        }
+
+        return tomorrow.getTime();
+      }
+
+      case "weekly": {
+        const nextWeek = new Date(now);
+        const currentDay = now.getDay();
+        const targetDay = schedule.dayOfWeek ?? 1; // Default Monday
+
+        // Calculate days until target day
+        let daysUntil = targetDay - currentDay;
+        if (daysUntil <= 0) daysUntil += 7;
+
+        nextWeek.setDate(nextWeek.getDate() + daysUntil);
+
+        if (schedule.time) {
+          const [hours, minutes] = schedule.time.split(":").map(Number);
+          nextWeek.setHours(hours, minutes, 0, 0);
+        } else {
+          nextWeek.setHours(9, 0, 0, 0);
+        }
+
+        return nextWeek.getTime();
+      }
+
+      case "monthly": {
+        const nextMonth = new Date(now);
+        const targetDay = schedule.dayOfMonth ?? 1; // Default 1st of month
+
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        nextMonth.setDate(targetDay);
+
+        if (schedule.time) {
+          const [hours, minutes] = schedule.time.split(":").map(Number);
+          nextMonth.setHours(hours, minutes, 0, 0);
+        } else {
+          nextMonth.setHours(9, 0, 0, 0);
+        }
+
+        return nextMonth.getTime();
+      }
+
+      default:
+        throw new Error(`Unknown frequency: ${schedule.frequency}`);
+    }
+  }
+
+  /**
+   * Background task that executes due research schedules
+   * Should be run every 5 minutes via cron job or similar
+   */
+  static async processDueSchedules(runtime: IAgentRuntime): Promise<void> {
+    const dueSchedules = await this.getDueSchedules(runtime);
+
+    for (const schedule of dueSchedules) {
+      try {
+        await this.executeScheduledResearch(runtime, schedule);
+      } catch (error) {
+        console.error(`Failed to execute schedule ${schedule.id}:`, error);
+        // Continue with other schedules
+      }
+    }
+  }
+
+  /**
+   * Executes a scheduled research task
+   */
+  private static async executeScheduledResearch(
+    runtime: IAgentRuntime,
+    schedule: ScheduledResearch
+  ): Promise<void> {
+    // Create agent
+    const agent = ResearchAgentFactory.createAgent(
+      schedule.agentType,
+      runtime
+    );
+
+    // Execute research
+    const result = await agent.executeResearch(schedule.query);
+
+    // Store result (keep last 10)
+    schedule.results.unshift(result);
+    if (schedule.results.length > 10) {
+      schedule.results = schedule.results.slice(0, 10);
+    }
+
+    // Update timestamps
+    schedule.lastRun = Date.now();
+    schedule.nextRun = this.calculateNextRun(schedule.schedule);
+
+    // Save to database
+    await this.updateSchedule(runtime, schedule);
+
+    // Detect significant changes
+    const hasSignificantChange = this.detectSignificantChange(
+      schedule.results
+    );
+
+    if (hasSignificantChange) {
+      await this.notifyUser(runtime, schedule, result);
+    }
+  }
+
+  /**
+   * Detects if latest result shows significant change from previous
+   */
+  private static detectSignificantChange(
+    results: ResearchResult[]
+  ): boolean {
+    if (results.length < 2) return false;
+
+    const latest = results[0];
+    const previous = results[1];
+
+    // Compare confidence scores
+    const confidenceDiff = Math.abs(latest.confidence - previous.confidence);
+    if (confidenceDiff > 0.2) return true;
+
+    // For sentiment data, check overall sentiment change
+    const latestSentiment = latest.structuredData?.find(
+      (d) => d.type === "sentiment"
+    );
+    const previousSentiment = previous.structuredData?.find(
+      (d) => d.type === "sentiment"
+    );
+
+    if (latestSentiment && previousSentiment) {
+      const sentimentChange = Math.abs(
+        (latestSentiment.data as any).overall -
+        (previousSentiment.data as any).overall
+      );
+      if (sentimentChange > 0.15) return true; // 15% change
+    }
+
+    // For time series, check if latest value is outside previous range
+    const latestTS = latest.structuredData?.find(
+      (d) => d.type === "time_series"
+    );
+    const previousTS = previous.structuredData?.find(
+      (d) => d.type === "time_series"
+    );
+
+    if (latestTS && previousTS) {
+      const latestValue = (latestTS.data as any).dataPoints.slice(-1)[0]
+        ?.value;
+      const previousValues = (previousTS.data as any).dataPoints.map(
+        (p: any) => p.value
+      );
+      const previousMin = Math.min(...previousValues);
+      const previousMax = Math.max(...previousValues);
+
+      if (latestValue < previousMin || latestValue > previousMax) {
+        return true; // Outside previous range
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Pauses a schedule
+   */
+  static async pauseSchedule(
+    runtime: IAgentRuntime,
+    scheduleId: string
+  ): Promise<void> {
+    const schedule = await this.getSchedule(runtime, scheduleId);
+    schedule.enabled = false;
+    await this.updateSchedule(runtime, schedule);
+  }
+
+  /**
+   * Resumes a schedule
+   */
+  static async resumeSchedule(
+    runtime: IAgentRuntime,
+    scheduleId: string
+  ): Promise<void> {
+    const schedule = await this.getSchedule(runtime, scheduleId);
+    schedule.enabled = true;
+    schedule.nextRun = this.calculateNextRun(schedule.schedule);
+    await this.updateSchedule(runtime, schedule);
+  }
+
+  /**
+   * Deletes a schedule
+   */
+  static async deleteSchedule(
+    runtime: IAgentRuntime,
+    scheduleId: string
+  ): Promise<void> {
+    // Delete from database
+    await this.removeSchedule(runtime, scheduleId);
+  }
+
+  // Database operations
+  private static async saveSchedule(
+    runtime: IAgentRuntime,
+    schedule: ScheduledResearch
+  ): Promise<void> {
+    // Implementation: Insert into scheduled_research table
+  }
+
+  private static async updateSchedule(
+    runtime: IAgentRuntime,
+    schedule: ScheduledResearch
+  ): Promise<void> {
+    // Implementation: Update scheduled_research table
+  }
+
+  private static async getSchedule(
+    runtime: IAgentRuntime,
+    scheduleId: string
+  ): Promise<ScheduledResearch> {
+    // Implementation: Query scheduled_research table
+  }
+
+  private static async getDueSchedules(
+    runtime: IAgentRuntime
+  ): Promise<ScheduledResearch[]> {
+    // Implementation: Query WHERE enabled=true AND next_run <= NOW()
+  }
+
+  private static async removeSchedule(
+    runtime: IAgentRuntime,
+    scheduleId: string
+  ): Promise<void> {
+    // Implementation: Delete from scheduled_research table
+  }
+
+  private static async notifyUser(
+    runtime: IAgentRuntime,
+    schedule: ScheduledResearch,
+    result: ResearchResult
+  ): Promise<void> {
+    // Implementation: Send notification via configured channels
+  }
+}
+```
+
+### 6.3 Background Job Setup
+
+**For Railway Deployment**:
+
+```bash
+# Option 1: Separate worker dyno
+# Add to Procfile
+worker: node dist/scheduler-worker.js
+
+# scheduler-worker.js
+import { ResearchScheduler } from './utils/researchScheduler';
+
+// Run every 5 minutes
+setInterval(async () => {
+  await ResearchScheduler.processDueSchedules(runtime);
+}, 5 * 60 * 1000);
+```
+
+**For Cron-based Deployment**:
+
+```bash
+# Add to crontab
+*/5 * * * * /usr/bin/node /path/to/scheduler-worker.js
+
+# Or use node-cron
+import cron from 'node-cron';
+
+cron.schedule('*/5 * * * *', async () => {
+  await ResearchScheduler.processDueSchedules(runtime);
+});
+```
+
+---
+
+## 7. Integration Guide
+
+### 7.1 Adding the Plugin to ElizaOS
+
+**Step 1**: Install the plugin
+
+```bash
+cd your-eliza-project
+pnpm add @forecast-intel/plugin-eliza
+```
+
+**Step 2**: Configure character
+
+```json
+{
+  "name": "Your Agent",
+  "plugins": ["@forecast-intel/plugin-eliza"],
+  ...
+}
+```
+
+**Step 3**: Set environment variables
+
+```bash
+# .env
+DATABASE_URL=postgresql://user:pass@host:5432/db
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_ANON_KEY=xxx
+OPENAI_API_KEY=xxx  # For research agents
+```
+
+**Step 4**: Run migrations
+
+```bash
+psql $DATABASE_URL < node_modules/@forecast-intel/plugin-eliza/supabase-schema.sql
+```
+
+**Step 5**: Start the agent
+
+```bash
+pnpm start
+```
+
+### 7.2 Extending Research Agents
+
+**Create new agent**:
+
+```typescript
+// src/agents/customAgent.ts
+import { BaseResearchAgent } from '@forecast-intel/plugin-eliza';
+
+export class CustomAgent extends BaseResearchAgent {
+  constructor(runtime: IAgentRuntime) {
+    super("custom_agent" as ResearchAgentType, runtime);
+  }
+
+  async executeResearch(query: ResearchQuery): Promise<ResearchResult> {
+    // Your custom research logic
+    const data = await this.fetchData(query);
+    const analysis = this.analyzeData(data);
+    
+    return {
+      agentType: "custom_agent" as ResearchAgentType,
+      query: query.query,
+      summary: analysis.summary,
+      findings: analysis.findings,
+      evidence: this.createEvidence(analysis),
+      confidence: this.calculateConfidence(
+        data.sources,
+        data.quality,
+        data.recency
+      ),
+      sources: data.sources,
+      timestamp: Date.now(),
+      structuredData: analysis.structuredData,
+    };
+  }
+
+  private async fetchData(query: ResearchQuery) {
+    // Fetch from your data sources
+  }
+
+  private analyzeData(data: any) {
+    // Analyze and structure the data
+  }
+
+  private createEvidence(analysis: any): Evidence[] {
+    // Generate evidence objects
+  }
+}
+```
+
+**Register in factory**:
+
+```typescript
+// Modify researchAgentFactory.ts
+case "custom_agent":
+  return new CustomAgent(runtime);
+```
+
+### 7.3 Customizing Prompts
+
+**Override conversation prompts**:
+
+```typescript
+// src/utils/customForecastConversation.ts
+import { ForecastConversation } from '@forecast-intel/plugin-eliza';
+
+export class CustomForecastConversation extends ForecastConversation {
+  static async promptInitial(
+    callback: HandlerCallback,
+    state: ForecastState
+  ): Promise<void> {
+    // Your custom initial prompt
+    await callback({
+      text: `Custom prompt: ${state.question}`,
+      action: "CONTINUE_FORECAST",
+    });
+  }
+}
+```
+
+### 7.4 Adding New Domains
+
+**Extend domain detection**:
+
+```typescript
+// In universalForecastAction.ts
+let domain: string | undefined;
+const lowerText = text.toLowerCase();
+
+// Add your custom domain
+if (lowerText.match(/\b(healthcare|medical|pharma)\b/)) {
+  domain = 'healthcare';
+}
+
+// Add domain-specific examples
+const examplesByDomain = {
+  healthcare: [
+    "FDA approval rates for similar drugs",
+    "Clinical trial success rates",
+    "Market adoption of new treatments"
+  ],
+  // ... other domains
+};
+```
+
+---
+
+## Conclusion
+
+This technical architecture document provides a comprehensive overview of the Universal Forecasting system's internal workings. The system is designed to be:
+
+- **Modular**: Each component (agents, actions, schedulers) is independent
+- **Extensible**: Easy to add new research agents, domains, or workflows
+- **Scalable**: Supports parallel research execution and background scheduling
+- **User-Friendly**: Conversational interface with clear guidance
+- **Transparent**: Full source attribution and confidence scoring
+- **Production-Ready**: Complete with database schema and deployment guide
+
+For implementation questions or contributions, refer to the codebase in `/packages/plugin-eliza/src/`.
+
+**Key Files for Integration**:
+- `src/index.ts` - Plugin registration
+- `src/types/` - All TypeScript interfaces
+- `src/agents/` - Research agent implementations
+- `src/actions/` - User command handlers
+- `src/utils/` - Core business logic
+- `characters/universal-forecaster.json` - Agent configuration
+
+**Support**: For issues or questions, open an issue in the repository or contact the development team.

@@ -20,11 +20,22 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "package": "com.replicantpartners.uffp",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.INTERNET"
+      ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0def59b5-4055-4267-8ac9-49d5750550cf"
+      }
+    },
+    "owner": "ilabraaxoltol"
   }
 }

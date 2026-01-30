@@ -1,11 +1,23 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, FlatList, SafeAreaView, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  SafeAreaView,
+  TouchableOpacity,
+} from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ForecastCard } from "../components/ForecastCard";
 import { forecastService } from "../services/forecastService";
 import { RootStackParamList } from "../App";
 import { ForecastConfig } from "../types";
-import { TufteColors, TufteTypography, TufteSpacing, TufteLayout } from "../styles/tufte";
+import {
+  TufteColors,
+  TufteTypography,
+  TufteSpacing,
+  TufteLayout,
+} from "../styles/tufte";
 
 type HomeScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, "Home">;
@@ -14,12 +26,18 @@ type HomeScreenProps = {
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const forecasts = forecastService.getExampleForecasts();
   const [compareMode, setCompareMode] = useState(false);
-  const [selectedForecasts, setSelectedForecasts] = useState<ForecastConfig[]>([]);
+  const [selectedForecasts, setSelectedForecasts] = useState<ForecastConfig[]>(
+    [],
+  );
 
   const toggleForecastSelection = (config: ForecastConfig) => {
-    const isSelected = selectedForecasts.some((f) => f.ticker === config.ticker);
+    const isSelected = selectedForecasts.some(
+      (f) => f.ticker === config.ticker,
+    );
     if (isSelected) {
-      setSelectedForecasts(selectedForecasts.filter((f) => f.ticker !== config.ticker));
+      setSelectedForecasts(
+        selectedForecasts.filter((f) => f.ticker !== config.ticker),
+      );
     } else {
       setSelectedForecasts([...selectedForecasts, config]);
     }
@@ -43,7 +61,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       <View style={styles.header}>
         <Text style={styles.title}>Probabilistic Forecasting</Text>
         <Text style={styles.subtitle}>
-          Tetlock Superforecasting methodology — Monte Carlo simulation — Brier scoring
+          Tetlock Superforecasting methodology — Monte Carlo simulation — Brier
+          scoring
         </Text>
       </View>
 
@@ -59,7 +78,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             style={[styles.createButton, styles.compareToggle]}
             onPress={() => setCompareMode(!compareMode)}
           >
-            <Text style={styles.createButtonText}>{compareMode ? "Cancel" : "Compare"}</Text>
+            <Text style={styles.createButtonText}>
+              {compareMode ? "Cancel" : "Compare"}
+            </Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.createHint}>
@@ -71,7 +92,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
       {compareMode && selectedForecasts.length >= 2 && (
         <View style={styles.compareActionSection}>
-          <TouchableOpacity style={styles.compareButton} onPress={handleCompare}>
+          <TouchableOpacity
+            style={styles.compareButton}
+            onPress={handleCompare}
+          >
             <Text style={styles.compareButtonText}>
               Compare {selectedForecasts.length} Forecasts
             </Text>
@@ -96,9 +120,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             onPress={() => navigation.navigate("Calibration")}
           >
             <Text style={styles.performanceButtonLabel}>Calibration</Text>
-            <Text style={styles.performanceButtonDesc}>Leaderboard & ranking</Text>
+            <Text style={styles.performanceButtonDesc}>
+              Leaderboard & ranking
+            </Text>
           </TouchableOpacity>
         </View>
+      </View>
+
+      <View style={styles.divider} />
+
+      <View style={styles.performanceSection}>
+        <Text style={styles.sectionLabel}>Research & Analysis</Text>
+        <TouchableOpacity
+          style={styles.researchButton}
+          onPress={() => navigation.navigate("Research")}
+        >
+          <Text style={styles.researchButtonLabel}>Research Agents</Text>
+          <Text style={styles.researchButtonDesc}>
+            AI-powered research & evidence gathering
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.divider} />
@@ -109,7 +150,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         data={forecasts}
         keyExtractor={(item) => item.ticker}
         renderItem={({ item }) => {
-          const isSelected = selectedForecasts.some((f) => f.ticker === item.ticker);
+          const isSelected = selectedForecasts.some(
+            (f) => f.ticker === item.ticker,
+          );
           return (
             <TouchableOpacity
               onPress={() =>
@@ -136,7 +179,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                     onPress={() =>
                       compareMode
                         ? toggleForecastSelection(item)
-                        : navigation.navigate("ForecastDetail", { config: item })
+                        : navigation.navigate("ForecastDetail", {
+                            config: item,
+                          })
                     }
                   />
                 </View>
@@ -162,7 +207,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: TufteTypography.fontSize.display,
-    fontWeight: '400' as const,
+    fontWeight: "400" as const,
     color: TufteColors.text,
     letterSpacing: -0.5,
     marginBottom: TufteSpacing.sm,
@@ -170,7 +215,8 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: TufteTypography.fontSize.sm,
     color: TufteColors.textSecondary,
-    lineHeight: TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.sm,
+    lineHeight:
+      TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.sm,
     maxWidth: TufteLayout.maxWidth,
   },
   createSection: {
@@ -194,13 +240,14 @@ const styles = StyleSheet.create({
   createButtonText: {
     fontSize: TufteTypography.fontSize.base,
     color: TufteColors.text,
-    fontWeight: '500' as const,
+    fontWeight: "500" as const,
     letterSpacing: 0.3,
   },
   createHint: {
     fontSize: TufteTypography.fontSize.xs,
     color: TufteColors.textTertiary,
-    lineHeight: TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.xs,
+    lineHeight:
+      TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.xs,
     maxWidth: 400,
   },
   compareActionSection: {
@@ -216,7 +263,7 @@ const styles = StyleSheet.create({
   compareButtonText: {
     fontSize: TufteTypography.fontSize.base,
     color: TufteColors.paper,
-    fontWeight: '500' as const,
+    fontWeight: "500" as const,
     letterSpacing: 0.3,
   },
   divider: {
@@ -242,7 +289,7 @@ const styles = StyleSheet.create({
   },
   performanceButtonLabel: {
     fontSize: TufteTypography.fontSize.base,
-    fontWeight: '500' as const,
+    fontWeight: "500" as const,
     color: TufteColors.text,
     marginBottom: TufteSpacing.xs,
   },
@@ -286,5 +333,21 @@ const styles = StyleSheet.create({
   },
   forecastCardWrapper: {
     flex: 1,
+  },
+  researchButton: {
+    borderWidth: 1,
+    borderColor: TufteColors.text,
+    backgroundColor: TufteColors.paper,
+    padding: TufteSpacing.lg,
+  },
+  researchButtonLabel: {
+    fontSize: TufteTypography.fontSize.base,
+    fontWeight: "500" as const,
+    color: TufteColors.text,
+    marginBottom: TufteSpacing.xs,
+  },
+  researchButtonDesc: {
+    fontSize: TufteTypography.fontSize.xs,
+    color: TufteColors.textSecondary,
   },
 });
