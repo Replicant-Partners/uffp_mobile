@@ -471,6 +471,37 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
+    // Handle /setprob command (for testing - manually set probability)
+    if (trimmed.startsWith("/setprob ")) {
+      if (!activeForecast) {
+        setError("No active forecast. Type /question first.");
+        setCommandInput("");
+        return;
+      }
+
+      const probStr = trimmed.replace("/setprob ", "").trim();
+      const prob = parseFloat(probStr);
+
+      if (isNaN(prob) || prob < 0 || prob > 100) {
+        setError("Probability must be a number between 0 and 100");
+        return;
+      }
+
+      const probability = prob / 100; // Convert to 0-1 range
+
+      const updatedForecast = {
+        ...activeForecast,
+        probability,
+        updatedAt: new Date().toISOString(),
+      };
+
+      setActiveForecast(updatedForecast);
+      await saveForecast(updatedForecast);
+      setCommandInput("");
+      setError("");
+      return;
+    }
+
     // Handle /resolve command (only if forecast is active and has probability)
     if (trimmed.startsWith("/resolve ")) {
       if (!activeForecast) {
@@ -901,7 +932,13 @@ export default function ForecastWorkspaceScreen() {
       "/grounding analy": "/grounding analysis",
       "/grounding analys": "/grounding analysis",
       "/grounding analysi": "/grounding analysis",
-      "/s": "/simulate",
+      "/s": "/setprob 50",
+      "/se": "/setprob 50",
+      "/set": "/setprob 50",
+      "/setp": "/setprob 50",
+      "/setpr": "/setprob 50",
+      "/setpro": "/setprob 50",
+      "/setprob": "/setprob 50",
       "/si": "/simulate",
       "/sim": "/simulate",
       "/simu": "/simulate",
@@ -1123,6 +1160,7 @@ export default function ForecastWorkspaceScreen() {
       hints.push(
         { key: "driver", label: "/driver", desc: "Add a driver" },
         { key: "grounding", label: "/grounding", desc: "Set grounding type" },
+        { key: "setprob", label: "/setprob", desc: "Set probability (0-100)" },
         { key: "simulate", label: "/simulate", desc: "Run simulation" },
       );
 
