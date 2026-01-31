@@ -383,9 +383,14 @@ export default function ForecastWorkspaceScreen() {
       if (trimmed.startsWith("/run @")) {
         let agentName = trimmed.replace("/run @", "").trim();
         // Extract just the agent ID (before any space or parenthesis)
-        const match = agentName.match(/^([a-z_]+)/);
-        if (match) {
-          agentName = match[1];
+        const spaceIndex = agentName.indexOf(" ");
+        const parenIndex = agentName.indexOf("(");
+        if (spaceIndex > 0 || parenIndex > 0) {
+          const cutIndex = Math.min(
+            spaceIndex > 0 ? spaceIndex : Infinity,
+            parenIndex > 0 ? parenIndex : Infinity,
+          );
+          agentName = agentName.substring(0, cutIndex).trim();
         }
         console.log("[Agent Config Mode] Attempting to run agent:", agentName);
 
@@ -644,9 +649,14 @@ export default function ForecastWorkspaceScreen() {
         let agentName = trimmed.substring(1).trim();
         // Extract just the agent ID (before any space or parenthesis)
         // e.g., "competitive_intel (competitor tracking)" -> "competitive_intel"
-        const match = agentName.match(/^([a-z_]+)/);
-        if (match) {
-          agentName = match[1];
+        const spaceIndex = agentName.indexOf(" ");
+        const parenIndex = agentName.indexOf("(");
+        if (spaceIndex > 0 || parenIndex > 0) {
+          const cutIndex = Math.min(
+            spaceIndex > 0 ? spaceIndex : Infinity,
+            parenIndex > 0 ? parenIndex : Infinity,
+          );
+          agentName = agentName.substring(0, cutIndex).trim();
         }
         console.log("Agent mention detected:", agentName);
         if (agentName) {
@@ -681,9 +691,14 @@ export default function ForecastWorkspaceScreen() {
     ) {
       let agentName = trimmed.replace("/run @", "").trim();
       // Extract just the agent ID (before any space or parenthesis)
-      const match = agentName.match(/^([a-z_]+)/);
-      if (match) {
-        agentName = match[1];
+      const spaceIndex = agentName.indexOf(" ");
+      const parenIndex = agentName.indexOf("(");
+      if (spaceIndex > 0 || parenIndex > 0) {
+        const cutIndex = Math.min(
+          spaceIndex > 0 ? spaceIndex : Infinity,
+          parenIndex > 0 ? parenIndex : Infinity,
+        );
+        agentName = agentName.substring(0, cutIndex).trim();
       }
       console.log("[Agent Execution] Attempting to run agent:", agentName);
 
@@ -1364,6 +1379,36 @@ export default function ForecastWorkspaceScreen() {
   const getCommandHints = () => {
     // Agent configuration mode hints
     if (agentBeingConfigured) {
+      // Show agent autocomplete when typing @ or /run @
+      if (commandInput.includes("@")) {
+        const agentDescriptions: Record<string, string> = {
+          research_analyst: "Deep research with citations, quantitative focus",
+          sentiment_monitor: "Social listening and sentiment scoring",
+          competitive_intel: "Competitor tracking and benchmarking",
+          financial_analyst: "Financial statement analysis and modeling",
+          market_researcher: "Market sizing and industry analysis",
+          expert_synthesizer: "Synthesize expert opinions and predictions",
+        };
+
+        // Extract the part after @ for filtering
+        const atIndex = commandInput.lastIndexOf("@");
+        const afterAt = commandInput.substring(atIndex + 1).toLowerCase();
+
+        const allAgents = Object.keys(agentDescriptions).map((name) => ({
+          key: name,
+          label: "@" + name,
+          desc: agentDescriptions[name],
+        }));
+
+        // Filter by partial match if typing @something
+        if (afterAt.length > 0) {
+          return allAgents.filter((a) => a.key.startsWith(afterAt));
+        }
+
+        // Show all agents when typing @ alone
+        return allAgents;
+      }
+
       const agentHints = [
         { key: "query", label: "/query", desc: "Set research query" },
         {
