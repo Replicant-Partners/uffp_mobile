@@ -387,6 +387,36 @@ export default function ForecastWorkspaceScreen() {
     }
   };
 
+  const getPlaceholderText = () => {
+    const query = commandInput.toLowerCase().trim();
+
+    // Configuration mode placeholders
+    if (driverBeingConfigured) {
+      if (query === "/type" || query.startsWith("/type ")) {
+        return "continuous | binary";
+      }
+      if (query === "/dist" || query.startsWith("/dist ")) {
+        return "triangular | normal | lognormal";
+      }
+      if (query === "/direction" || query.startsWith("/direction ")) {
+        return "increases | decreases";
+      }
+      if (query === "/p" || query.startsWith("/p ")) {
+        return "p5 p50 p95 (e.g., 20 50 80)";
+      }
+      if (query === "/prob" || query.startsWith("/prob ")) {
+        return "0-100 (e.g., 65)";
+      }
+    }
+
+    // Regular mode placeholders
+    if (query === "/grounding" || query.startsWith("/grounding ")) {
+      return "external | premortem | analysis";
+    }
+
+    return "Type / for commands";
+  };
+
   const getCommandHints = () => {
     // Special hints for driver configuration mode
     if (driverBeingConfigured) {
@@ -793,7 +823,7 @@ export default function ForecastWorkspaceScreen() {
           <TextInput
             ref={inputRef}
             style={styles.commandInput}
-            placeholder="Type / for commands"
+            placeholder={getPlaceholderText()}
             placeholderTextColor="#665c54"
             value={commandInput}
             onChangeText={setCommandInput}
