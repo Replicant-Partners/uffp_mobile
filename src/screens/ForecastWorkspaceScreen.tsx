@@ -322,13 +322,35 @@ export default function ForecastWorkspaceScreen() {
 
       setCommandInput("");
       setLoading(true);
-      setProcessingAction("Running Monte Carlo simulation...");
+      setProcessingAction("Creating forecast on backend...");
 
       try {
-        const simulationResult = await researchService.runSimulation({
+        // First create the forecast on the backend
+        const createResponse = await researchService.createForecast({
           question: activeForecast.question,
-          drivers: activeForecast.drivers,
+          domain: parsedResult?.domain,
+          timeframe: parsedResult?.timeframe,
         });
+
+        const backendForecastId = createResponse.id;
+
+        // Add drivers to backend forecast
+        setProcessingAction("Adding drivers...");
+        for (const driver of activeForecast.drivers) {
+          await researchService.addDriver(backendForecastId, {
+            name: driver.name,
+            description: driver.name,
+            direction: driver.direction,
+            magnitude: "medium",
+          });
+        }
+
+        // Run simulation
+        setProcessingAction("Running Monte Carlo simulation...");
+        const simulationResult = await researchService.simulate(
+          backendForecastId,
+          10000,
+        );
 
         const updatedForecast = {
           ...activeForecast,
