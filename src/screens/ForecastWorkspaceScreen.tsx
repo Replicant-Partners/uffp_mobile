@@ -121,12 +121,17 @@ export default function ForecastWorkspaceScreen() {
 
   useEffect(() => {
     // Show/hide command hints based on input
-    if (commandInput.startsWith("/")) {
+    // Show hints when: typing /, typing @, or in driver config with empty field
+    if (
+      commandInput.startsWith("/") ||
+      commandInput.startsWith("@") ||
+      (driverBeingConfigured && commandInput === "")
+    ) {
       setShowCommandHints(true);
     } else {
       setShowCommandHints(false);
     }
-  }, [commandInput]);
+  }, [commandInput, driverBeingConfigured]);
 
   const startDriverConfiguration = (index: number) => {
     if (!activeForecast || !parsedResult || !parsedResult.suggestedDrivers) {
