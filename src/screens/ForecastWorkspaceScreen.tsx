@@ -39,6 +39,9 @@ export default function ForecastWorkspaceScreen() {
   const [error, setError] = useState<string>("");
   const [showCommandHints, setShowCommandHints] = useState(true);
   const [processingAction, setProcessingAction] = useState<string>("");
+  const [driverBeingConfigured, setDriverBeingConfigured] = useState<
+    any | null
+  >(null);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -93,7 +96,7 @@ export default function ForecastWorkspaceScreen() {
     }
   }, [commandInput]);
 
-  const addDriverByIndex = async (index: number) => {
+  const startDriverConfiguration = (index: number) => {
     if (!activeForecast || !parsedResult || !parsedResult.suggestedDrivers) {
       return;
     }
@@ -101,8 +104,7 @@ export default function ForecastWorkspaceScreen() {
     const suggestedDriver = parsedResult.suggestedDrivers[index];
     if (!suggestedDriver) return;
 
-    setProcessingAction("Adding driver...");
-
+    // Create a new driver in configuration mode
     const newDriver = {
       id: Date.now().toString(),
       name: suggestedDriver,
@@ -115,21 +117,110 @@ export default function ForecastWorkspaceScreen() {
       createdAt: new Date().toISOString(),
     };
 
+    setDriverBeingConfigured(newDriver);
+    setCommandInput("");
+  };
+
+  const saveConfiguredDriver = async () => {
+    if (!driverBeingConfigured || !activeForecast) return;
+
+    setProcessingAction("Adding driver...");
+
     const updatedForecast = {
       ...activeForecast,
-      drivers: [...activeForecast.drivers, newDriver],
+      drivers: [...activeForecast.drivers, driverBeingConfigured],
       updatedAt: new Date().toISOString(),
     };
 
     setActiveForecast(updatedForecast);
     await saveForecast(updatedForecast);
-    setCommandInput("");
+    setDriverBeingConfigured(null);
     setError("");
     setProcessingAction("");
   };
 
+  const cancelDriverConfiguration = () => {
+    setDriverBeingConfigured(null);
+  };
+
   const handleCommandSubmit = async () => {
     const trimmed = commandInput.trim();
+
+    // Handle driver configuration commands
+    if (driverBeingConfigured) {
+      // /type <continuous|binary>
+      if (trimmed.startsWith("/type ")) {
+        const type = trimmed.replace("/type ", "").trim();
+        if (type === "continuous" || type === "binary") {
+          setDriverBeingConfigured({ ...driverBeingConfigured, type });
+          setCommandInput("");
+        } else {
+          setError("Type must be 'continuous' or 'binary'");
+        }
+        return;
+      }
+
+      // /dist <triangular|normal|lognormal>
+      if (trimmed.startsWith("/dist ")) {
+        const distribution = trimmed.replace("/dist ", "").trim();
+        if (["triangular", "normal", "lognormal"].includes(distribution)) {
+          setDriverBeingConfigured({ ...driverBeingConfigured, distribution });
+          setCommandInput("");
+        } else {
+          setError(
+            "Distribution must be 'triangular', 'normal', or 'lognormal'",
+          );
+        }
+        return;
+      }
+
+      // /p <p5> <p50> <p95>
+      if (trimmed.startsWith("/p ")) {
+        const values = trimmed.replace("/p ", "").trim().split(/\s+/);
+        if (values.length === 3) {
+          const [p5, p50, p95] = values.map(Number);
+          if (!isNaN(p5) && !isNaN(p50) && !isNaN(p95)) {
+            setDriverBeingConfigured({
+              ...driverBeingConfigured,
+              p5,
+              p50,
+              p95,
+            });
+            setCommandInput("");
+          } else {
+            setError("Values must be numbers");
+          }
+        } else {
+          setError("Format: /p <p5> <p50> <p95>");
+        }
+        return;
+      }
+
+      // /direction <increases|decreases>
+      if (trimmed.startsWith("/direction ")) {
+        const direction = trimmed.replace("/direction ", "").trim();
+        if (direction === "increases" || direction === "decreases") {
+          setDriverBeingConfigured({ ...driverBeingConfigured, direction });
+          setCommandInput("");
+        } else {
+          setError("Direction must be 'increases' or 'decreases'");
+        }
+        return;
+      }
+
+      // /save - save the configured driver
+      if (trimmed === "/save") {
+        await saveConfiguredDriver();
+        return;
+      }
+
+      // /cancel - cancel driver configuration
+      if (trimmed === "/cancel") {
+        cancelDriverConfiguration();
+        setCommandInput("");
+        return;
+      }
+    }
 
     // Handle /list command
     if (trimmed === "/list") {
@@ -141,7 +232,7 @@ export default function ForecastWorkspaceScreen() {
     // Handle numbered driver selection (e.g., "1", "2", "3")
     if (/^\d+$/.test(trimmed)) {
       const index = parseInt(trimmed, 10) - 1; // Convert to 0-indexed
-      await addDriverByIndex(index);
+      startDriverConfiguration(index);
       return;
     }
 
@@ -230,6 +321,35 @@ export default function ForecastWorkspaceScreen() {
   };
 
   const getCommandHints = () => {
+    // Special hints for driver configuration mode
+    if (driverBeingConfigured) {
+      const configHints = [
+        { key: "type", label: "/type", desc: "Set type (continuous|binary)" },
+        {
+          key: "dist",
+          label: "/dist",
+          desc: "Set distribution (triangular|normal|lognormal)",
+        },
+        { key: "p", label: "/p", desc: "Set probabilities (p5 p50 p95)" },
+        {
+          key: "direction",
+          label: "/direction",
+          desc: "Set direction (increases|decreases)",
+        },
+        { key: "save", label: "/save", desc: "Save driver" },
+        { key: "cancel", label: "/cancel", desc: "Cancel" },
+      ];
+
+      if (!commandInput || !commandInput.startsWith("/")) {
+        return configHints;
+      }
+
+      const query = commandInput.toLowerCase();
+      return configHints.filter(
+        (h) => h.label.includes(query) || h.desc.toLowerCase().includes(query),
+      );
+    }
+
     if (!commandInput || !commandInput.startsWith("/")) {
       return [
         { key: "question", label: "/question", desc: "Start a new forecast" },
@@ -272,10 +392,21 @@ export default function ForecastWorkspaceScreen() {
           <View style={styles.questionDisplay}>
             <Text style={styles.questionText}>{activeQuestion}</Text>
             {parsedResult && (
-              <Text style={styles.metadata}>
-                {parsedResult.domain} · {parsedResult.timeframe} ·
-                {Math.round((parsedResult.confidence || 0) * 100)}% confidence
-              </Text>
+              <View>
+                <Text style={styles.metadata}>
+                  {parsedResult.domain}
+                  {parsedResult.timeframe &&
+                    ` · Resolves ${parsedResult.timeframe}`}
+                  {parsedResult.confidence &&
+                    ` · ${Math.round(parsedResult.confidence * 100)}% confidence`}
+                </Text>
+                {activeForecast && (
+                  <Text style={styles.lastUpdated}>
+                    Last updated{" "}
+                    {new Date(activeForecast.updatedAt).toLocaleString()}
+                  </Text>
+                )}
+              </View>
             )}
           </View>
         )}
@@ -305,32 +436,58 @@ export default function ForecastWorkspaceScreen() {
           </View>
         )}
 
-        {/* Active Forecast Drivers */}
-        {activeForecast && activeForecast.drivers.length > 0 && (
-          <View style={styles.driversSection}>
-            <Text style={styles.sectionLabel}>
-              Drivers ({activeForecast.drivers.length})
-            </Text>
-            {activeForecast.drivers.map((driver: any) => (
-              <View key={driver.id} style={styles.driverCard}>
-                <Text style={styles.driverName}>{driver.name}</Text>
-                <Text style={styles.driverDetails}>
-                  {driver.type === "continuous"
-                    ? `P(${driver.p5}-${driver.p50}-${driver.p95}) · ${driver.distribution}`
-                    : `P(${driver.probability}%)`}{" "}
-                  · {driver.direction}
-                </Text>
-              </View>
-            ))}
+        {/* Driver Being Configured */}
+        {driverBeingConfigured && (
+          <View style={styles.configSection}>
+            <Text style={styles.sectionLabel}>Configuring Driver</Text>
+            <View style={styles.configCard}>
+              <Text style={styles.driverName}>
+                {driverBeingConfigured.name}
+              </Text>
+              <Text style={styles.driverDetails}>
+                Type: {driverBeingConfigured.type} ·
+                {driverBeingConfigured.type === "continuous" &&
+                  ` Dist: ${driverBeingConfigured.distribution} · P(${driverBeingConfigured.p5}-${driverBeingConfigured.p50}-${driverBeingConfigured.p95})`}
+                {driverBeingConfigured.type === "binary" &&
+                  ` P(${driverBeingConfigured.probability || 50}%)`}{" "}
+                · {driverBeingConfigured.direction}
+              </Text>
+              <Text style={styles.configHint}>
+                Use /type, /dist, /p, /direction to configure, then /save
+              </Text>
+            </View>
           </View>
         )}
+
+        {/* Active Forecast Drivers */}
+        {activeForecast &&
+          activeForecast.drivers.length > 0 &&
+          !driverBeingConfigured && (
+            <View style={styles.driversSection}>
+              <Text style={styles.sectionLabel}>
+                Drivers ({activeForecast.drivers.length})
+              </Text>
+              {activeForecast.drivers.map((driver: any) => (
+                <View key={driver.id} style={styles.driverCard}>
+                  <Text style={styles.driverName}>{driver.name}</Text>
+                  <Text style={styles.driverDetails}>
+                    {driver.type === "continuous"
+                      ? `P(${driver.p5}-${driver.p50}-${driver.p95}) · ${driver.distribution}`
+                      : `P(${driver.probability}%)`}{" "}
+                    · {driver.direction}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
 
         {/* Suggested Drivers (only on new forecasts) */}
         {parsedResult &&
           parsedResult.suggestedDrivers &&
           parsedResult.suggestedDrivers.length > 0 &&
           activeForecast &&
-          activeForecast.drivers.length === 0 && (
+          activeForecast.drivers.length === 0 &&
+          !driverBeingConfigured && (
             <View style={styles.driversSection}>
               <Text style={styles.sectionLabel}>Suggested Drivers</Text>
               {parsedResult.suggestedDrivers.map(
@@ -338,7 +495,7 @@ export default function ForecastWorkspaceScreen() {
                   <TouchableOpacity
                     key={idx}
                     style={styles.suggestedDriverCard}
-                    onPress={() => addDriverByIndex(idx)}
+                    onPress={() => startDriverConfiguration(idx)}
                   >
                     <Text style={styles.driverNumber}>{idx + 1}</Text>
                     <Text style={styles.driverName}>{driver}</Text>
@@ -504,6 +661,12 @@ const styles = StyleSheet.create({
   metadata: {
     fontSize: 13,
     color: "#928374",
+    marginBottom: 4,
+  },
+  lastUpdated: {
+    fontSize: 11,
+    color: "#665c54",
+    fontStyle: "italic",
   },
   loadingCard: {
     flexDirection: "row",
@@ -545,6 +708,23 @@ const styles = StyleSheet.create({
   },
   driversSection: {
     marginTop: 24,
+  },
+  configSection: {
+    marginTop: 24,
+  },
+  configCard: {
+    backgroundColor: "#3c3836",
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#d79921",
+  },
+  configHint: {
+    fontSize: 11,
+    color: "#928374",
+    marginTop: 8,
+    fontStyle: "italic",
   },
   sectionLabel: {
     fontSize: 11,
