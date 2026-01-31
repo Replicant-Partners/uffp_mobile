@@ -30,7 +30,7 @@ interface SavedForecast {
 }
 
 const STORAGE_KEY = "@uffp_forecasts";
-const VERSION = "2.4.1"; // Update this to force cache bust
+const VERSION = "3.0.0"; // Update this to force cache bust
 
 export default function ForecastWorkspaceScreen() {
   const [commandInput, setCommandInput] = useState("");
@@ -40,6 +40,8 @@ export default function ForecastWorkspaceScreen() {
   );
   const [savedForecasts, setSavedForecasts] = useState<SavedForecast[]>([]);
   const [showForecastList, setShowForecastList] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showResolvedList, setShowResolvedList] = useState(false);
   const [loading, setLoading] = useState(false);
   const [parsedResult, setParsedResult] = useState<any>(null);
   const [error, setError] = useState<string>("");
@@ -433,16 +435,29 @@ export default function ForecastWorkspaceScreen() {
       }
     }
 
-    // Handle /list command
+    // Handle /list command - all forecasts
     if (trimmed === "/list") {
       setShowForecastList(!showForecastList);
+      setShowLeaderboard(false);
+      setShowResolvedList(false);
       setCommandInput("");
       return;
     }
 
-    // Handle /leaderboard command
+    // Handle /resolved command - user's resolved forecasts with Brier scores
+    if (trimmed === "/resolved") {
+      setShowResolvedList(!showResolvedList);
+      setShowForecastList(false);
+      setShowLeaderboard(false);
+      setCommandInput("");
+      return;
+    }
+
+    // Handle /leaderboard command - multi-user rankings
     if (trimmed === "/leaderboard") {
-      setShowForecastList(true); // Reuse list view but will show sorted by Brier
+      setShowLeaderboard(!showLeaderboard);
+      setShowForecastList(false);
+      setShowResolvedList(false);
       setCommandInput("");
       return;
     }
@@ -1478,11 +1493,118 @@ export default function ForecastWorkspaceScreen() {
             </View>
           )}
 
-        {/* Forecast List */}
-        {showForecastList && (
+        {/* Multi-User Leaderboard */}
+        {showLeaderboard &&
+          (() => {
+            const resolved = savedForecasts.filter((f) => f.resolved);
+            const userAvgBrier =
+              resolved.length > 0
+                ? resolved.reduce((sum, f) => sum + (f.brierScore || 0), 0) /
+                  resolved.length
+                : 0.5;
+
+            // Fake leaderboard data
+            const leaderboardData = [
+              {
+                rank: 1,
+                name: "ForecastMaster",
+                avgBrier: 0.082,
+                forecasts: 47,
+                emoji: "🎯",
+              },
+              {
+                rank: 2,
+                name: "DataDriven",
+                avgBrier: 0.095,
+                forecasts: 23,
+                emoji: "🎯",
+              },
+              {
+                rank: 3,
+                name: "You",
+                avgBrier: userAvgBrier,
+                forecasts: resolved.length,
+                emoji:
+                  userAvgBrier < 0.1 ? "🎯" : userAvgBrier < 0.25 ? "⭐" : "📊",
+                isUser: true,
+              },
+              {
+                rank: 4,
+                name: "TrendSpotter",
+                avgBrier: 0.156,
+                forecasts: 31,
+                emoji: "⭐",
+              },
+              {
+                rank: 5,
+                name: "Predictor99",
+                avgBrier: 0.178,
+                forecasts: 19,
+                emoji: "⭐",
+              },
+              {
+                rank: 6,
+                name: "BayesianBob",
+                avgBrier: 0.213,
+                forecasts: 12,
+                emoji: "⭐",
+              },
+              {
+                rank: 7,
+                name: "Newbie2026",
+                avgBrier: 0.287,
+                forecasts: 8,
+                emoji: "📊",
+              },
+            ]
+              .sort((a, b) => a.avgBrier - b.avgBrier)
+              .map((user, idx) => ({ ...user, rank: idx + 1 }));
+
+            return (
+              <View style={styles.forecastList}>
+                <View style={styles.listHeader}>
+                  <Text style={styles.listTitle}>🏆 Global Leaderboard</Text>
+                </View>
+
+                {leaderboardData.map((user) => (
+                  <View
+                    key={user.name}
+                    style={[
+                      styles.leaderboardItem,
+                      user.isUser && styles.leaderboardItemUser,
+                    ]}
+                  >
+                    <Text style={styles.leaderboardRank}>#{user.rank}</Text>
+                    <Text style={styles.leaderboardEmoji}>{user.emoji}</Text>
+                    <View style={styles.leaderboardInfo}>
+                      <Text
+                        style={[
+                          styles.leaderboardName,
+                          user.isUser && styles.leaderboardNameUser,
+                        ]}
+                      >
+                        {user.name}
+                      </Text>
+                      <Text style={styles.leaderboardStats}>
+                        Avg Brier: {user.avgBrier.toFixed(3)} • {user.forecasts}{" "}
+                        forecasts
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+
+                <Text style={styles.leaderboardFooter}>
+                  Resolve more forecasts to climb the ranks!
+                </Text>
+              </View>
+            );
+          })()}
+
+        {/* My Resolved Forecasts */}
+        {showResolvedList && (
           <View style={styles.forecastList}>
             <View style={styles.listHeader}>
-              <Text style={styles.listTitle}>Your Forecasts</Text>
+              <Text style={styles.listTitle}>✅ My Resolved Forecasts</Text>
               {savedForecasts.filter((f) => f.resolved).length > 0 && (
                 <Text style={styles.resolvedCount}>
                   {savedForecasts.filter((f) => f.resolved).length} resolved
@@ -1537,6 +1659,86 @@ export default function ForecastWorkspaceScreen() {
                 </View>
               );
             })()}
+            {savedForecasts.filter((f) => f.resolved).length === 0 ? (
+              <Text style={styles.emptyListText}>
+                No resolved forecasts yet. Resolve some forecasts with /resolve
+                to build your track record!
+              </Text>
+            ) : (
+              [...savedForecasts]
+                .filter((f) => f.resolved)
+                .sort((a, b) => (a.brierScore || 1) - (b.brierScore || 1))
+                .map((forecast) => (
+                  <TouchableOpacity
+                    key={forecast.id}
+                    style={styles.forecastItem}
+                    onPress={() => loadForecast(forecast)}
+                  >
+                    <View style={styles.forecastHeader}>
+                      <Text style={styles.forecastQuestion}>
+                        {forecast.question}
+                      </Text>
+                      {forecast.drivers && forecast.drivers.length > 0 && (
+                        <View style={styles.driverBadge}>
+                          <Text style={styles.driverBadgeText}>
+                            {forecast.drivers.length}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    {forecast.domain && (
+                      <Text style={styles.forecastMeta}>
+                        {forecast.domain}
+                        {forecast.timeframe && ` · ${forecast.timeframe}`}
+                        {forecast.probability != null &&
+                          ` · ${(forecast.probability * 100).toFixed(0)}%`}
+                      </Text>
+                    )}
+                    <View style={styles.forecastResolution}>
+                      <Text
+                        style={[
+                          styles.resolutionBadge,
+                          forecast.actualOutcome
+                            ? styles.resolvedYes
+                            : styles.resolvedNo,
+                        ]}
+                      >
+                        {forecast.actualOutcome ? "YES" : "NO"}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.brierBadge,
+                          forecast.brierScore! < 0.1 && styles.brierExcellent,
+                          forecast.brierScore! >= 0.1 &&
+                            forecast.brierScore! < 0.25 &&
+                            styles.brierGood,
+                          forecast.brierScore! >= 0.25 && styles.brierPoor,
+                        ]}
+                      >
+                        Brier: {forecast.brierScore?.toFixed(3)}
+                      </Text>
+                    </View>
+                    <Text style={styles.forecastDate}>
+                      {new Date(forecast.updatedAt).toLocaleDateString()}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+            )}
+          </View>
+        )}
+
+        {/* Forecast List */}
+        {showForecastList && (
+          <View style={styles.forecastList}>
+            <View style={styles.listHeader}>
+              <Text style={styles.listTitle}>Your Forecasts</Text>
+              {savedForecasts.filter((f) => f.resolved).length > 0 && (
+                <Text style={styles.resolvedCount}>
+                  {savedForecasts.filter((f) => f.resolved).length} resolved
+                </Text>
+              )}
+            </View>
+
             {savedForecasts.length === 0 ? (
               <Text style={styles.emptyListText}>
                 No forecasts yet. Type /question to create one.
@@ -1619,18 +1821,69 @@ export default function ForecastWorkspaceScreen() {
         )}
 
         {/* Empty State */}
-        {!activeQuestion && !loading && !showForecastList && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>Universal Forecasting</Text>
-            <Text style={styles.emptySubtitle}>
-              Type <Text style={styles.emptyCommand}>/question</Text> to start
-              or <Text style={styles.emptyCommand}>/list</Text> to see forecasts
-            </Text>
-            <Text style={styles.versionText}>
-              v{VERSION} - /setprob & Brier Scoring
-            </Text>
-          </View>
-        )}
+        {!activeQuestion &&
+          !loading &&
+          !showForecastList &&
+          !showLeaderboard &&
+          !showResolvedList &&
+          (() => {
+            const resolved = savedForecasts.filter((f) => f.resolved);
+            let tamagotchiEmoji = "😊";
+            let tamagotchiMessage = "Ready to forecast!";
+            let tamagotchiColor = "#ebdbb2";
+
+            if (resolved.length > 0) {
+              const avgBrier =
+                resolved.reduce((sum, f) => sum + (f.brierScore || 0), 0) /
+                resolved.length;
+
+              if (avgBrier < 0.1) {
+                tamagotchiEmoji = "🤩";
+                tamagotchiMessage = "You're crushing it!";
+                tamagotchiColor = "#b8bb26";
+              } else if (avgBrier < 0.15) {
+                tamagotchiEmoji = "😊";
+                tamagotchiMessage = "Doing great!";
+                tamagotchiColor = "#b8bb26";
+              } else if (avgBrier < 0.2) {
+                tamagotchiEmoji = "🙂";
+                tamagotchiMessage = "Good progress!";
+                tamagotchiColor = "#fabd2f";
+              } else if (avgBrier < 0.25) {
+                tamagotchiEmoji = "😐";
+                tamagotchiMessage = "Keep practicing!";
+                tamagotchiColor = "#fabd2f";
+              } else if (avgBrier < 0.3) {
+                tamagotchiEmoji = "😕";
+                tamagotchiMessage = "Room to improve...";
+                tamagotchiColor = "#fb4934";
+              } else {
+                tamagotchiEmoji = "😰";
+                tamagotchiMessage = "Need more practice!";
+                tamagotchiColor = "#fb4934";
+              }
+            }
+
+            return (
+              <View style={styles.emptyState}>
+                <Text style={[styles.tamagotchi, { color: tamagotchiColor }]}>
+                  {tamagotchiEmoji}
+                </Text>
+                <Text
+                  style={[styles.tamagotchiMessage, { color: tamagotchiColor }]}
+                >
+                  {tamagotchiMessage}
+                </Text>
+                <Text style={styles.emptyTitle}>Universal Forecasting</Text>
+                <Text style={styles.emptySubtitle}>
+                  Type <Text style={styles.emptyCommand}>/question</Text> to
+                  start or <Text style={styles.emptyCommand}>/list</Text> to see
+                  forecasts
+                </Text>
+                <Text style={styles.versionText}>v{VERSION}</Text>
+              </View>
+            );
+          })()}
       </ScrollView>
 
       {/* Command Input - Fixed at bottom */}
@@ -1958,6 +2211,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 100,
   },
+  tamagotchi: {
+    fontSize: 72,
+    marginBottom: 16,
+  },
+  tamagotchiMessage: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 32,
+  },
   emptyTitle: {
     fontSize: 32,
     fontWeight: "300",
@@ -2092,6 +2354,52 @@ const styles = StyleSheet.create({
   performanceDetail: {
     fontSize: 12,
     color: "#928374",
+  },
+  leaderboardItem: {
+    backgroundColor: "#3c3836",
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  leaderboardItemUser: {
+    borderWidth: 2,
+    borderColor: "#fabd2f",
+    backgroundColor: "#504945",
+  },
+  leaderboardRank: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#928374",
+    width: 40,
+  },
+  leaderboardEmoji: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  leaderboardInfo: {
+    flex: 1,
+  },
+  leaderboardName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#ebdbb2",
+    marginBottom: 4,
+  },
+  leaderboardNameUser: {
+    color: "#fabd2f",
+  },
+  leaderboardStats: {
+    fontSize: 12,
+    color: "#928374",
+  },
+  leaderboardFooter: {
+    fontSize: 13,
+    color: "#928374",
+    textAlign: "center",
+    marginTop: 16,
+    fontStyle: "italic",
   },
   emptyListText: {
     fontSize: 14,
