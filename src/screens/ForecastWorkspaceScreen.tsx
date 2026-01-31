@@ -387,34 +387,38 @@ export default function ForecastWorkspaceScreen() {
     }
   };
 
-  const getPlaceholderText = () => {
+  const getSuggestion = () => {
     const query = commandInput.toLowerCase().trim();
 
-    // Configuration mode placeholders
+    // Configuration mode suggestions
     if (driverBeingConfigured) {
-      if (query === "/type" || query.startsWith("/type ")) {
-        return "continuous | binary";
-      }
-      if (query === "/dist" || query.startsWith("/dist ")) {
-        return "triangular | normal | lognormal";
-      }
-      if (query === "/direction" || query.startsWith("/direction ")) {
-        return "increases | decreases";
-      }
-      if (query === "/p" || query.startsWith("/p ")) {
-        return "p5 p50 p95 (e.g., 20 50 80)";
-      }
-      if (query === "/prob" || query.startsWith("/prob ")) {
-        return "0-100 (e.g., 65)";
-      }
+      if (query === "/type") return "/type continuous";
+      if (query === "/type c") return "/type continuous";
+      if (query === "/type b") return "/type binary";
+
+      if (query === "/dist") return "/dist triangular";
+      if (query === "/dist t") return "/dist triangular";
+      if (query === "/dist n") return "/dist normal";
+      if (query === "/dist l") return "/dist lognormal";
+
+      if (query === "/direction") return "/direction increases";
+      if (query === "/direction i") return "/direction increases";
+      if (query === "/direction d") return "/direction decreases";
+
+      if (query === "/p") return "/p 20 50 80";
+      if (query === "/prob") return "/prob 50";
     }
 
-    // Regular mode placeholders
-    if (query === "/grounding" || query.startsWith("/grounding ")) {
-      return "external | premortem | analysis";
-    }
+    // Regular mode suggestions
+    if (query === "/grounding") return "/grounding external";
+    if (query === "/grounding e") return "/grounding external";
+    if (query === "/grounding p") return "/grounding premortem";
+    if (query === "/grounding a") return "/grounding analysis";
 
-    return "Type / for commands";
+    if (query === "/question") return "/question ";
+    if (query === "/driver") return "/driver ";
+
+    return "";
   };
 
   const getCommandHints = () => {
@@ -795,43 +799,34 @@ export default function ForecastWorkspaceScreen() {
 
       {/* Command Input - Fixed at bottom */}
       <View style={styles.commandSection}>
-        {/* Command Hints */}
-        {showCommandHints && getCommandHints().length > 0 && (
-          <View style={styles.hintsPanel}>
-            {getCommandHints().map((hint) => (
-              <TouchableOpacity
-                key={hint.key}
-                style={styles.hintItem}
-                onPress={() => {
-                  if (hint.key === "question") {
-                    setCommandInput("/question ");
-                  } else {
-                    setCommandInput(hint.label + " ");
-                  }
-                  inputRef.current?.focus();
-                }}
-              >
-                <Text style={styles.hintLabel}>{hint.label}</Text>
-                <Text style={styles.hintDesc}>{hint.desc}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
         {/* Command Input Field */}
         <View style={styles.inputContainer}>
-          <TextInput
-            ref={inputRef}
-            style={styles.commandInput}
-            placeholder={getPlaceholderText()}
-            placeholderTextColor="#665c54"
-            value={commandInput}
-            onChangeText={setCommandInput}
-            onSubmitEditing={handleCommandSubmit}
-            autoCapitalize="none"
-            returnKeyType="done"
-            blurOnSubmit={false}
-          />
+          <View style={styles.inputWrapper}>
+            {/* Ghost suggestion text */}
+            {getSuggestion() && (
+              <Text style={styles.suggestionText}>{getSuggestion()}</Text>
+            )}
+            <TextInput
+              ref={inputRef}
+              style={styles.commandInput}
+              placeholder="Type / for commands"
+              placeholderTextColor="#665c54"
+              value={commandInput}
+              onChangeText={setCommandInput}
+              onSubmitEditing={() => {
+                // Accept suggestion on enter if it exists
+                const suggestion = getSuggestion();
+                if (suggestion && commandInput !== suggestion) {
+                  setCommandInput(suggestion);
+                } else {
+                  handleCommandSubmit();
+                }
+              }}
+              autoCapitalize="none"
+              returnKeyType="done"
+              blurOnSubmit={false}
+            />
+          </View>
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -1044,8 +1039,23 @@ const styles = StyleSheet.create({
   inputContainer: {
     padding: 16,
   },
-  commandInput: {
+  inputWrapper: {
+    position: "relative",
     backgroundColor: "#3c3836",
+    borderRadius: 8,
+  },
+  suggestionText: {
+    position: "absolute",
+    left: 16,
+    top: 16,
+    fontSize: 15,
+    color: "#504945",
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    zIndex: 0,
+    pointerEvents: "none",
+  },
+  commandInput: {
+    backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: "#504945",
     borderRadius: 8,
@@ -1053,6 +1063,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#ebdbb2",
     fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    position: "relative",
+    zIndex: 1,
   },
   forecastList: {
     marginTop: 24,
