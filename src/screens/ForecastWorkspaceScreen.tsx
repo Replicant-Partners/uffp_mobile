@@ -306,6 +306,47 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
+    // Handle /simulate command (only if forecast is active)
+    if (trimmed === "/simulate") {
+      if (!activeForecast) {
+        setError("No active forecast. Type /question first.");
+        setCommandInput("");
+        return;
+      }
+
+      if (activeForecast.drivers.length === 0) {
+        setError("Add at least one driver before simulating");
+        setCommandInput("");
+        return;
+      }
+
+      setCommandInput("");
+      setLoading(true);
+      setProcessingAction("Running Monte Carlo simulation...");
+
+      try {
+        const simulationResult = await researchService.runSimulation({
+          question: activeForecast.question,
+          drivers: activeForecast.drivers,
+        });
+
+        const updatedForecast = {
+          ...activeForecast,
+          probability: simulationResult.probability,
+          updatedAt: new Date().toISOString(),
+        };
+
+        setActiveForecast(updatedForecast);
+        await saveForecast(updatedForecast);
+      } catch (err: any) {
+        setError(err.message || "Simulation failed");
+      } finally {
+        setLoading(false);
+        setProcessingAction("");
+      }
+      return;
+    }
+
     // Handle numbered driver selection (e.g., "1", "2", "3")
     if (/^\d+$/.test(trimmed)) {
       const index = parseInt(trimmed, 10) - 1; // Convert to 0-indexed
@@ -585,6 +626,11 @@ export default function ForecastWorkspaceScreen() {
                   {parsedResult.confidence &&
                     ` · ${Math.round(parsedResult.confidence * 100)}% confidence`}
                 </Text>
+                {activeForecast?.probability != null && (
+                  <Text style={styles.probabilityResult}>
+                    Forecast: {Math.round(activeForecast.probability * 100)}%
+                  </Text>
+                )}
                 {activeForecast && (
                   <Text style={styles.lastUpdated}>
                     Last updated{" "}
@@ -887,6 +933,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#665c54",
     fontStyle: "italic",
+  },
+  probabilityResult: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#fabd2f",
+    marginTop: 8,
+    marginBottom: 4,
   },
   loadingCard: {
     flexDirection: "row",

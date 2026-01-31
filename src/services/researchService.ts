@@ -170,6 +170,17 @@ class ResearchService {
     return response.json();
   }
 
+  async runSimulation(data: {
+    question: string;
+    drivers: any[];
+  }): Promise<{ probability: number; distribution: any }> {
+    const response = await this.makeRequest("/forecasts?action=simulate", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
   async chatWithCoach(
     message: string,
     context?: {
