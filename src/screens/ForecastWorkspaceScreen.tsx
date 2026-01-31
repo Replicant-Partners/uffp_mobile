@@ -646,14 +646,16 @@ export default function ForecastWorkspaceScreen() {
       if (query === "/p") return "/p 20 50 80";
       if (query === "/prob") return "/prob 50";
 
-      // Agent name autocomplete
+      // Agent name autocomplete - matching backend agent IDs
       const agentNames = [
-        "web-research",
-        "data-analysis",
-        "expert-survey",
-        "historical-trends",
+        "research_analyst",
+        "sentiment_monitor",
+        "competitive_intel",
+        "financial_analyst",
+        "market_researcher",
+        "expert_synthesizer",
       ];
-      if (query === "@") return "@web-research";
+      if (query === "@") return "@research_analyst";
       if (query.startsWith("@")) {
         const partial = query.substring(1);
         const match = agentNames.find((name) => name.startsWith(partial));
@@ -753,19 +755,19 @@ export default function ForecastWorkspaceScreen() {
       if (!commandInput || !commandInput.startsWith("/")) {
         // Show agent name suggestions if starting with @
         if (commandInput.startsWith("@")) {
-          const agentNames = [
-            "web-research",
-            "data-analysis",
-            "expert-survey",
-            "historical-trends",
-          ];
-          return agentNames.map((name) => ({
+          const agentDescriptions: Record<string, string> = {
+            research_analyst:
+              "Deep research with citations, quantitative focus",
+            sentiment_monitor: "Social listening and sentiment scoring",
+            competitive_intel: "Competitor tracking and benchmarking",
+            financial_analyst: "Financial statement analysis and modeling",
+            market_researcher: "Market sizing and industry analysis",
+            expert_synthesizer: "Synthesize expert opinions and predictions",
+          };
+          return Object.keys(agentDescriptions).map((name) => ({
             key: name,
             label: "@" + name,
-            desc: name
-              .split("-")
-              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-              .join(" "),
+            desc: agentDescriptions[name],
           }));
         }
         return configHints;
