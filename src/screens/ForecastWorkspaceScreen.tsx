@@ -1377,38 +1377,38 @@ export default function ForecastWorkspaceScreen() {
   };
 
   const getCommandHints = () => {
-    // Agent configuration mode hints
-    if (agentBeingConfigured) {
-      // Show agent autocomplete when typing @ or /run @
-      if (commandInput.includes("@")) {
-        const agentDescriptions: Record<string, string> = {
-          research_analyst: "Deep research with citations, quantitative focus",
-          sentiment_monitor: "Social listening and sentiment scoring",
-          competitive_intel: "Competitor tracking and benchmarking",
-          financial_analyst: "Financial statement analysis and modeling",
-          market_researcher: "Market sizing and industry analysis",
-          expert_synthesizer: "Synthesize expert opinions and predictions",
-        };
+    // GLOBAL: Show agent autocomplete whenever @ is typed in ANY context
+    if (commandInput.includes("@")) {
+      const agentDescriptions: Record<string, string> = {
+        research_analyst: "Deep research with citations, quantitative focus",
+        sentiment_monitor: "Social listening and sentiment scoring",
+        competitive_intel: "Competitor tracking and benchmarking",
+        financial_analyst: "Financial statement analysis and modeling",
+        market_researcher: "Market sizing and industry analysis",
+        expert_synthesizer: "Synthesize expert opinions and predictions",
+      };
 
-        // Extract the part after @ for filtering
-        const atIndex = commandInput.lastIndexOf("@");
-        const afterAt = commandInput.substring(atIndex + 1).toLowerCase();
+      // Extract the part after @ for filtering
+      const atIndex = commandInput.lastIndexOf("@");
+      const afterAt = commandInput.substring(atIndex + 1).toLowerCase();
 
-        const allAgents = Object.keys(agentDescriptions).map((name) => ({
-          key: name,
-          label: "@" + name,
-          desc: agentDescriptions[name],
-        }));
+      const allAgents = Object.keys(agentDescriptions).map((name) => ({
+        key: name,
+        label: "@" + name,
+        desc: agentDescriptions[name],
+      }));
 
-        // Filter by partial match if typing @something
-        if (afterAt.length > 0) {
-          return allAgents.filter((a) => a.key.startsWith(afterAt));
-        }
-
-        // Show all agents when typing @ alone
-        return allAgents;
+      // Filter by partial match if typing @something
+      if (afterAt.length > 0) {
+        return allAgents.filter((a) => a.key.startsWith(afterAt));
       }
 
+      // Show all agents when typing @ alone
+      return allAgents;
+    }
+
+    // Agent configuration mode hints
+    if (agentBeingConfigured) {
       const agentHints = [
         { key: "query", label: "/query", desc: "Set research query" },
         {
@@ -1484,33 +1484,7 @@ export default function ForecastWorkspaceScreen() {
         { key: "cancel", label: "/cancel", desc: "Cancel" },
       );
 
-      // Priority: Show agent directory if starting with @ OR when input is completely empty
-      if (commandInput.startsWith("@") || commandInput === "") {
-        const agentDescriptions: Record<string, string> = {
-          research_analyst: "Deep research with citations, quantitative focus",
-          sentiment_monitor: "Social listening and sentiment scoring",
-          competitive_intel: "Competitor tracking and benchmarking",
-          financial_analyst: "Financial statement analysis and modeling",
-          market_researcher: "Market sizing and industry analysis",
-          expert_synthesizer: "Synthesize expert opinions and predictions",
-        };
-        const allAgents = Object.keys(agentDescriptions).map((name) => ({
-          key: name,
-          label: "@" + name,
-          desc: agentDescriptions[name],
-        }));
-
-        // Filter by partial match if typing @something
-        if (commandInput.startsWith("@") && commandInput.length > 1) {
-          const partial = commandInput.substring(1).toLowerCase();
-          return allAgents.filter((a) => a.key.startsWith(partial));
-        }
-
-        // Show all agents when typing @ alone or when field is empty
-        return allAgents;
-      }
-
-      // Show driver config hints if not showing agents and not starting with /
+      // Show driver config hints if not starting with / (agent autocomplete is now global)
       if (!commandInput.startsWith("/")) {
         return configHints;
       }
@@ -1565,35 +1539,7 @@ export default function ForecastWorkspaceScreen() {
       );
     }
 
-    // Show agent autocomplete when typing @ in regular mode (including in /run @ context)
-    if (commandInput.includes("@")) {
-      const agentDescriptions: Record<string, string> = {
-        research_analyst: "Deep research with citations, quantitative focus",
-        sentiment_monitor: "Social listening and sentiment scoring",
-        competitive_intel: "Competitor tracking and benchmarking",
-        financial_analyst: "Financial statement analysis and modeling",
-        market_researcher: "Market sizing and industry analysis",
-        expert_synthesizer: "Synthesize expert opinions and predictions",
-      };
-
-      // Extract the part after @ for filtering
-      const atIndex = commandInput.lastIndexOf("@");
-      const afterAt = commandInput.substring(atIndex + 1).toLowerCase();
-
-      const allAgents = Object.keys(agentDescriptions).map((name) => ({
-        key: name,
-        label: "@" + name,
-        desc: agentDescriptions[name],
-      }));
-
-      // Filter by partial match if typing @something
-      if (afterAt.length > 0) {
-        return allAgents.filter((a) => a.key.startsWith(afterAt));
-      }
-
-      // Show all agents when typing @ alone
-      return allAgents;
-    }
+    // Agent autocomplete is now handled globally at the top of getCommandHints()
 
     if (!commandInput || !commandInput.startsWith("/")) {
       return [
