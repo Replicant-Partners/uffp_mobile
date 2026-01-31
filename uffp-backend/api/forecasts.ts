@@ -257,22 +257,120 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 }
 
+/**
+ * Sample from a triangular distribution
+ */
+function sampleTriangular(min: number, mode: number, max: number): number {
+  const u = Math.random();
+  const f = (mode - min) / (max - min);
+
+  if (u < f) {
+    return min + Math.sqrt(u * (max - min) * (mode - min));
+  } else {
+    return max - Math.sqrt((1 - u) * (max - min) * (max - mode));
+  }
+}
+
+/**
+ * Sample from a normal distribution using Box-Muller transform
+ */
+function sampleNormal(mean: number, stdDev: number): number {
+  const u1 = Math.random();
+  const u2 = Math.random();
+  const z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  return mean + z0 * stdDev;
+}
+
+/**
+ * Sample from a lognormal distribution
+ */
+function sampleLogNormal(median: number, stdDev: number): number {
+  const mu = Math.log(median);
+  const sigma = stdDev;
+  const normal = sampleNormal(mu, sigma);
+  return Math.exp(normal);
+}
+
 function runMonteCarloSimulation(drivers: any[], iterations: number) {
   const outcomes: number[] = [];
+
   for (let i = 0; i < iterations; i++) {
     let outcome = 1;
+
     for (const driver of drivers) {
       if (driver.type === "binary" && driver.probability !== undefined) {
+        // Binary driver: happens or doesn't happen
         if (Math.random() > driver.probability / 100) {
           outcome = 0;
           break;
         }
+      } else if (driver.type === "continuous") {
+        // Continuous driver: sample from distribution and apply direction
+        let sample: number;
+
+        if (
+          driver.distribution === "triangular" &&
+          driver.p5 !== undefined &&
+          driver.p50 !== undefined &&
+          driver.p95 !== undefined
+        ) {
+          // Triangular distribution using p5, p50, p95
+          sample = sampleTriangular(driver.p5, driver.p50, driver.p95);
+        } else if (
+          driver.distribution === "normal" &&
+          driver.p50 !== undefined &&
+          driver.p95 !== undefined
+        ) {
+          // Normal distribution: use p50 as mean, derive stdDev from p95
+          const mean = driver.p50;
+          const stdDev = (driver.p95 - driver.p50) / 1.645; // p95 is ~1.645 std devs above mean
+          sample = sampleNormal(mean, stdDev);
+        } else if (
+          driver.distribution === "lognormal" &&
+          driver.p50 !== undefined &&
+          driver.p95 !== undefined
+        ) {
+          // Lognormal distribution
+          const median = driver.p50;
+          const p95 = driver.p95;
+          const sigma = (Math.log(p95) - Math.log(median)) / 1.645;
+          sample = sampleLogNormal(median, sigma);
+        } else {
+          // Fallback: use p50 as deterministic value
+          sample = driver.p50 || 50;
+        }
+
+        // Normalize sample to 0-1 range (assuming p values are 0-100)
+        const normalizedSample = Math.max(0, Math.min(1, sample / 100));
+
+        // Apply direction: increases = multiply outcome, decreases = multiply by (1 - sample)
+        if (driver.direction === "increases") {
+          outcome *= normalizedSample;
+        } else if (driver.direction === "decreases") {
+          outcome *= 1 - normalizedSample;
+        }
       }
     }
+
     outcomes.push(outcome);
   }
+
   outcomes.sort((a, b) => a - b);
   const successCount = outcomes.filter((o) => o > 0).length;
+
+  // Create histogram for visualization (20 bins)
+  const bins = 20;
+  const histogram: number[] = new Array(bins).fill(0);
+  const binSize = 1 / bins;
+
+  for (const outcome of outcomes) {
+    const binIndex = Math.min(Math.floor(outcome / binSize), bins - 1);
+    histogram[binIndex]++;
+  }
+
+  // Normalize histogram to percentages
+  const histogramPercent = histogram.map((count) => (count / iterations) * 100);
+
   return {
     probability: Math.round((successCount / iterations) * 100) / 100,
     distribution: {
@@ -281,6 +379,8 @@ function runMonteCarloSimulation(drivers: any[], iterations: number) {
       p50: outcomes[Math.floor(iterations * 0.5)],
       p75: outcomes[Math.floor(iterations * 0.75)],
       p90: outcomes[Math.floor(iterations * 0.9)],
+      histogram: histogramPercent,
+      bins,
     },
   };
 }
