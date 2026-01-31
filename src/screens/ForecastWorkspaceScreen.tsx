@@ -102,6 +102,46 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
+    // Handle /driver command (only if forecast is active)
+    if (trimmed.startsWith("/driver ")) {
+      if (!activeForecast) {
+        setError("No active forecast. Type /question first.");
+        setCommandInput("");
+        return;
+      }
+
+      const driverName = trimmed.replace("/driver ", "").trim();
+      if (!driverName) {
+        setError("Please provide a driver name");
+        return;
+      }
+
+      // Add driver to active forecast
+      const newDriver = {
+        id: Date.now().toString(),
+        name: driverName,
+        type: "continuous",
+        distribution: "triangular",
+        p5: 30,
+        p50: 50,
+        p95: 70,
+        direction: "increases",
+        createdAt: new Date().toISOString(),
+      };
+
+      const updatedForecast = {
+        ...activeForecast,
+        drivers: [...activeForecast.drivers, newDriver],
+        updatedAt: new Date().toISOString(),
+      };
+
+      setActiveForecast(updatedForecast);
+      await saveForecast(updatedForecast);
+      setCommandInput("");
+      setError("");
+      return;
+    }
+
     // Handle /question command
     if (trimmed.startsWith("/question ")) {
       const question = trimmed.replace("/question ", "").trim();
@@ -198,10 +238,31 @@ export default function ForecastWorkspaceScreen() {
           </View>
         )}
 
-        {/* Suggested Drivers */}
+        {/* Active Forecast Drivers */}
+        {activeForecast && activeForecast.drivers.length > 0 && (
+          <View style={styles.driversSection}>
+            <Text style={styles.sectionLabel}>
+              Drivers ({activeForecast.drivers.length})
+            </Text>
+            {activeForecast.drivers.map((driver: any) => (
+              <View key={driver.id} style={styles.driverCard}>
+                <Text style={styles.driverName}>{driver.name}</Text>
+                <Text style={styles.driverDetails}>
+                  {driver.type === "continuous"
+                    ? `P(${driver.p5}-${driver.p50}-${driver.p95}) · ${driver.distribution}`
+                    : `P(${driver.probability}%)`}{" "}
+                  · {driver.direction}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Suggested Drivers (only on new forecasts) */}
         {parsedResult &&
           parsedResult.suggestedDrivers &&
-          parsedResult.suggestedDrivers.length > 0 && (
+          parsedResult.suggestedDrivers.length > 0 &&
+          (!activeForecast || activeForecast.drivers.length === 0) && (
             <View style={styles.driversSection}>
               <Text style={styles.sectionLabel}>Suggested Drivers</Text>
               {parsedResult.suggestedDrivers.map(
@@ -211,15 +272,19 @@ export default function ForecastWorkspaceScreen() {
                   </View>
                 ),
               )}
-              <View style={styles.hintCard}>
-                <Text style={styles.hintText}>
-                  Type{" "}
-                  <Text style={styles.hintCommand}>/driver Squad strength</Text>{" "}
-                  to add a driver
-                </Text>
-              </View>
             </View>
           )}
+
+        {/* Hint for adding drivers */}
+        {activeForecast && (
+          <View style={styles.hintCard}>
+            <Text style={styles.hintText}>
+              Type{" "}
+              <Text style={styles.hintCommand}>/driver Squad strength</Text> to
+              add a driver
+            </Text>
+          </View>
+        )}
 
         {/* Forecast List */}
         {showForecastList && (
@@ -383,7 +448,13 @@ const styles = StyleSheet.create({
   },
   driverName: {
     fontSize: 15,
+    fontWeight: "500",
     color: "#ebdbb2",
+    marginBottom: 4,
+  },
+  driverDetails: {
+    fontSize: 12,
+    color: "#928374",
   },
   hintCard: {
     backgroundColor: "#3c3836",
