@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -7,582 +7,106 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  FlatList,
 } from "react-native";
 import { researchService } from "../services/researchService";
 
-interface Driver {
-  id: string;
-  name: string;
-  type: "binary" | "continuous";
-  probability?: number;
-  p5?: number;
-  p50?: number;
-  p95?: number;
-  distribution?: "normal" | "triangular" | "lognormal";
-  direction: "increases" | "decreases";
-  researchAgent?: string;
-  expanded: boolean;
-}
-
-interface Command {
-  key: string;
-  label: string;
-  description: string;
-}
-
-const COMMANDS: Command[] = [
-  { key: "driver", label: "/driver", description: "Add new driver" },
-  {
-    key: "simulate",
-    label: "/simulate",
-    description: "Run Monte Carlo simulation",
-  },
-  { key: "coach", label: "/coach", description: "Ask AI coach for help" },
-  { key: "research", label: "/research", description: "Assign research agent" },
-];
-
-const AGENTS = [
-  { id: "research_analyst", name: "Research Analyst" },
-  { id: "sports_analyst", name: "Sports Analyst" },
-  { id: "data_analyst", name: "Data Analyst" },
-  { id: "market_analyst", name: "Market Analyst" },
-];
-
 export default function ForecastWorkspaceScreen() {
   const [question, setQuestion] = useState("");
-  const [inputText, setInputText] = useState("");
-  const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [forecast, setForecast] = useState<any>(null);
-  const [probability, setProbability] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [showAgentPicker, setShowAgentPicker] = useState(false);
-  const [filteredCommands, setFilteredCommands] = useState<Command[]>([]);
-  const [filteredAgents, setFilteredAgents] = useState(typeof AGENTS);
-  const [selectedDriverForAgent, setSelectedDriverForAgent] = useState<
-    string | null
-  >(null);
-  const [coachSuggestion, setCoachSuggestion] = useState<string>("");
-  const inputRef = useRef<TextInput>(null);
+  const [parsedResult, setParsedResult] = useState<any>(null);
+  const [error, setError] = useState<string>("");
 
-  useEffect(() => {
-    // Detect / for commands
-    if (inputText.startsWith("/")) {
-      const query = inputText.slice(1).toLowerCase();
-      const filtered = COMMANDS.filter(
-        (cmd) =>
-          cmd.key.includes(query) ||
-          cmd.label.includes(query) ||
-          cmd.description.toLowerCase().includes(query),
-      );
-      setFilteredCommands(filtered);
-      setShowCommandPalette(true);
-      setShowAgentPicker(false);
+  const handleParse = async () => {
+    if (!question.trim()) {
+      setError("Please enter a question");
+      return;
     }
-    // Detect @ for agents
-    else if (inputText.startsWith("@")) {
-      const query = inputText.slice(1).toLowerCase();
-      const filtered = AGENTS.filter(
-        (agent) =>
-          agent.id.includes(query) || agent.name.toLowerCase().includes(query),
-      );
-      setFilteredAgents(filtered);
-      setShowAgentPicker(true);
-      setShowCommandPalette(false);
-    } else {
-      setShowCommandPalette(false);
-      setShowAgentPicker(false);
-    }
-  }, [inputText]);
-
-  const executeCommand = async (commandText: string) => {
-    const parts = commandText.trim().split(" ");
-    const command = parts[0].replace("/", "");
-    const args = parts.slice(1).join(" ");
-
-    setInputText("");
-    setShowCommandPalette(false);
-
-    switch (command) {
-      case "driver":
-        // Parse driver name from args
-        const driverName = args || "New driver";
-        const newDriver: Driver = {
-          id: Date.now().toString(),
-          name: driverName,
-          type: "continuous",
-          distribution: "triangular",
-          p5: 30,
-          p50: 50,
-          p95: 70,
-          direction: "increases",
-          expanded: false, // Start collapsed, let user expand to configure
-        };
-        setDrivers([...drivers, newDriver]);
-
-        // Get coach suggestion for this driver
-        getCoachSuggestion(driverName);
-        break;
-
-      case "simulate":
-        await runSimulation();
-        break;
-
-      case "research":
-        setShowAgentPicker(true);
-        break;
-    }
-  };
-
-  const getCoachSuggestion = async (driverName: string) => {
-    if (!forecast) return;
-
-    setCoachSuggestion("💭 Analyzing driver...");
-
-    try {
-      const response = await researchService.chatWithCoach(
-        `Suggest optimal parameters for this driver: "${driverName}" in the context of: "${question}"`,
-        {
-          forecastId: forecast.id,
-          stage: "quantify",
-        },
-      );
-
-      setCoachSuggestion(response.message || response.response || "");
-    } catch (err) {
-      setCoachSuggestion("");
-    }
-  };
-
-  const assignAgent = (agentId: string, driverId?: string) => {
-    setInputText("");
-    setShowAgentPicker(false);
-
-    if (driverId) {
-      setDrivers(
-        drivers.map((d) =>
-          d.id === driverId ? { ...d, researchAgent: agentId } : d,
-        ),
-      );
-    }
-  };
-
-  const runSimulation = async () => {
-    if (!forecast || drivers.length === 0) return;
 
     setLoading(true);
-    try {
-      const result = await researchService.simulate(forecast.id, 10000);
-      setProbability(result.forecast?.probability || result.probability);
-    } catch (err) {
-      console.error("Simulation error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setError("");
 
-  const toggleDriver = (driverId: string) => {
-    setDrivers(
-      drivers.map((d) =>
-        d.id === driverId ? { ...d, expanded: !d.expanded } : d,
-      ),
-    );
-  };
-
-  const updateDriver = (driverId: string, updates: Partial<Driver>) => {
-    setDrivers(
-      drivers.map((d) => (d.id === driverId ? { ...d, ...updates } : d)),
-    );
-  };
-
-  const parseQuestion = async () => {
-    if (!question.trim()) return;
-
-    setLoading(true);
     try {
       const result = await researchService.parseQuestion(question);
       const parsed = result.parsed || result;
-
-      // Create forecast
-      const forecastResult = await researchService.createForecast({
-        question: parsed.question || question,
-        domain: parsed.domain,
-        timeframe: parsed.timeframe,
-        resolutionCriteria: `Resolves YES if: ${parsed.question || question}`,
-      });
-
-      setForecast(forecastResult.forecast);
-
-      // Add suggested drivers
-      if (parsed.suggestedDrivers && parsed.suggestedDrivers.length > 0) {
-        const suggestedDrivers = parsed.suggestedDrivers.map(
-          (name: string, idx: number) => ({
-            id: `${Date.now()}-${idx}`,
-            name,
-            type: "continuous" as const,
-            distribution: "triangular" as const,
-            p5: 30,
-            p50: 50,
-            p95: 70,
-            direction: "increases" as const,
-            expanded: false,
-          }),
-        );
-        setDrivers(suggestedDrivers);
-      }
-    } catch (err) {
-      console.error("Parse error:", err);
+      setParsedResult(parsed);
+    } catch (err: any) {
+      setError(err.message || "Failed to parse question");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.workspace}>
-        {/* Question */}
-        <TextInput
-          style={styles.questionInput}
-          placeholder="What do you want to forecast?"
-          placeholderTextColor="#928374"
-          value={question}
-          onChangeText={setQuestion}
-          onSubmitEditing={parseQuestion}
-          multiline
-          editable={!loading && !forecast}
-        />
-
-        {forecast && (
-          <View style={styles.metadata}>
-            <Text style={styles.metadataText}>
-              {forecast.domain} · {forecast.timeframe}
-            </Text>
-          </View>
-        )}
-
-        {/* Drivers */}
-        {drivers.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Drivers</Text>
-
-            {drivers.map((driver) => (
-              <TouchableOpacity
-                key={driver.id}
-                style={styles.driverCard}
-                onPress={() => toggleDriver(driver.id)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.driverHeader}>
-                  <Text style={styles.driverName}>
-                    {driver.expanded ? "▾" : "▸"} {driver.name}
-                  </Text>
-                  {!driver.expanded && (
-                    <Text style={styles.driverSummary}>
-                      {driver.type === "binary"
-                        ? `P(${driver.probability}%)`
-                        : `P(${driver.p5}-${driver.p50}-${driver.p95})`}{" "}
-                      · {driver.distribution} · {driver.direction}
-                    </Text>
-                  )}
-                </View>
-
-                {driver.expanded && (
-                  <View style={styles.driverDetails}>
-                    <TextInput
-                      style={styles.driverNameInput}
-                      value={driver.name}
-                      onChangeText={(name) => updateDriver(driver.id, { name })}
-                      placeholder="Driver name"
-                      placeholderTextColor="#928374"
-                    />
-
-                    {/* Type selector */}
-                    <View style={styles.row}>
-                      <Text style={styles.label}>Type:</Text>
-                      <View style={styles.segmentedControl}>
-                        {["binary", "continuous"].map((type) => (
-                          <TouchableOpacity
-                            key={type}
-                            style={[
-                              styles.segment,
-                              driver.type === type && styles.segmentActive,
-                            ]}
-                            onPress={() =>
-                              updateDriver(driver.id, {
-                                type: type as "binary" | "continuous",
-                              })
-                            }
-                          >
-                            <Text
-                              style={[
-                                styles.segmentText,
-                                driver.type === type &&
-                                  styles.segmentTextActive,
-                              ]}
-                            >
-                              {type}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-
-                    {/* Distribution (for continuous) */}
-                    {driver.type === "continuous" && (
-                      <>
-                        <View style={styles.row}>
-                          <Text style={styles.label}>Distribution:</Text>
-                          <View style={styles.segmentedControl}>
-                            {["triangular", "normal", "lognormal"].map(
-                              (dist) => (
-                                <TouchableOpacity
-                                  key={dist}
-                                  style={[
-                                    styles.segment,
-                                    driver.distribution === dist &&
-                                      styles.segmentActive,
-                                  ]}
-                                  onPress={() =>
-                                    updateDriver(driver.id, {
-                                      distribution: dist as any,
-                                    })
-                                  }
-                                >
-                                  <Text
-                                    style={[
-                                      styles.segmentText,
-                                      driver.distribution === dist &&
-                                        styles.segmentTextActive,
-                                    ]}
-                                  >
-                                    {dist}
-                                  </Text>
-                                </TouchableOpacity>
-                              ),
-                            )}
-                          </View>
-                        </View>
-
-                        {/* P5, P50, P95 */}
-                        <View style={styles.probabilityInputs}>
-                          <View style={styles.probInput}>
-                            <Text style={styles.probLabel}>P5</Text>
-                            <TextInput
-                              style={styles.probValue}
-                              value={driver.p5?.toString()}
-                              onChangeText={(val) =>
-                                updateDriver(driver.id, {
-                                  p5: Number(val) || 0,
-                                })
-                              }
-                              keyboardType="numeric"
-                            />
-                          </View>
-                          <View style={styles.probInput}>
-                            <Text style={styles.probLabel}>P50</Text>
-                            <TextInput
-                              style={styles.probValue}
-                              value={driver.p50?.toString()}
-                              onChangeText={(val) =>
-                                updateDriver(driver.id, {
-                                  p50: Number(val) || 0,
-                                })
-                              }
-                              keyboardType="numeric"
-                            />
-                          </View>
-                          <View style={styles.probInput}>
-                            <Text style={styles.probLabel}>P95</Text>
-                            <TextInput
-                              style={styles.probValue}
-                              value={driver.p95?.toString()}
-                              onChangeText={(val) =>
-                                updateDriver(driver.id, {
-                                  p95: Number(val) || 0,
-                                })
-                              }
-                              keyboardType="numeric"
-                            />
-                          </View>
-                        </View>
-                      </>
-                    )}
-
-                    {/* Probability (for binary) */}
-                    {driver.type === "binary" && (
-                      <View style={styles.row}>
-                        <Text style={styles.label}>Probability:</Text>
-                        <TextInput
-                          style={styles.probabilityInput}
-                          value={driver.probability?.toString()}
-                          onChangeText={(val) =>
-                            updateDriver(driver.id, {
-                              probability: Number(val) || 0,
-                            })
-                          }
-                          keyboardType="numeric"
-                          placeholder="0-100"
-                          placeholderTextColor="#928374"
-                        />
-                        <Text style={styles.label}>%</Text>
-                      </View>
-                    )}
-
-                    {/* Direction */}
-                    <View style={styles.row}>
-                      <Text style={styles.label}>Direction:</Text>
-                      <View style={styles.segmentedControl}>
-                        {["increases", "decreases"].map((dir) => (
-                          <TouchableOpacity
-                            key={dir}
-                            style={[
-                              styles.segment,
-                              driver.direction === dir && styles.segmentActive,
-                            ]}
-                            onPress={() =>
-                              updateDriver(driver.id, {
-                                direction: dir as "increases" | "decreases",
-                              })
-                            }
-                          >
-                            <Text
-                              style={[
-                                styles.segmentText,
-                                driver.direction === dir &&
-                                  styles.segmentTextActive,
-                              ]}
-                            >
-                              {dir}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-
-                    {/* Research agent assignment */}
-                    {driver.researchAgent ? (
-                      <View style={styles.agentAssigned}>
-                        <Text style={styles.agentText}>
-                          @{driver.researchAgent}
-                        </Text>
-                        <TouchableOpacity
-                          onPress={() =>
-                            updateDriver(driver.id, {
-                              researchAgent: undefined,
-                            })
-                          }
-                        >
-                          <Text style={styles.removeAgent}>✕</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      <Text style={styles.noAgent}>
-                        Type @ to assign research agent
-                      </Text>
-                    )}
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* Probability Result */}
-        {probability !== null && (
-          <View style={styles.resultCard}>
-            <Text style={styles.resultLabel}>Probability</Text>
-            <Text style={styles.resultValue}>
-              {(probability * 100).toFixed(1)}%
-            </Text>
-            <Text style={styles.resultMeta}>
-              Based on {drivers.length} drivers, 10k iterations
-            </Text>
-          </View>
-        )}
-
-        {/* Command Input */}
-        <View style={styles.commandInputContainer}>
+        {/* Main Question Input */}
+        <View style={styles.questionSection}>
           <TextInput
-            ref={inputRef}
-            style={styles.commandInput}
-            placeholder="Type /driver Squad strength, @agent_name, or /simulate"
+            style={styles.questionInput}
+            placeholder="What do you want to forecast?"
             placeholderTextColor="#928374"
-            value={inputText}
-            onChangeText={setInputText}
-            onSubmitEditing={() => {
-              if (inputText.startsWith("/")) {
-                executeCommand(inputText);
-              } else if (inputText.startsWith("@")) {
-                const agentId = inputText.slice(1).trim();
-                if (selectedDriverForAgent) {
-                  assignAgent(agentId, selectedDriverForAgent);
-                }
-              }
-            }}
-            autoCapitalize="none"
-            returnKeyType="done"
+            value={question}
+            onChangeText={setQuestion}
+            multiline
+            autoFocus
           />
+
+          <TouchableOpacity
+            style={[styles.parseButton, loading && styles.parseButtonDisabled]}
+            onPress={handleParse}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#282828" />
+            ) : (
+              <Text style={styles.parseButtonText}>Parse Question</Text>
+            )}
+          </TouchableOpacity>
         </View>
 
-        {/* Coach Suggestion */}
-        {coachSuggestion && (
-          <View style={styles.coachCard}>
-            <Text style={styles.coachLabel}>💭 AI Coach</Text>
-            <Text style={styles.coachText}>{coachSuggestion}</Text>
+        {/* Error */}
+        {error && (
+          <View style={styles.errorCard}>
+            <Text style={styles.errorText}>{error}</Text>
           </View>
         )}
 
-        {/* Command Palette */}
-        {showCommandPalette && filteredCommands.length > 0 && (
-          <View style={styles.palette}>
-            {filteredCommands.map((cmd) => (
-              <TouchableOpacity
-                key={cmd.key}
-                style={styles.paletteItem}
-                onPress={() => {
-                  if (cmd.key === "driver") {
-                    // Keep the input so user can type driver name
-                    setShowCommandPalette(false);
-                    // Focus will remain in input
-                  } else {
-                    executeCommand(cmd.key);
-                  }
-                }}
-              >
-                <Text style={styles.paletteLabel}>{cmd.label}</Text>
-                <Text style={styles.paletteDesc}>{cmd.description}</Text>
-              </TouchableOpacity>
-            ))}
-            {inputText.length > 1 && (
-              <View style={styles.paletteHint}>
-                <Text style={styles.paletteHintText}>
-                  Press Enter to execute: {inputText}
+        {/* Parsed Result */}
+        {parsedResult && (
+          <View style={styles.resultSection}>
+            <View style={styles.resultHeader}>
+              <Text style={styles.resultQuestion}>{parsedResult.question}</Text>
+              {parsedResult.domain && (
+                <Text style={styles.metadata}>
+                  {parsedResult.domain} · {parsedResult.timeframe} ·{" "}
+                  {Math.round(parsedResult.confidence * 100)}% confidence
                 </Text>
-              </View>
-            )}
-          </View>
-        )}
+              )}
+            </View>
 
-        {/* Agent Picker */}
-        {showAgentPicker && (
-          <View style={styles.palette}>
-            {filteredAgents.map((agent) => (
-              <TouchableOpacity
-                key={agent.id}
-                style={styles.paletteItem}
-                onPress={() => assignAgent(agent.id)}
-              >
-                <Text style={styles.paletteLabel}>@{agent.id}</Text>
-                <Text style={styles.paletteDesc}>{agent.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+            {/* Suggested Drivers */}
+            {parsedResult.suggestedDrivers &&
+              parsedResult.suggestedDrivers.length > 0 && (
+                <View style={styles.driversSection}>
+                  <Text style={styles.sectionLabel}>Suggested Drivers</Text>
+                  {parsedResult.suggestedDrivers.map(
+                    (driver: string, idx: number) => (
+                      <View key={idx} style={styles.driverCard}>
+                        <Text style={styles.driverName}>{driver}</Text>
+                      </View>
+                    ),
+                  )}
+                </View>
+              )}
 
-        {loading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#fabd2f" />
+            {/* Next Steps Hint */}
+            <View style={styles.hintCard}>
+              <Text style={styles.hintText}>
+                Next: Type{" "}
+                <Text style={styles.hintCommand}>/driver Driver name</Text> to
+                add a driver
+              </Text>
+            </View>
           </View>
         )}
       </View>
@@ -597,23 +121,61 @@ const styles = StyleSheet.create({
   },
   workspace: {
     padding: 20,
+    paddingTop: 60, // Extra space at top
+  },
+  questionSection: {
+    marginBottom: 32,
   },
   questionInput: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "400",
     color: "#ebdbb2",
-    marginBottom: 12,
-    minHeight: 60,
+    marginBottom: 20,
+    minHeight: 100,
     textAlignVertical: "top",
+    lineHeight: 38,
   },
-  metadata: {
+  parseButton: {
+    backgroundColor: "#fabd2f",
+    padding: 18,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  parseButtonDisabled: {
+    backgroundColor: "#504945",
+  },
+  parseButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#282828",
+  },
+  errorCard: {
+    backgroundColor: "#cc241d",
+    padding: 16,
+    borderRadius: 8,
     marginBottom: 24,
   },
-  metadataText: {
+  errorText: {
+    fontSize: 14,
+    color: "#ebdbb2",
+  },
+  resultSection: {
+    marginTop: 24,
+  },
+  resultHeader: {
+    marginBottom: 24,
+  },
+  resultQuestion: {
+    fontSize: 24,
+    fontWeight: "500",
+    color: "#ebdbb2",
+    marginBottom: 8,
+  },
+  metadata: {
     fontSize: 13,
     color: "#928374",
   },
-  section: {
+  driversSection: {
     marginBottom: 24,
   },
   sectionLabel: {
@@ -626,236 +188,29 @@ const styles = StyleSheet.create({
   },
   driverCard: {
     backgroundColor: "#3c3836",
-    borderRadius: 8,
     padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#504945",
-  },
-  driverHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    borderRadius: 8,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#458588",
   },
   driverName: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#ebdbb2",
-    flex: 1,
-  },
-  driverSummary: {
-    fontSize: 12,
-    color: "#928374",
-  },
-  driverDetails: {
-    marginTop: 16,
-    gap: 12,
-  },
-  driverNameInput: {
-    fontSize: 16,
-    color: "#ebdbb2",
-    borderBottomWidth: 1,
-    borderBottomColor: "#504945",
-    paddingBottom: 8,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  label: {
-    fontSize: 13,
-    color: "#d5c4a1",
-    minWidth: 80,
-  },
-  segmentedControl: {
-    flexDirection: "row",
-    flex: 1,
-    borderRadius: 6,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#504945",
-  },
-  segment: {
-    flex: 1,
-    padding: 8,
-    alignItems: "center",
-    backgroundColor: "#282828",
-  },
-  segmentActive: {
-    backgroundColor: "#458588",
-  },
-  segmentText: {
-    fontSize: 12,
-    color: "#928374",
-  },
-  segmentTextActive: {
-    color: "#ebdbb2",
-    fontWeight: "600",
-  },
-  probabilityInputs: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  probInput: {
-    flex: 1,
-  },
-  probLabel: {
-    fontSize: 11,
-    color: "#928374",
-    marginBottom: 4,
-  },
-  probValue: {
-    backgroundColor: "#282828",
-    borderWidth: 1,
-    borderColor: "#504945",
-    borderRadius: 6,
-    padding: 8,
-    color: "#ebdbb2",
-    textAlign: "center",
-  },
-  probabilityInput: {
-    flex: 1,
-    backgroundColor: "#282828",
-    borderWidth: 1,
-    borderColor: "#504945",
-    borderRadius: 6,
-    padding: 8,
-    color: "#ebdbb2",
-  },
-  agentAssigned: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#282828",
-    borderWidth: 1,
-    borderColor: "#458588",
-    borderRadius: 6,
-    padding: 8,
-  },
-  agentText: {
-    fontSize: 13,
-    color: "#83a598",
-  },
-  removeAgent: {
-    fontSize: 16,
-    color: "#928374",
-  },
-  noAgent: {
-    fontSize: 12,
-    color: "#665c54",
-    fontStyle: "italic",
-  },
-  resultCard: {
-    backgroundColor: "#3c3836",
-    borderRadius: 8,
-    padding: 24,
-    alignItems: "center",
-    marginBottom: 24,
-    borderWidth: 2,
-    borderColor: "#d79921",
-  },
-  resultLabel: {
-    fontSize: 13,
-    color: "#d5c4a1",
-    marginBottom: 8,
-  },
-  resultValue: {
-    fontSize: 48,
-    fontWeight: "bold",
-    color: "#fabd2f",
-  },
-  resultMeta: {
-    fontSize: 11,
-    color: "#928374",
-    marginTop: 8,
-  },
-  commandInputContainer: {
-    marginTop: 24,
-  },
-  commandInput: {
-    backgroundColor: "#3c3836",
-    borderWidth: 1,
-    borderColor: "#504945",
-    borderRadius: 8,
-    padding: 16,
     fontSize: 15,
     color: "#ebdbb2",
   },
-  palette: {
+  hintCard: {
     backgroundColor: "#3c3836",
+    padding: 16,
     borderRadius: 8,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: "#504945",
-    maxHeight: 200,
-  },
-  paletteItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#504945",
-  },
-  paletteLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#ebdbb2",
-    marginBottom: 2,
-  },
-  paletteDesc: {
-    fontSize: 12,
-    color: "#928374",
-  },
-  loadingOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(40, 40, 40, 0.8)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  coachCard: {
-    backgroundColor: "#3c3836",
     borderLeftWidth: 3,
     borderLeftColor: "#b8bb26",
-    borderRadius: 8,
-    padding: 16,
-    marginTop: 12,
   },
-  coachLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#b8bb26",
-    marginBottom: 8,
-  },
-  coachText: {
-    fontSize: 14,
-    color: "#d5c4a1",
-    lineHeight: 20,
-  },
-  paletteHint: {
-    padding: 12,
-    backgroundColor: "#282828",
-    borderTopWidth: 1,
-    borderTopColor: "#504945",
-  },
-  paletteHintText: {
-    fontSize: 11,
-    color: "#928374",
-    fontStyle: "italic",
-  },
-  assignAgentButton: {
-    backgroundColor: "#282828",
-    borderWidth: 1,
-    borderColor: "#504945",
-    borderStyle: "dashed",
-    borderRadius: 6,
-    padding: 12,
-    alignItems: "center",
-  },
-  assignAgentText: {
+  hintText: {
     fontSize: 13,
-    color: "#83a598",
+    color: "#d5c4a1",
+  },
+  hintCommand: {
+    fontWeight: "600",
+    color: "#fabd2f",
   },
 });

@@ -43,7 +43,13 @@ export default function App() {
           },
           headerShadowVisible: true,
         }}
+        initialRouteName="ForecastWorkspace"
       >
+        <Stack.Screen
+          name="ForecastWorkspace"
+          component={ForecastWorkspaceScreen}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen
           name="Home"
           component={HomeScreen}
@@ -83,11 +89,6 @@ export default function App() {
           name="ForecastInput"
           component={ForecastInputScreen}
           options={{ title: "Universal Forecasting" }}
-        />
-        <Stack.Screen
-          name="ForecastWorkspace"
-          component={ForecastWorkspaceScreen}
-          options={{ title: "Forecast", headerShown: false }}
         />
       </Stack.Navigator>
     </NavigationContainer>
