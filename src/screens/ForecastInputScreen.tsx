@@ -16,6 +16,8 @@ export default function ForecastInputScreen() {
   const [parsedResult, setParsedResult] = useState<any>(null);
   const [forecast, setForecast] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [customDriverName, setCustomDriverName] = useState("");
+  const [showCustomDriver, setShowCustomDriver] = useState(false);
 
   const handleParse = async () => {
     if (!userInput.trim()) {
@@ -59,28 +61,51 @@ export default function ForecastInputScreen() {
     }
   };
 
-  const handleAddDriver = async (suggestedDriver: string) => {
-    if (!forecast) return;
+  const handleAddDriver = async (
+    driverName: string,
+    isCustom: boolean = false,
+  ) => {
+    if (!forecast || !forecast.id) {
+      setError("No forecast created yet");
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
       await researchService.addDriver(forecast.id, {
-        name: suggestedDriver,
-        description: `Driver suggested by AI: ${suggestedDriver}`,
+        name: driverName,
+        description: isCustom
+          ? `Custom driver: ${driverName}`
+          : `Driver suggested by AI: ${driverName}`,
         direction: "increases",
         magnitude: "medium",
       });
 
       // Refresh forecast
       const updatedForecast = await researchService.getForecast(forecast.id);
-      setForecast(updatedForecast.forecast);
+      setForecast(updatedForecast.forecast || updatedForecast);
+
+      // Clear custom driver input
+      if (isCustom) {
+        setCustomDriverName("");
+        setShowCustomDriver(false);
+      }
     } catch (err: any) {
       setError(err.message || "Failed to add driver");
+      console.error("Add driver error:", err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAddCustomDriver = () => {
+    if (!customDriverName.trim()) {
+      setError("Please enter a driver name");
+      return;
+    }
+    handleAddDriver(customDriverName, true);
   };
 
   const handleSimulate = async () => {
@@ -214,24 +239,73 @@ export default function ForecastInputScreen() {
               </View>
             )}
 
-            {parsedResult?.suggestedDrivers &&
-              parsedResult.suggestedDrivers.length > 0 && (
-                <View style={styles.suggestedDriversContainer}>
-                  <Text style={styles.resultLabel}>Add Suggested Drivers:</Text>
-                  {parsedResult.suggestedDrivers.map(
-                    (driver: string, index: number) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={styles.driverButton}
-                        onPress={() => handleAddDriver(driver)}
-                        disabled={loading}
-                      >
-                        <Text style={styles.driverButtonText}>+ {driver}</Text>
-                      </TouchableOpacity>
-                    ),
-                  )}
+            <View style={styles.suggestedDriversContainer}>
+              <Text style={styles.resultLabel}>Add Drivers:</Text>
+
+              {parsedResult?.suggestedDrivers &&
+                parsedResult.suggestedDrivers.length > 0 && (
+                  <>
+                    <Text style={styles.sectionSubtitle}>Suggested:</Text>
+                    {parsedResult.suggestedDrivers.map(
+                      (driver: string, index: number) => (
+                        <TouchableOpacity
+                          key={index}
+                          style={styles.driverButton}
+                          onPress={() => handleAddDriver(driver, false)}
+                          disabled={loading}
+                        >
+                          <Text style={styles.driverButtonText}>
+                            + {driver}
+                          </Text>
+                        </TouchableOpacity>
+                      ),
+                    )}
+                  </>
+                )}
+
+              {!showCustomDriver ? (
+                <TouchableOpacity
+                  style={styles.addCustomButton}
+                  onPress={() => setShowCustomDriver(true)}
+                  disabled={loading}
+                >
+                  <Text style={styles.addCustomButtonText}>
+                    + Add Custom Driver
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.customDriverContainer}>
+                  <Text style={styles.sectionSubtitle}>Custom Driver:</Text>
+                  <TextInput
+                    style={styles.customDriverInput}
+                    placeholder="Enter driver name..."
+                    placeholderTextColor="#928374"
+                    value={customDriverName}
+                    onChangeText={setCustomDriverName}
+                    editable={!loading}
+                  />
+                  <View style={styles.customDriverButtons}>
+                    <TouchableOpacity
+                      style={styles.customDriverAddButton}
+                      onPress={handleAddCustomDriver}
+                      disabled={loading}
+                    >
+                      <Text style={styles.buttonText}>Add</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.customDriverCancelButton}
+                      onPress={() => {
+                        setShowCustomDriver(false);
+                        setCustomDriverName("");
+                      }}
+                      disabled={loading}
+                    >
+                      <Text style={styles.buttonText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
+            </View>
 
             {forecast.probability !== null &&
               forecast.probability !== undefined && (
@@ -414,5 +488,68 @@ const styles = StyleSheet.create({
     color: "#bdae93", // gruvbox fg3
     textAlign: "center",
     marginTop: 8,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#bdae93", // gruvbox fg3
+    marginTop: 12,
+    marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  addCustomButton: {
+    backgroundColor: "#3c3836", // gruvbox bg1
+    padding: 12,
+    borderRadius: 6,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "#665c54", // gruvbox bg3
+    borderStyle: "dashed",
+  },
+  addCustomButtonText: {
+    color: "#fabd2f", // gruvbox bright yellow
+    fontSize: 14,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  customDriverContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: "#504945", // gruvbox bg2
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#665c54", // gruvbox bg3
+  },
+  customDriverInput: {
+    backgroundColor: "#3c3836", // gruvbox bg1
+    borderWidth: 1,
+    borderColor: "#665c54", // gruvbox bg3
+    borderRadius: 6,
+    padding: 12,
+    fontSize: 14,
+    color: "#ebdbb2", // gruvbox fg
+    marginTop: 8,
+  },
+  customDriverButtons: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+  },
+  customDriverAddButton: {
+    flex: 1,
+    backgroundColor: "#98971a", // gruvbox green
+    padding: 12,
+    borderRadius: 6,
+    alignItems: "center",
+  },
+  customDriverCancelButton: {
+    flex: 1,
+    backgroundColor: "#504945", // gruvbox bg2
+    padding: 12,
+    borderRadius: 6,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#665c54", // gruvbox bg3
   },
 });
