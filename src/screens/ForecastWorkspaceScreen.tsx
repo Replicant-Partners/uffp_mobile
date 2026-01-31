@@ -427,6 +427,50 @@ export default function ForecastWorkspaceScreen() {
       }
 
       const query = commandInput.toLowerCase();
+
+      // Autocomplete for specific command values
+      if (query.startsWith("/type ")) {
+        return [
+          {
+            key: "continuous",
+            label: "/type continuous",
+            desc: "Continuous driver",
+          },
+          { key: "binary", label: "/type binary", desc: "Binary driver" },
+        ].filter((h) => h.label.includes(query));
+      }
+
+      if (query.startsWith("/dist ")) {
+        return [
+          {
+            key: "triangular",
+            label: "/dist triangular",
+            desc: "Triangular distribution",
+          },
+          { key: "normal", label: "/dist normal", desc: "Normal distribution" },
+          {
+            key: "lognormal",
+            label: "/dist lognormal",
+            desc: "Log-normal distribution",
+          },
+        ].filter((h) => h.label.includes(query));
+      }
+
+      if (query.startsWith("/direction ")) {
+        return [
+          {
+            key: "increases",
+            label: "/direction increases",
+            desc: "Increases probability",
+          },
+          {
+            key: "decreases",
+            label: "/direction decreases",
+            desc: "Decreases probability",
+          },
+        ].filter((h) => h.label.includes(query));
+      }
+
       return configHints.filter(
         (h) => h.label.includes(query) || h.desc.toLowerCase().includes(query),
       );
@@ -440,6 +484,28 @@ export default function ForecastWorkspaceScreen() {
     }
 
     const query = commandInput.toLowerCase();
+
+    // Autocomplete for /grounding values
+    if (query.startsWith("/grounding ")) {
+      return [
+        {
+          key: "external",
+          label: "/grounding external",
+          desc: "External data grounding",
+        },
+        {
+          key: "premortem",
+          label: "/grounding premortem",
+          desc: "Premortem analysis",
+        },
+        {
+          key: "analysis",
+          label: "/grounding analysis",
+          desc: "Analytical reasoning",
+        },
+      ].filter((h) => h.label.includes(query));
+    }
+
     const hints = [
       { key: "question", label: "/question", desc: "Start a new forecast" },
       { key: "list", label: "/list", desc: "View all forecasts" },
@@ -610,8 +676,9 @@ export default function ForecastWorkspaceScreen() {
             </View>
           )}
 
-        {/* Hint for adding drivers */}
+        {/* Hint for adding drivers - only when NOT configuring */}
         {activeForecast &&
+          !driverBeingConfigured &&
           parsedResult &&
           parsedResult.suggestedDrivers &&
           parsedResult.suggestedDrivers.length > 0 &&
@@ -627,14 +694,14 @@ export default function ForecastWorkspaceScreen() {
             </View>
           )}
         {activeForecast &&
+          !driverBeingConfigured &&
           (!parsedResult ||
             !parsedResult.suggestedDrivers ||
             parsedResult.suggestedDrivers.length === 0 ||
             activeForecast.drivers.length > 0) && (
             <View style={styles.hintCard}>
               <Text style={styles.hintText}>
-                Type{" "}
-                <Text style={styles.hintCommand}>/driver Squad strength</Text>{" "}
+                Type <Text style={styles.hintCommand}>/driver Your driver</Text>{" "}
                 to add a driver
               </Text>
             </View>
