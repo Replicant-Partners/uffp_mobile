@@ -141,7 +141,7 @@ class ResearchService {
 
   async getForecast(forecastId: string): Promise<any> {
     const response = await this.makeRequest(
-      `/forecasts?action=get&forecastId=${forecastId}`,
+      `/forecasts?action=get&id=${forecastId}`,
     );
     return response.json();
   }
