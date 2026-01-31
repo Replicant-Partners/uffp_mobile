@@ -92,6 +92,38 @@ export default function ForecastWorkspaceScreen() {
     }
   }, [commandInput]);
 
+  const addDriverByIndex = async (index: number) => {
+    if (!activeForecast || !parsedResult || !parsedResult.suggestedDrivers) {
+      return;
+    }
+
+    const suggestedDriver = parsedResult.suggestedDrivers[index];
+    if (!suggestedDriver) return;
+
+    const newDriver = {
+      id: Date.now().toString(),
+      name: suggestedDriver,
+      type: "continuous",
+      distribution: "triangular",
+      p5: 30,
+      p50: 50,
+      p95: 70,
+      direction: "increases",
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedForecast = {
+      ...activeForecast,
+      drivers: [...activeForecast.drivers, newDriver],
+      updatedAt: new Date().toISOString(),
+    };
+
+    setActiveForecast(updatedForecast);
+    await saveForecast(updatedForecast);
+    setCommandInput("");
+    setError("");
+  };
+
   const handleCommandSubmit = async () => {
     const trimmed = commandInput.trim();
 
@@ -99,6 +131,13 @@ export default function ForecastWorkspaceScreen() {
     if (trimmed === "/list") {
       setShowForecastList(!showForecastList);
       setCommandInput("");
+      return;
+    }
+
+    // Handle numbered driver selection (e.g., "1", "2", "3")
+    if (/^\d+$/.test(trimmed)) {
+      const index = parseInt(trimmed, 10) - 1; // Convert to 0-indexed
+      await addDriverByIndex(index);
       return;
     }
 
@@ -262,29 +301,54 @@ export default function ForecastWorkspaceScreen() {
         {parsedResult &&
           parsedResult.suggestedDrivers &&
           parsedResult.suggestedDrivers.length > 0 &&
-          (!activeForecast || activeForecast.drivers.length === 0) && (
+          activeForecast &&
+          activeForecast.drivers.length === 0 && (
             <View style={styles.driversSection}>
               <Text style={styles.sectionLabel}>Suggested Drivers</Text>
               {parsedResult.suggestedDrivers.map(
                 (driver: string, idx: number) => (
-                  <View key={idx} style={styles.driverCard}>
+                  <TouchableOpacity
+                    key={idx}
+                    style={styles.suggestedDriverCard}
+                    onPress={() => addDriverByIndex(idx)}
+                  >
+                    <Text style={styles.driverNumber}>{idx + 1}</Text>
                     <Text style={styles.driverName}>{driver}</Text>
-                  </View>
+                  </TouchableOpacity>
                 ),
               )}
             </View>
           )}
 
         {/* Hint for adding drivers */}
-        {activeForecast && (
-          <View style={styles.hintCard}>
-            <Text style={styles.hintText}>
-              Type{" "}
-              <Text style={styles.hintCommand}>/driver Squad strength</Text> to
-              add a driver
-            </Text>
-          </View>
-        )}
+        {activeForecast &&
+          parsedResult &&
+          parsedResult.suggestedDrivers &&
+          parsedResult.suggestedDrivers.length > 0 &&
+          activeForecast.drivers.length === 0 && (
+            <View style={styles.hintCard}>
+              <Text style={styles.hintText}>
+                Type <Text style={styles.hintCommand}>1</Text>,{" "}
+                <Text style={styles.hintCommand}>2</Text>, etc. to add a
+                suggested driver, or{" "}
+                <Text style={styles.hintCommand}>/driver Your driver</Text> for
+                custom
+              </Text>
+            </View>
+          )}
+        {activeForecast &&
+          (!parsedResult ||
+            !parsedResult.suggestedDrivers ||
+            parsedResult.suggestedDrivers.length === 0 ||
+            activeForecast.drivers.length > 0) && (
+            <View style={styles.hintCard}>
+              <Text style={styles.hintText}>
+                Type{" "}
+                <Text style={styles.hintCommand}>/driver Squad strength</Text>{" "}
+                to add a driver
+              </Text>
+            </View>
+          )}
 
         {/* Forecast List */}
         {showForecastList && (
@@ -446,11 +510,29 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: "#458588",
   },
+  suggestedDriverCard: {
+    backgroundColor: "#3c3836",
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#fabd2f",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  driverNumber: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#fabd2f",
+    minWidth: 24,
+  },
   driverName: {
     fontSize: 15,
     fontWeight: "500",
     color: "#ebdbb2",
     marginBottom: 4,
+    flex: 1,
   },
   driverDetails: {
     fontSize: 12,
