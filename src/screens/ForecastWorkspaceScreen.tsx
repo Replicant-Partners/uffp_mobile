@@ -30,7 +30,7 @@ interface SavedForecast {
 }
 
 const STORAGE_KEY = "@uffp_forecasts";
-const VERSION = "3.0.0"; // Update this to force cache bust
+const VERSION = "3.0.1"; // Update this to force cache bust
 
 export default function ForecastWorkspaceScreen() {
   const [commandInput, setCommandInput] = useState("");
@@ -1182,6 +1182,8 @@ export default function ForecastWorkspaceScreen() {
     const hints = [
       { key: "question", label: "/question", desc: "Start a new forecast" },
       { key: "list", label: "/list", desc: "View all forecasts" },
+      { key: "resolved", label: "/resolved", desc: "Your resolved forecasts" },
+      { key: "leaderboard", label: "/leaderboard", desc: "Global rankings" },
     ];
 
     // Only show driver and simulate commands if there's an active forecast
