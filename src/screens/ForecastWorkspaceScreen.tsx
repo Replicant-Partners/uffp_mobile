@@ -424,7 +424,14 @@ export default function ForecastWorkspaceScreen() {
 
       try {
         const result = await researchService.parseQuestion(question);
+        console.log("Parse result:", result);
         const parsed = result.parsed || result;
+
+        // Ensure suggestedDrivers exists
+        if (!parsed.suggestedDrivers) {
+          console.warn("No suggestedDrivers in parse result");
+        }
+
         setParsedResult(parsed);
 
         setProcessingAction("Saving forecast...");
@@ -444,6 +451,7 @@ export default function ForecastWorkspaceScreen() {
         setActiveForecast(newForecast);
         await saveForecast(newForecast);
       } catch (err: any) {
+        console.error("Parse error:", err);
         setError(err.message || "Failed to parse question");
       } finally {
         setLoading(false);
