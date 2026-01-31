@@ -140,6 +140,7 @@ export default function ForecastWorkspaceScreen() {
       p50: 50,
       p95: 70,
       direction: "increases",
+      agents: [] as string[],
       createdAt: new Date().toISOString(),
     };
 
@@ -191,6 +192,26 @@ export default function ForecastWorkspaceScreen() {
   const handleCommandSubmit = async () => {
     const trimmed = commandInput.trim();
 
+    // Split by forward slash to handle multi-commands
+    const commands = trimmed
+      .split("/")
+      .map((c) => c.trim())
+      .filter((c) => c.length > 0);
+
+    // If multiple commands, process them sequentially
+    if (commands.length > 1) {
+      for (const cmd of commands) {
+        await processSingleCommand("/" + cmd);
+      }
+      setCommandInput("");
+      return;
+    }
+
+    // Single command - process normally
+    await processSingleCommand(trimmed);
+  };
+
+  const processSingleCommand = async (trimmed: string) => {
     // Handle driver configuration commands
     if (driverBeingConfigured) {
       // /type <continuous|binary>
@@ -281,6 +302,26 @@ export default function ForecastWorkspaceScreen() {
           setCommandInput("");
         } else {
           setError("Direction must be 'increases' or 'decreases'");
+        }
+        return;
+      }
+
+      // Handle @agent mentions
+      if (trimmed.startsWith("@")) {
+        const agentName = trimmed.substring(1).trim();
+        if (agentName) {
+          const currentAgents = driverBeingConfigured.agents || [];
+          // Toggle agent - add if not present, remove if present
+          const agentIndex = currentAgents.indexOf(agentName);
+          const updatedAgents =
+            agentIndex >= 0
+              ? currentAgents.filter((_, i) => i !== agentIndex)
+              : [...currentAgents, agentName];
+          setDriverBeingConfigured({
+            ...driverBeingConfigured,
+            agents: updatedAgents,
+          });
+          setCommandInput("");
         }
         return;
       }
@@ -764,8 +805,18 @@ export default function ForecastWorkspaceScreen() {
                   ` P(${driverBeingConfigured.probability || 50}%)`}{" "}
                 · {driverBeingConfigured.direction}
               </Text>
+              {driverBeingConfigured.agents &&
+                driverBeingConfigured.agents.length > 0 && (
+                  <Text style={styles.agentsList}>
+                    Agents:{" "}
+                    {driverBeingConfigured.agents
+                      .map((a) => `@${a}`)
+                      .join(", ")}
+                  </Text>
+                )}
               <Text style={styles.configHint}>
-                Use /type, /dist, /p, /direction to configure, then /save
+                Use /type, /dist, /p, /direction, @agent to configure, then
+                /save
               </Text>
             </View>
           </View>
@@ -1079,6 +1130,11 @@ const styles = StyleSheet.create({
     color: "#928374",
     marginTop: 8,
     fontStyle: "italic",
+  },
+  agentsList: {
+    fontSize: 12,
+    color: "#b8bb26",
+    marginTop: 6,
   },
   sectionLabel: {
     fontSize: 11,
