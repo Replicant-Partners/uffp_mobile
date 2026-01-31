@@ -30,7 +30,7 @@ interface SavedForecast {
 }
 
 const STORAGE_KEY = "@uffp_forecasts";
-const VERSION = "2.3.3"; // Update this to force cache bust
+const VERSION = "2.4.0"; // Update this to force cache bust
 
 export default function ForecastWorkspaceScreen() {
   const [commandInput, setCommandInput] = useState("");
@@ -1489,6 +1489,54 @@ export default function ForecastWorkspaceScreen() {
                 </Text>
               )}
             </View>
+
+            {/* Performance Summary */}
+            {(() => {
+              const resolved = savedForecasts.filter((f) => f.resolved);
+              if (resolved.length === 0) return null;
+
+              const avgBrier =
+                resolved.reduce((sum, f) => sum + (f.brierScore || 0), 0) /
+                resolved.length;
+              const excellent = resolved.filter(
+                (f) => f.brierScore! < 0.1,
+              ).length;
+              const good = resolved.filter(
+                (f) => f.brierScore! >= 0.1 && f.brierScore! < 0.25,
+              ).length;
+              const poor = resolved.filter((f) => f.brierScore! >= 0.25).length;
+
+              let emoji = "🎯";
+              let grade = "Excellent";
+              let color = "#b8bb26";
+
+              if (avgBrier >= 0.25) {
+                emoji = "📈";
+                grade = "Learning";
+                color = "#fb4934";
+              } else if (avgBrier >= 0.1) {
+                emoji = "🎲";
+                grade = "Good";
+                color = "#fabd2f";
+              }
+
+              return (
+                <View style={styles.performanceSummary}>
+                  <Text style={[styles.performanceEmoji, { color }]}>
+                    {emoji}
+                  </Text>
+                  <View style={styles.performanceStats}>
+                    <Text style={[styles.performanceGrade, { color }]}>
+                      {grade} Forecaster
+                    </Text>
+                    <Text style={styles.performanceDetail}>
+                      Avg Brier: {avgBrier.toFixed(3)} • {excellent} excellent •{" "}
+                      {good} good • {poor} need work
+                    </Text>
+                  </View>
+                </View>
+              );
+            })()}
             {savedForecasts.length === 0 ? (
               <Text style={styles.emptyListText}>
                 No forecasts yet. Type /question to create one.
@@ -2018,6 +2066,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#b8bb26",
     fontWeight: "600",
+  },
+  performanceSummary: {
+    backgroundColor: "#3c3836",
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    borderLeftWidth: 4,
+    borderLeftColor: "#fabd2f",
+  },
+  performanceEmoji: {
+    fontSize: 32,
+    marginRight: 16,
+  },
+  performanceStats: {
+    flex: 1,
+  },
+  performanceGrade: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  performanceDetail: {
+    fontSize: 12,
+    color: "#928374",
   },
   emptyListText: {
     fontSize: 14,
