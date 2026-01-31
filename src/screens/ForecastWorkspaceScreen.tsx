@@ -9,12 +9,31 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  AsyncStorage,
 } from "react-native";
 import { researchService } from "../services/researchService";
+
+interface SavedForecast {
+  id: string;
+  question: string;
+  domain?: string;
+  timeframe?: string;
+  probability?: number;
+  drivers: any[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+const STORAGE_KEY = "@uffp_forecasts";
 
 export default function ForecastWorkspaceScreen() {
   const [commandInput, setCommandInput] = useState("");
   const [activeQuestion, setActiveQuestion] = useState("");
+  const [activeForecast, setActiveForecast] = useState<SavedForecast | null>(
+    null,
+  );
+  const [savedForecasts, setSavedForecasts] = useState<SavedForecast[]>([]);
+  const [showForecastList, setShowForecastList] = useState(false);
   const [loading, setLoading] = useState(false);
   const [parsedResult, setParsedResult] = useState<any>(null);
   const [error, setError] = useState<string>("");
@@ -22,9 +41,47 @@ export default function ForecastWorkspaceScreen() {
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
+    // Load saved forecasts
+    loadForecasts();
     // Focus input on mount
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
+
+  const loadForecasts = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const forecasts = JSON.parse(stored);
+        setSavedForecasts(forecasts);
+      }
+    } catch (err) {
+      console.error("Failed to load forecasts:", err);
+    }
+  };
+
+  const saveForecast = async (forecast: SavedForecast) => {
+    try {
+      const updated = savedForecasts.filter((f) => f.id !== forecast.id);
+      updated.unshift(forecast); // Add to beginning
+      setSavedForecasts(updated);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (err) {
+      console.error("Failed to save forecast:", err);
+    }
+  };
+
+  const loadForecast = (forecast: SavedForecast) => {
+    setActiveForecast(forecast);
+    setActiveQuestion(forecast.question);
+    setParsedResult({
+      question: forecast.question,
+      domain: forecast.domain,
+      timeframe: forecast.timeframe,
+      suggestedDrivers: [],
+    });
+    setShowForecastList(false);
+    setCommandInput("");
+  };
 
   useEffect(() => {
     // Show/hide command hints based on input
@@ -38,6 +95,13 @@ export default function ForecastWorkspaceScreen() {
   const handleCommandSubmit = async () => {
     const trimmed = commandInput.trim();
 
+    // Handle /list command
+    if (trimmed === "/list") {
+      setShowForecastList(!showForecastList);
+      setCommandInput("");
+      return;
+    }
+
     // Handle /question command
     if (trimmed.startsWith("/question ")) {
       const question = trimmed.replace("/question ", "").trim();
@@ -47,11 +111,26 @@ export default function ForecastWorkspaceScreen() {
       setCommandInput("");
       setLoading(true);
       setError("");
+      setShowForecastList(false);
 
       try {
         const result = await researchService.parseQuestion(question);
         const parsed = result.parsed || result;
         setParsedResult(parsed);
+
+        // Create and save forecast
+        const newForecast: SavedForecast = {
+          id: Date.now().toString(),
+          question: parsed.question || question,
+          domain: parsed.domain,
+          timeframe: parsed.timeframe,
+          drivers: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        setActiveForecast(newForecast);
+        await saveForecast(newForecast);
       } catch (err: any) {
         setError(err.message || "Failed to parse question");
       } finally {
@@ -142,12 +221,48 @@ export default function ForecastWorkspaceScreen() {
             </View>
           )}
 
+        {/* Forecast List */}
+        {showForecastList && (
+          <View style={styles.forecastList}>
+            <Text style={styles.listTitle}>Your Forecasts</Text>
+            {savedForecasts.length === 0 ? (
+              <Text style={styles.emptyListText}>
+                No forecasts yet. Type /question to create one.
+              </Text>
+            ) : (
+              savedForecasts.map((forecast) => (
+                <TouchableOpacity
+                  key={forecast.id}
+                  style={styles.forecastItem}
+                  onPress={() => loadForecast(forecast)}
+                >
+                  <Text style={styles.forecastQuestion}>
+                    {forecast.question}
+                  </Text>
+                  {forecast.domain && (
+                    <Text style={styles.forecastMeta}>
+                      {forecast.domain}
+                      {forecast.timeframe && ` · ${forecast.timeframe}`}
+                      {forecast.probability != null &&
+                        ` · ${(forecast.probability * 100).toFixed(0)}%`}
+                    </Text>
+                  )}
+                  <Text style={styles.forecastDate}>
+                    {new Date(forecast.updatedAt).toLocaleDateString()}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        )}
+
         {/* Empty State */}
-        {!activeQuestion && !loading && (
+        {!activeQuestion && !loading && !showForecastList && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>Universal Forecasting</Text>
             <Text style={styles.emptySubtitle}>
               Type <Text style={styles.emptyCommand}>/question</Text> to start
+              or <Text style={styles.emptyCommand}>/list</Text> to see forecasts
             </Text>
           </View>
         )}
@@ -343,5 +458,42 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#ebdbb2",
     fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+  },
+  forecastList: {
+    marginTop: 24,
+  },
+  listTitle: {
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#ebdbb2",
+    marginBottom: 16,
+  },
+  emptyListText: {
+    fontSize: 14,
+    color: "#928374",
+    fontStyle: "italic",
+  },
+  forecastItem: {
+    backgroundColor: "#3c3836",
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: "#458588",
+  },
+  forecastQuestion: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#ebdbb2",
+    marginBottom: 6,
+  },
+  forecastMeta: {
+    fontSize: 12,
+    color: "#928374",
+    marginBottom: 4,
+  },
+  forecastDate: {
+    fontSize: 11,
+    color: "#665c54",
   },
 });
