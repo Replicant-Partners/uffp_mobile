@@ -388,7 +388,16 @@ Keep responses brief (2-4 sentences usually). Ask ONE clear question at a time.`
 
   const data = (await response.json()) as any;
   console.log("Anthropic API response:", JSON.stringify(data, null, 2));
-  return data.content[0].text;
+
+  let text = data.content[0].text;
+
+  // Strip markdown code blocks if present (e.g., ```json...```)
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (codeBlockMatch) {
+    text = codeBlockMatch[1];
+  }
+
+  return text.trim();
 }
 
 function generateBaseRateSuggestions(domain: string): any[] {
