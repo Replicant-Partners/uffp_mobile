@@ -18,6 +18,12 @@ export default function ForecastInputScreen() {
   const [error, setError] = useState<string | null>(null);
   const [customDriverName, setCustomDriverName] = useState("");
   const [showCustomDriver, setShowCustomDriver] = useState(false);
+  const [driverDirection, setDriverDirection] = useState<
+    "increases" | "decreases"
+  >("increases");
+  const [driverMagnitude, setDriverMagnitude] = useState<
+    "low" | "medium" | "high"
+  >("medium");
 
   const handleParse = async () => {
     if (!userInput.trim()) {
@@ -79,8 +85,8 @@ export default function ForecastInputScreen() {
         description: isCustom
           ? `Custom driver: ${driverName}`
           : `Driver suggested by AI: ${driverName}`,
-        direction: "increases",
-        magnitude: "medium",
+        direction: driverDirection,
+        magnitude: driverMagnitude,
       });
 
       // Refresh forecast
@@ -284,6 +290,103 @@ export default function ForecastInputScreen() {
                     onChangeText={setCustomDriverName}
                     editable={!loading}
                   />
+
+                  <Text style={styles.configLabel}>Direction:</Text>
+                  <View style={styles.segmentedControl}>
+                    <TouchableOpacity
+                      style={[
+                        styles.segmentButton,
+                        driverDirection === "increases" &&
+                          styles.segmentButtonActive,
+                      ]}
+                      onPress={() => setDriverDirection("increases")}
+                    >
+                      <Text
+                        style={[
+                          styles.segmentText,
+                          driverDirection === "increases" &&
+                            styles.segmentTextActive,
+                        ]}
+                      >
+                        Increases
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.segmentButton,
+                        driverDirection === "decreases" &&
+                          styles.segmentButtonActive,
+                      ]}
+                      onPress={() => setDriverDirection("decreases")}
+                    >
+                      <Text
+                        style={[
+                          styles.segmentText,
+                          driverDirection === "decreases" &&
+                            styles.segmentTextActive,
+                        ]}
+                      >
+                        Decreases
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={styles.configLabel}>Impact Magnitude:</Text>
+                  <View style={styles.segmentedControl}>
+                    <TouchableOpacity
+                      style={[
+                        styles.segmentButton,
+                        driverMagnitude === "low" && styles.segmentButtonActive,
+                      ]}
+                      onPress={() => setDriverMagnitude("low")}
+                    >
+                      <Text
+                        style={[
+                          styles.segmentText,
+                          driverMagnitude === "low" && styles.segmentTextActive,
+                        ]}
+                      >
+                        Low
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.segmentButton,
+                        driverMagnitude === "medium" &&
+                          styles.segmentButtonActive,
+                      ]}
+                      onPress={() => setDriverMagnitude("medium")}
+                    >
+                      <Text
+                        style={[
+                          styles.segmentText,
+                          driverMagnitude === "medium" &&
+                            styles.segmentTextActive,
+                        ]}
+                      >
+                        Medium
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.segmentButton,
+                        driverMagnitude === "high" &&
+                          styles.segmentButtonActive,
+                      ]}
+                      onPress={() => setDriverMagnitude("high")}
+                    >
+                      <Text
+                        style={[
+                          styles.segmentText,
+                          driverMagnitude === "high" &&
+                            styles.segmentTextActive,
+                        ]}
+                      >
+                        High
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
                   <View style={styles.customDriverButtons}>
                     <TouchableOpacity
                       style={styles.customDriverAddButton}
@@ -551,5 +654,39 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#665c54", // gruvbox bg3
+  },
+  configLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#d5c4a1", // gruvbox fg2
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  segmentedControl: {
+    flexDirection: "row",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#665c54", // gruvbox bg3
+    overflow: "hidden",
+  },
+  segmentButton: {
+    flex: 1,
+    padding: 12,
+    backgroundColor: "#3c3836", // gruvbox bg1
+    alignItems: "center",
+    borderRightWidth: 1,
+    borderRightColor: "#665c54", // gruvbox bg3
+  },
+  segmentButtonActive: {
+    backgroundColor: "#458588", // gruvbox blue
+  },
+  segmentText: {
+    fontSize: 13,
+    color: "#bdae93", // gruvbox fg3
+    fontWeight: "500",
+  },
+  segmentTextActive: {
+    color: "#ebdbb2", // gruvbox fg
+    fontWeight: "600",
   },
 });
