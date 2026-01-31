@@ -30,7 +30,7 @@ interface SavedForecast {
 }
 
 const STORAGE_KEY = "@uffp_forecasts";
-const VERSION = "2.3.2"; // Update this to force cache bust
+const VERSION = "2.3.3"; // Update this to force cache bust
 
 export default function ForecastWorkspaceScreen() {
   const [commandInput, setCommandInput] = useState("");
@@ -685,6 +685,21 @@ export default function ForecastWorkspaceScreen() {
       setError("");
       setShowForecastList(false);
 
+      // Always create forecast, even if parsing fails
+      const newForecast: SavedForecast = {
+        id: Date.now().toString(),
+        question: question,
+        domain: undefined,
+        timeframe: undefined,
+        grounding: "analysis",
+        drivers: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      setActiveForecast(newForecast);
+      await saveForecast(newForecast);
+
       try {
         console.log("Calling parseQuestion with:", question);
         const result = await researchService.parseQuestion(question);
@@ -703,25 +718,23 @@ export default function ForecastWorkspaceScreen() {
 
         setParsedResult(parsed);
 
-        setProcessingAction("Saving forecast...");
-
-        // Create and save forecast
-        const newForecast: SavedForecast = {
-          id: Date.now().toString(),
+        // Update forecast with parsed data
+        const updatedForecast = {
+          ...newForecast,
           question: parsed.question || question,
           domain: parsed.domain,
           timeframe: parsed.timeframe,
           grounding: parsed.grounding || "analysis",
-          drivers: [],
-          createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
 
-        setActiveForecast(newForecast);
-        await saveForecast(newForecast);
+        setActiveForecast(updatedForecast);
+        await saveForecast(updatedForecast);
       } catch (err: any) {
         console.error("Parse error:", err);
-        setError(err.message || "Failed to parse question");
+        setError(
+          "Parsing failed, but forecast created. Use /setprob to set probability.",
+        );
       } finally {
         setLoading(false);
         setProcessingAction("");
