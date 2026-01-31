@@ -1,485 +1,329 @@
-# UFFP Mobile - Development Session Context
+# UFFP Mobile App - Session Context (Updated)
 
-**Date**: January 30, 2026
-**Status**: Backend Complete ✅ | Mobile UI Next 🚀
+## Session Overview
 
----
+**Date:** January 31, 2026  
+**Project:** Universal Forecasting Platform Mobile App  
+**Repository:** https://github.com/Replicant-Partners/uffp_mobile  
+**Live Apps:**
+- Mobile Web: https://uffpmobile.vercel.app
+- Backend API: https://uffp-backend.vercel.app
 
-## What We've Built
+## What We Built
 
-### ✅ Backend (Fully Operational)
+### 1. Complete Backend (uffp-backend)
 
-**Deployed at**: https://uffp-backend.vercel.app/api
+**Location:** /home/ilabra/uffp-backend
 
-#### Core Systems
-1. **Universal Forecasting System**
-   - Any event, any domain (finance, tech, weather, politics, sports, general)
-   - Natural language question parsing
-   - Driver decomposition (binary & continuous)
-   - Evidence attachment (url, quote, data, reasoning)
-   - Base rate methodology
-   - Monte Carlo simulation (10k iterations in ~16ms)
-   - Version tracking & history
-   - Forecast CRUD operations
+**Core Files:**
+- `lib/types.ts` - Complete TypeScript type system for forecasts
+- `lib/database.ts` - In-memory forecast storage with full CRUD
+- `lib/coach.ts` - AI Coach for question parsing and driver suggestions
+- `lib/agents.ts` - LLM execution layer (Claude Sonnet 4)
+- `lib/config.ts` - 10 research agent configurations
 
-2. **AI Coach Agent**
-   - Parses questions from natural language
-   - Auto-detects domain & timeframe
-   - Suggests 3-5 relevant drivers
-   - Recommends research agents
-   - Guides users step-by-step through:
-     - Base rate selection
-     - Driver decomposition
-     - Probability quantification
-     - Final review
-   - Context-aware conversational responses
+**API Endpoints (all with CORS):**
+- `/api/forecasts?action=parse` - Parse natural language questions
+- `/api/forecasts?action=create` - Create new forecasts
+- `/api/forecasts?action=get&id={id}` - Get forecast by ID
+- `/api/forecasts?action=addDriver` - Add probability drivers
+- `/api/forecasts?action=simulate` - Run Monte Carlo simulation
+- `/api/coach/chat` - Chat with AI coach
+- `/api/agents/execute` - Execute research agents
+- `/api/prompts/templates` - Get prompt templates
 
-3. **10 Research Agents** (Claude Sonnet 4)
-   - Research Analyst - Deep research with citations
-   - Sentiment Monitor - Social listening & scoring
-   - Competitive Intelligence - Competitor tracking
-   - Financial Analyst - Financial statement analysis
-   - Market Researcher - TAM & market sizing
-   - Expert Synthesizer - Expert opinion aggregation
-   - Technology Validator - Technical feasibility
-   - Regulatory Monitor - Policy impact analysis
-   - Hiring Tracker - Growth inference from hiring
-   - Growth Signals - User adoption metrics
-   - Pricing Intelligence - Competitive pricing
+**Key Features:**
+- AI-powered question parsing (extracts domain, timeframe, suggests drivers)
+- 10 specialized research agents with Claude Sonnet 4
+- Monte Carlo simulation for probability calculations
+- Version tracking for forecasts and drivers
+- Brier score calculation
+- Leaderboard functionality
 
-4. **10 Research Prompt Templates**
-   - Market TAM Sizing
-   - Sentiment Tracking
-   - Competitor Benchmarking
-   - Financial Fundamentals
-   - Expert Opinion Consensus
-   - Technology Validation
-   - Regulatory Impact Analysis
-   - Hiring Trends Analysis
-   - User Growth Proxy Metrics
-   - Pricing Analysis
+### 2. Mobile Frontend (uffp_mobile)
 
-5. **Stats & Gamification Backend**
-   - User statistics (total forecasts, avg Brier score)
-   - Leaderboard (global & by domain)
-   - Domain-specific performance tracking
-   - Ready for Tamagotchi integration
+**Location:** /home/ilabra/uffp_mobile
 
-#### API Endpoints (4 Serverless Functions)
+**Key Screens:**
+- `src/screens/HomeScreen.tsx` - Clean landing page with Gruvbox theme
+- `src/screens/ForecastInputScreen.tsx` - Main forecasting interface
+- `src/screens/ResearchScreen.tsx` - Research agents interface
 
-```
-/api/forecasts?action={action}
-  - parse: Parse natural language question
-  - create: Create new forecast
-  - get: Get forecast by ID
-  - list: List forecasts (with filters)
-  - addDriver: Add driver to forecast
-  - updateDriver: Update driver (creates version)
-  - removeDriver: Remove driver
-  - addEvidence: Attach evidence
-  - setBaseRate: Set base rate
-  - simulate: Run Monte Carlo simulation
-  - stats: Get user stats or leaderboard
+**Services:**
+- `src/services/researchService.ts` - API client for backend
+  - parseQuestion()
+  - createForecast()
+  - getForecast()
+  - addDriver()
+  - simulate()
+  - chatWithCoach()
 
-/api/agents/execute
-  - Execute research agent with prompt template
+**Design System:**
+- `src/styles/tufte.ts` - Gruvbox dark theme
+- Background: #282828
+- Text: #ebdbb2
+- Accents: Blue (#458588), Green (#98971a), Yellow (#d79921)
 
-/api/prompts/templates
-  - List all available prompt templates
+## Current Workflow
 
-/api/coach/chat
-  - Chat with AI coach (stages: base_rate, drivers, quantify, review)
+**End-to-end forecast creation:**
+
+1. User enters question: "Will Real Madrid win the Champions League this year?"
+2. Click "Parse Question" → AI parses and suggests drivers
+3. Click "Create Forecast" → Forecast created with ID
+4. Add drivers:
+   - Click suggested drivers (AI-provided)
+   - OR click "+ Add Custom Driver" to enter your own
+5. Click "Run Simulation" → Monte Carlo simulation calculates probability
+6. View results with probability percentage
+
+## Technical Details
+
+### Frontend-Backend Integration
+
+**API Base URL:**
+```typescript
+const API_BASE_URL =
+  typeof __DEV__ !== "undefined" && __DEV__
+    ? "http://localhost:3000"
+    : "https://uffp-backend.vercel.app";
 ```
 
-#### Performance Metrics
-- Question parsing: ~3s
-- Forecast creation: <100ms
-- Driver addition: <100ms
-- Simulation (10k): ~16ms
-- Research execution: 3-8s
-
-#### Cost Analysis
-- Per forecast: $0.10-0.30 (depending on research)
-- Research agent: $0.03-0.06 each
-- Question parsing: ~$0.02
-- Simulation: $0.02
-
-#### Tested End-to-End Workflow
-```
-Input: "Will SpaceX land on Mars by 2030?"
-1. Parse → "Will SpaceX successfully land on Mars by 2030?"
-   Domain: technology
-   Suggested drivers: 5 relevant drivers
-   Suggested research: 3 agents
-   
-2. Create forecast → ID: 1769816625453-ko8o62pmt
-
-3. Add 3 drivers:
-   - Technical feasibility: 75%
-   - Funding secured: 80%
-   - Regulatory approval: 90%
-
-4. Simulate → Final probability: 54%
-   Runtime: 16ms
-   
-✅ WORKING!
+**CORS Configuration:**
+```typescript
+// api/cors.ts
+export function setCorsHeaders(res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
+}
 ```
 
-### 📄 Documentation Created
+### Data Flow
 
-1. **API_REFERENCE.md** (821 lines)
-   - Complete API documentation
-   - Request/response examples
-   - All data models
-   - Example workflows
-
-2. **BACKEND_SUMMARY.md**
-   - Implementation overview
-   - Performance & cost analysis
-   - Mobile app roadmap
-
-3. **MOBILE_UI_ARCHITECTURE.md**
-   - Complete UI/UX design
-   - Notion-style block system
-   - Forecast history & evolution
-   - Research agent management
-   - Brier score Tamagotchi
-   - Leaderboard design
-   - All 8 core features specified
-
-4. **IMPLEMENTATION_PLAN.md** (Already existed)
-   - Original implementation plan
-   - Research agents config
-
-5. **ELIZA_ALIGNMENT_PLAN.md** (Already existed)
-   - Alignment with ElizaOS system
-   - Feature parity documentation
-
----
-
-## Mobile App Status
-
-### ✅ What Exists
-- React Native + Expo setup
-- Basic navigation (Tab bar)
-- HomeScreen (placeholder)
-- ResearchScreen (prototype - needs updating)
-- ResearchService (API layer - needs updating)
-
-### ❌ What Needs Building
-
-#### Phase 1: Basic Forecast Creation (NEXT)
-- [ ] Create ForecastInputScreen
-  - Text input for question
-  - Parse question button
-  - Display parsed results
-  - Show suggested drivers
-  - Accept/customize buttons
-  
-- [ ] Create DriverSetupScreen
-  - List of drivers (from suggestions or custom)
-  - Probability input for each
-  - Option to run research
-  - Next/back navigation
-
-- [ ] Create SimulationScreen
-  - Review all drivers
-  - Run simulation button
-  - Display results (probability, distribution)
-  - Save forecast
-
-- [ ] Update ResearchService
-  - Update API base URL
-  - Add forecast endpoints
-  - Add coach endpoints
-
-#### Phase 2: Coach Integration
-- [ ] Chat-style interface
-- [ ] Coach suggestions as action buttons
-- [ ] Context-aware help
-
-#### Phase 3: Research Integration
-- [ ] Agent browser
-- [ ] Execute from driver screen
-- [ ] View results
-- [ ] Attach as evidence
-
-#### Phase 4: History & Evolution
-- [ ] Forecast list
-- [ ] Timeline view
-- [ ] Driver evolution
-- [ ] Version comparison
-
-#### Phase 5: Gamification
-- [ ] Tamagotchi dashboard
-- [ ] Achievements
-- [ ] Leaderboard
-- [ ] Brier score visualization
-
----
-
-## Current File Structure
-
-### Backend (`uffp-backend/`)
+**Parse Question:**
 ```
-api/
-  forecasts.ts         - Unified forecast endpoint
-  agents/
-    execute.ts         - Research execution
-  prompts/
-    templates.ts       - Prompt library
-  coach/
-    chat.ts           - AI coach
-lib/
-  types.ts            - TypeScript interfaces
-  config.ts           - Agent configs (10 agents, 10 prompts)
-  agents.ts           - LLM execution logic
-  coach.ts            - Coach agent logic
-  database.ts         - In-memory storage (509 lines)
+User Input → POST /api/forecasts?action=parse
+         ← {success: true, parsed: {question, domain, timeframe, suggestedDrivers, confidence}}
 ```
 
-### Mobile (`uffp_mobile/`)
+**Create Forecast:**
 ```
-src/
-  App.tsx                      - Main navigation
-  screens/
-    HomeScreen.tsx             - Placeholder
-    ResearchScreen.tsx         - Prototype (needs update)
-  services/
-    researchService.ts         - API layer (needs update)
-    
-Documentation:
-  API_REFERENCE.md             - Complete API docs
-  BACKEND_SUMMARY.md           - Backend overview
-  MOBILE_UI_ARCHITECTURE.md    - UI/UX design
-  IMPLEMENTATION_PLAN.md       - Original plan
-  ELIZA_ALIGNMENT_PLAN.md      - Feature parity
-  SESSION_CONTEXT.md           - This file
+{question, domain, timeframe, resolutionCriteria} → POST /api/forecasts?action=create
+                                                  ← {success: true, forecast: {id, ...}}
 ```
 
----
-
-## Key Design Decisions
-
-### AI Coach Makes It Easy
-The coach does the heavy lifting:
-1. User types anything: "Will Tesla hit $500?"
-2. Coach parses → structured question, domain, drivers
-3. User accepts or customizes
-4. Coach guides probability estimation
-5. Suggests research agents
-6. Reviews for completeness
-
-**Goal**: Users should be able to create high-quality forecasts in 2-3 minutes.
-
-### Notion-Style Blocks (Future)
-- Flexible blocks (question, driver, evidence, research, chat)
-- Each block has modes: view, edit, chat
-- Drag to reorder
-- Inline editing
-- Chat with any block
-
-### Universal Forecasting
-- Any event that could be a prediction market
-- Finance: "Will ASTS reach $20?"
-- Weather: "Will it rain tomorrow?"
-- Politics: "Will treaty be signed?"
-- Technology: "Will SpaceX launch succeed?"
-- General: Any yes/no question
-
-### History & Evolution Tracking
-- Every driver update creates version
-- Evidence attached to specific moments
-- Research results timestamped
-- Can see "what you knew when"
-
-### Gamification
-- Brier score Tamagotchi (visual character)
-- Health based on forecast accuracy
-- Achievements & streaks
-- Global & domain leaderboards
-
----
-
-## Environment Variables
-
-### Backend (Vercel)
+**Add Driver:**
 ```
-ANTHROPIC_API_KEY=sk-ant-xxx  ✅ Set
+{forecastId, driver: {name, description, direction, magnitude}} → POST /api/forecasts?action=addDriver
+                                                                ← {success: true, forecast: {...}}
 ```
 
-### Mobile
+**Get Forecast:**
 ```
-API_BASE_URL=https://uffp-backend.vercel.app/api
+GET /api/forecasts?action=get&id={forecastId}
+  ← {success: true, forecast: {...}}
 ```
 
----
+**Run Simulation:**
+```
+{forecastId, iterations: 10000} → POST /api/forecasts?action=simulate
+                                ← {success: true, forecast: {probability: 0.54, ...}}
+```
 
-## Git Status
+## Recent Issues Fixed
 
-**Current Branch**: master
-**Last Commit**: f6268d5 - "Add complete backend implementation documentation"
+### Issue 1: CORS Errors
+**Problem:** "Failed to fetch" errors from web app  
+**Cause:** Missing CORS headers  
+**Fix:** Added `setCorsHeaders()` to all API endpoints + OPTIONS handling
 
-**Recent Commits**:
-- f6268d5 - Backend documentation
-- f9d3340 - Update backend API URL
-- 77a2ef0 - Add EAS build config, Vercel deployment, Research screen features
-- 90d60f6 - Initial commit
+### Issue 2: Parsed Result Display
+**Problem:** Question not showing, confidence as NaN%  
+**Cause:** API returns `{success: true, parsed: {...}}` but code expected just the parsed object  
+**Fix:** `setParsedResult(result.parsed || result)`
 
-**Remote**: https://github.com/Replicant-Partners/uffp_mobile.git
+### Issue 3: "Missing id" Error
+**Problem:** Error when adding drivers  
+**Cause:** Query parameter mismatch - frontend sent `forecastId=` but backend expected `id=`  
+**Fix:** Changed `getForecast` to use `id` parameter (src/services/researchService.ts:143)
 
----
+### Issue 4: No Custom Driver Input
+**Problem:** Could only use AI-suggested drivers  
+**Solution:** Added custom driver UI with:
+- "+ Add Custom Driver" button (dashed border)
+- Text input for custom driver name
+- Add/Cancel buttons
+- Full Gruvbox styling
 
-## Deployment Status
+## File Structure
 
-### Backend
-- **Platform**: Vercel
-- **URL**: https://uffp-backend.vercel.app
-- **Status**: ✅ Live & Working
-- **Functions**: 4 serverless functions
-- **Last Deploy**: Jan 30, 2026
+```
+uffp_mobile/
+├── src/
+│   ├── screens/
+│   │   ├── HomeScreen.tsx          # Landing page
+│   │   ├── ForecastInputScreen.tsx # Main forecast UI (413 lines)
+│   │   └── ResearchScreen.tsx      # Research agents
+│   ├── services/
+│   │   └── researchService.ts      # API client (188 lines)
+│   ├── styles/
+│   │   └── tufte.ts                # Gruvbox theme
+│   └── App.tsx                     # Navigation setup
+├── app.json
+├── package.json
+├── vercel.json
+├── eas.json
+└── SESSION_CONTEXT.md              # This file
 
-### Mobile Web
-- **Platform**: Vercel
-- **URL**: https://uffpmobile.vercel.app
-- **Status**: ✅ Live (old version)
-- **Note**: Needs redeploy after mobile UI updates
+uffp-backend/
+├── api/
+│   ├── cors.ts                     # CORS helper
+│   ├── forecasts.ts                # Unified forecast endpoint
+│   ├── coach/chat.ts               # AI coach endpoint
+│   ├── agents/execute.ts           # Research agent execution
+│   └── prompts/templates.ts        # Prompt templates
+├── lib/
+│   ├── types.ts                    # Type definitions (206 lines)
+│   ├── database.ts                 # In-memory storage (509 lines)
+│   ├── coach.ts                    # AI Coach (492 lines)
+│   ├── agents.ts                   # LLM execution (321 lines)
+│   └── config.ts                   # Agent configs (785 lines)
+├── package.json
+├── tsconfig.json                   # TypeScript config (ES2020)
+└── vercel.json
+```
 
-### Android (EAS)
-- **Status**: ❌ Not built yet
-- **Reason**: Waiting for mobile UI completion
-- **Config**: eas.json configured, keystore set up
+## Git History (Recent Commits)
 
----
+```
+0332a24 - Fix 'Missing id' error: use correct query parameter name for getForecast
+fac8a56 - Fix driver addition and add custom driver input functionality
+2ef2b87 - Apply Gruvbox dark theme to entire app
+579465e - Fix parsed result display: extract parsed field from API response
+14ae994 - Fix API fetch error and simplify HomeScreen UI
+be14b37 - Add Universal Forecasting screen with AI-powered question parsing
+```
 
-## Next Immediate Steps
+## Environment Variables (Backend)
 
-1. **Update ResearchService** (`src/services/researchService.ts`)
-   - Add forecast parsing endpoint
-   - Add forecast CRUD methods
-   - Add coach chat method
-   - Update base URL (already correct)
-
-2. **Create ForecastInputScreen** (`src/screens/ForecastInputScreen.tsx`)
-   - Simple text input
-   - "Parse Question" button
-   - Display parsed results
-   - Show suggested drivers
-   - Accept/customize flow
-
-3. **Create Simple Navigation**
-   - Add ForecastInput to tab navigator
-   - Or make it the home screen
-
-4. **Test End-to-End**
-   - Type question
-   - See parsed results
-   - Accept drivers
-   - See final screen
-
----
-
-## Technical Stack
-
-### Backend
-- **Runtime**: Node.js 18 on Vercel
-- **Language**: TypeScript
-- **LLM**: Claude Sonnet 4 (Anthropic)
-- **Storage**: In-memory (migrate to Vercel KV later)
-- **Framework**: Vercel Serverless Functions
-
-### Mobile
-- **Framework**: React Native + Expo
-- **Language**: TypeScript
-- **Navigation**: React Navigation
-- **State**: Built-in hooks (Zustand/Redux later if needed)
-- **Charts**: React Native Chart Kit
-- **Build**: EAS Build
-
----
-
-## Important Notes
-
-1. **Storage is In-Memory**: Data resets on backend deploy. Perfect for dev, migrate to KV for prod.
-
-2. **Coach is Key**: The AI coach is what makes this platform easy to use. It's the differentiator.
-
-3. **Start Simple**: Build basic forecast creation first, then add complexity.
-
-4. **Mobile-First**: Design for touch, optimize for one-handed use.
-
-5. **Cost Monitoring**: Track LLM costs, ~$0.10-0.30 per forecast is affordable.
-
-6. **Version Tracking Works**: Every update creates history automatically.
-
-7. **Research is Optional**: Users can forecast without research, or run 10+ agents.
-
----
-
-## Quick Reference Commands
-
-### Backend Testing
 ```bash
-# Parse question
+ANTHROPIC_API_KEY=sk-ant-... # Claude Sonnet 4 API key
+```
+
+## Deployment Commands
+
+**Mobile App:**
+```bash
+cd /home/ilabra/uffp_mobile
+vercel --prod  # Deploys to https://uffpmobile.vercel.app
+```
+
+**Backend:**
+```bash
+cd /home/ilabra/uffp-backend
+vercel --prod  # Deploys to https://uffp-backend.vercel.app
+```
+
+## Testing the App
+
+**Manual Test Flow:**
+1. Visit https://uffpmobile.vercel.app
+2. Click "Create Forecast"
+3. Enter: "Will SpaceX land on Mars by 2030?"
+4. Click "Parse Question"
+5. Verify: Question parsed, domain=space, suggested drivers appear
+6. Click "Create Forecast"
+7. Verify: Forecast created with ID
+8. Click a suggested driver OR "+ Add Custom Driver"
+9. Enter custom driver name (e.g., "Rocket technology advancement")
+10. Click "Add"
+11. Verify: Driver appears in "Drivers Added" list
+12. Click "Run Simulation"
+13. Verify: Probability displays (e.g., 54.2%)
+
+**API Test:**
+```bash
+# Test parse
 curl -X POST https://uffp-backend.vercel.app/api/forecasts?action=parse \
   -H "Content-Type: application/json" \
-  -d '{"userInput":"Will SpaceX land on Mars by 2030?"}'
+  -d '{"userInput":"Will it rain tomorrow?"}'
 
-# Create forecast
+# Test create
 curl -X POST https://uffp-backend.vercel.app/api/forecasts?action=create \
   -H "Content-Type: application/json" \
-  -d '{"question":"Will SpaceX land on Mars?","resolutionCriteria":"Official confirmation"}'
+  -d '{
+    "question": "Will it rain tomorrow?",
+    "domain": "weather",
+    "timeframe": "tomorrow",
+    "resolutionCriteria": "Yes if rain occurs"
+  }'
 ```
 
-### Mobile Development
+## Known Limitations
+
+1. **In-Memory Storage:** Forecasts are lost on backend restart (future: migrate to Vercel KV)
+2. **No Authentication:** No user system yet
+3. **No Persistence:** No database, everything ephemeral
+4. **Simple Simulation:** Monte Carlo with basic driver weighting
+5. **No Mobile Native Build:** Only web version deployed (EAS build requires credentials setup)
+
+## Future Enhancements
+
+From user requirements:
+- [ ] Notion-style blocks for forecast editing
+- [ ] Complete forecast history and evolution tracking
+- [ ] Research agent cost tracking
+- [ ] Brier score Tamagotchi visualization
+- [ ] Leaderboard
+- [ ] Portfolio management for prediction markets
+- [ ] Persistent storage (Vercel KV or PostgreSQL)
+- [ ] User authentication
+- [ ] Native mobile builds (iOS/Android via EAS)
+
+## Key Learnings
+
+1. **CORS is critical** for web apps calling external APIs
+2. **Query parameter naming** must match exactly between frontend/backend
+3. **API response structure** - always check what the API actually returns
+4. **Gruvbox colors** - #282828, #ebdbb2, #458588, #98971a, #d79921
+5. **TypeScript strict mode** - requires type assertions for `response.json()`
+6. **Vercel deployment** - auto-deploys from Git, supports serverless functions
+7. **React Native web** - uses Expo web for browser deployment
+
+## Debug Tips
+
+**Check Backend Logs:**
 ```bash
-cd /home/ilabra/uffp_mobile
-npm start           # Start Expo
-npm run android     # Run on Android
-npm run web         # Run in browser
+vercel logs uffp-backend --prod
 ```
 
-### Deployment
+**Check Mobile Logs:**
 ```bash
-# Backend
-cd /home/ilabra/uffp-backend
-vercel --prod
-
-# Mobile web
-cd /home/ilabra/uffp_mobile
-vercel --prod
-
-# Android build
-npx eas build --platform android --profile preview
+vercel logs uffp_mobile --prod
 ```
 
----
+**Test API Directly:**
+```bash
+curl -i https://uffp-backend.vercel.app/api/forecasts?action=parse \
+  -H "Content-Type: application/json" \
+  -H "Origin: https://uffpmobile.vercel.app" \
+  -X POST -d '{"userInput":"test"}'
+```
 
-## Success Criteria
+**Common Errors:**
+- "Failed to fetch" → Check CORS headers
+- "Missing id" → Check query parameter naming
+- "NaN%" → Check response parsing (result.parsed vs result)
+- 405 Method Not Allowed → Check OPTIONS preflight handling
 
-### MVP Complete When:
-- [ ] User can type any question
-- [ ] AI parses and suggests drivers
-- [ ] User can accept or customize
-- [ ] User can set probabilities
-- [ ] Simulation runs and shows result
-- [ ] Forecast is saved
-- [ ] User can view their forecasts
+## Contact & Resources
 
-### V1 Complete When:
-- [ ] Coach guides through all steps
-- [ ] Research agents can be executed
-- [ ] Evidence can be attached
-- [ ] History shows forecast evolution
-- [ ] Brier score displayed
-- [ ] Leaderboard works
+- **Repository:** https://github.com/Replicant-Partners/uffp_mobile
+- **Backend Repo:** N/A (deployed from /home/ilabra/uffp-backend)
+- **Documentation:** API_REFERENCE.md, BACKEND_SUMMARY.md, MOBILE_UI_ARCHITECTURE.md
+- **User:** ivan-5553 (Vercel), Replicant-Partners (GitHub)
 
----
-
-**Ready to build the first screen!** 🚀
-
-All context captured. If session interrupts, refer to:
-- This file for context
-- API_REFERENCE.md for API details
-- MOBILE_UI_ARCHITECTURE.md for UI design
-- BACKEND_SUMMARY.md for backend capabilities
+## Last Updated
+January 31, 2026 - After fixing "Missing id" error and adding custom driver functionality
