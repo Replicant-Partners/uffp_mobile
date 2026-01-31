@@ -1332,7 +1332,9 @@ export default function ForecastWorkspaceScreen() {
               Type <Text style={styles.emptyCommand}>/question</Text> to start
               or <Text style={styles.emptyCommand}>/list</Text> to see forecasts
             </Text>
-            <Text style={styles.versionText}>v2.0 - Agent Config</Text>
+            <Text style={styles.versionText}>
+              v2.1 - Agent Chips & Autocomplete
+            </Text>
           </View>
         )}
       </ScrollView>
