@@ -1565,7 +1565,7 @@ export default function ForecastWorkspaceScreen() {
               or <Text style={styles.emptyCommand}>/list</Text> to see forecasts
             </Text>
             <Text style={styles.versionText}>
-              v2.1 - Agent Chips & Autocomplete
+              v2.2 - /setprob & Brier Scoring
             </Text>
           </View>
         )}
