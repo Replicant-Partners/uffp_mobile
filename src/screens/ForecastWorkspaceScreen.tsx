@@ -10,8 +10,31 @@ import {
   Platform,
   ActivityIndicator,
   AsyncStorage,
+  Dimensions,
 } from "react-native";
+import { BarChart, LineChart } from "react-native-chart-kit";
 import { researchService } from "../services/researchService";
+
+interface SimulationData {
+  id: string;
+  forecastId: string;
+  iterations: number;
+  driverSnapshot: any[];
+  probability: number;
+  distribution: {
+    histogram: number[];
+    bins: number;
+    p10: number;
+    p25: number;
+    p50: number;
+    p75: number;
+    p90: number;
+  };
+  cost: number;
+  runtime: number;
+  executedAt: string;
+  reasonForRun?: string;
+}
 
 interface SavedForecast {
   id: string;
@@ -27,6 +50,7 @@ interface SavedForecast {
   actualOutcome?: boolean; // true = happened, false = didn't happen
   resolvedAt?: string;
   brierScore?: number;
+  simulations?: SimulationData[]; // Array of simulation history
 }
 
 const STORAGE_KEY = "@uffp_forecasts";
@@ -394,11 +418,20 @@ export default function ForecastWorkspaceScreen() {
         }
         console.log("[Agent Config Mode] Attempting to run agent:", agentName);
 
-        // First, try to find agent in driver being configured
+        // First, check if this is the agent currently being configured
         let agent = null;
         let targetDriver = null;
 
-        if (driverBeingConfigured) {
+        if (agentBeingConfigured && agentBeingConfigured.name === agentName) {
+          // Use the agent being configured (it may have been removed from driver.agents temporarily)
+          console.log(
+            "[Agent Config Mode] Using agentBeingConfigured:",
+            agentBeingConfigured,
+          );
+          agent = agentBeingConfigured;
+          targetDriver = driverBeingConfigured;
+        } else if (driverBeingConfigured) {
+          // Search in driver's agents array
           console.log(
             "[Agent Config Mode] Searching in driverBeingConfigured.agents:",
             driverBeingConfigured.agents,
@@ -1014,22 +1047,25 @@ export default function ForecastWorkspaceScreen() {
         const result = await runSimulationWithSync(activeForecast.id, 10000);
 
         if (result.success && result.probability !== undefined) {
-          const updatedForecast = {
-            ...activeForecast,
-            probability: result.probability,
-            updatedAt: new Date().toISOString(),
-          };
-
-          // If backend returned full forecast, use it
+          // Backend returns forecast with simulations array already updated
           if (result.forecast) {
             setActiveForecast(result.forecast);
             await saveForecast(result.forecast);
           } else {
+            // Fallback: update probability only (shouldn't happen with backend-primary)
+            const updatedForecast = {
+              ...activeForecast,
+              probability: result.probability,
+              updatedAt: new Date().toISOString(),
+            };
             setActiveForecast(updatedForecast);
             await saveForecast(updatedForecast);
           }
 
-          console.log(`Simulation complete: ${result.probability}`);
+          const simulationCount = result.forecast?.simulations?.length || 1;
+          console.log(
+            `Simulation #${simulationCount} complete: ${result.probability}`,
+          );
         } else {
           throw new Error(result.error || "Simulation failed");
         }
@@ -1652,6 +1688,186 @@ export default function ForecastWorkspaceScreen() {
                     Forecast: {Math.round(activeForecast.probability * 100)}%
                   </Text>
                 )}
+                {activeForecast?.simulations &&
+                  activeForecast.simulations.length > 0 &&
+                  (() => {
+                    const latestSimulation =
+                      activeForecast.simulations[
+                        activeForecast.simulations.length - 1
+                      ];
+                    return latestSimulation.distribution?.histogram ? (
+                      <View style={styles.chartContainer}>
+                        <Text style={styles.chartTitle}>
+                          Latest Simulation (
+                          {latestSimulation.iterations.toLocaleString()}{" "}
+                          iterations)
+                          {activeForecast.simulations.length > 1 && (
+                            <Text style={styles.simulationCount}>
+                              {" "}
+                              · Run #{activeForecast.simulations.length}
+                            </Text>
+                          )}
+                        </Text>
+                        <BarChart
+                          data={{
+                            labels: [
+                              "0%",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "25%",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "50%",
+                              "",
+                              "",
+                              "",
+                              "",
+                              "75%",
+                              "",
+                              "",
+                              "",
+                              "100%",
+                            ],
+                            datasets: [
+                              {
+                                data: latestSimulation.distribution.histogram,
+                              },
+                            ],
+                          }}
+                          width={Dimensions.get("window").width - 40}
+                          height={200}
+                          yAxisLabel=""
+                          yAxisSuffix="%"
+                          chartConfig={{
+                            backgroundColor: "#3c3836",
+                            backgroundGradientFrom: "#3c3836",
+                            backgroundGradientTo: "#3c3836",
+                            decimalPlaces: 1,
+                            color: (opacity = 1) =>
+                              `rgba(250, 189, 47, ${opacity})`,
+                            labelColor: (opacity = 1) =>
+                              `rgba(146, 131, 116, ${opacity})`,
+                            style: {
+                              borderRadius: 8,
+                            },
+                            propsForBackgroundLines: {
+                              strokeDasharray: "",
+                              stroke: "#504945",
+                              strokeWidth: 1,
+                            },
+                            propsForLabels: {
+                              fontSize: 9,
+                            },
+                          }}
+                          style={styles.chart}
+                          fromZero
+                          showBarTops={false}
+                          withInnerLines={true}
+                          withHorizontalLabels={true}
+                          withVerticalLabels={true}
+                          segments={4}
+                        />
+                        <Text style={styles.chartCaption}>
+                          Distribution shows probability density across outcome
+                          range
+                        </Text>
+                        {latestSimulation.reasonForRun && (
+                          <Text style={styles.simulationReason}>
+                            Reason: {latestSimulation.reasonForRun}
+                          </Text>
+                        )}
+
+                        {/* Simulation History Chart */}
+                        {activeForecast.simulations.length > 1 && (
+                          <View style={styles.historyChartContainer}>
+                            <Text style={styles.historyChartTitle}>
+                              Probability History (
+                              {activeForecast.simulations.length} simulations)
+                            </Text>
+                            <LineChart
+                              data={{
+                                labels: activeForecast.simulations.map(
+                                  (_, idx) =>
+                                    idx === 0 ||
+                                    idx ===
+                                      activeForecast.simulations.length - 1 ||
+                                    idx %
+                                      Math.max(
+                                        1,
+                                        Math.floor(
+                                          activeForecast.simulations.length / 5,
+                                        ),
+                                      ) ===
+                                      0
+                                      ? `#${idx + 1}`
+                                      : "",
+                                ),
+                                datasets: [
+                                  {
+                                    data: activeForecast.simulations.map(
+                                      (s) => s.probability * 100,
+                                    ),
+                                    color: (opacity = 1) =>
+                                      `rgba(184, 187, 38, ${opacity})`,
+                                    strokeWidth: 2,
+                                  },
+                                ],
+                              }}
+                              width={Dimensions.get("window").width - 64}
+                              height={180}
+                              yAxisSuffix="%"
+                              chartConfig={{
+                                backgroundColor: "#3c3836",
+                                backgroundGradientFrom: "#3c3836",
+                                backgroundGradientTo: "#3c3836",
+                                decimalPlaces: 0,
+                                color: (opacity = 1) =>
+                                  `rgba(184, 187, 38, ${opacity})`,
+                                labelColor: (opacity = 1) =>
+                                  `rgba(146, 131, 116, ${opacity})`,
+                                style: {
+                                  borderRadius: 8,
+                                },
+                                propsForBackgroundLines: {
+                                  strokeDasharray: "",
+                                  stroke: "#504945",
+                                  strokeWidth: 1,
+                                },
+                                propsForLabels: {
+                                  fontSize: 10,
+                                },
+                                propsForDots: {
+                                  r: "3",
+                                  strokeWidth: "1",
+                                  stroke: "#b8bb26",
+                                },
+                              }}
+                              bezier
+                              style={{
+                                marginVertical: 8,
+                                borderRadius: 8,
+                              }}
+                              withInnerLines={true}
+                              withOuterLines={true}
+                              withVerticalLines={false}
+                              withHorizontalLines={true}
+                              withVerticalLabels={true}
+                              withHorizontalLabels={true}
+                              segments={4}
+                            />
+                            <Text style={styles.chartCaption}>
+                              Shows how probability changed as drivers and
+                              evidence evolved
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    ) : null;
+                  })()}
                 {activeForecast?.resolved && (
                   <View style={styles.resolutionBox}>
                     <Text style={styles.resolutionText}>
@@ -1730,14 +1946,55 @@ export default function ForecastWorkspaceScreen() {
               <Text style={styles.driverName}>
                 {driverBeingConfigured.name}
               </Text>
-              <Text style={styles.driverDetails}>
-                Type: {driverBeingConfigured.type} ·
-                {driverBeingConfigured.type === "continuous" &&
-                  ` Dist: ${driverBeingConfigured.distribution} · P(${driverBeingConfigured.p5}-${driverBeingConfigured.p50}-${driverBeingConfigured.p95})`}
-                {driverBeingConfigured.type === "binary" &&
-                  ` P(${driverBeingConfigured.probability || 50}%)`}{" "}
-                · {driverBeingConfigured.direction}
-              </Text>
+              <View style={styles.driverDetailsContainer}>
+                <Text style={styles.driverTypeLabel}>
+                  Type:{" "}
+                  <Text style={styles.driverTypeValue}>
+                    {driverBeingConfigured.type}
+                  </Text>
+                </Text>
+                {driverBeingConfigured.type === "continuous" ? (
+                  <>
+                    <Text style={styles.driverFieldLabel}>
+                      Distribution:{" "}
+                      <Text style={styles.driverFieldValue}>
+                        {driverBeingConfigured.distribution}
+                      </Text>
+                    </Text>
+                    <Text style={styles.driverFieldLabel}>
+                      Range (p5/p50/p95):{" "}
+                      <Text style={styles.driverFieldValue}>
+                        {driverBeingConfigured.p5} / {driverBeingConfigured.p50}{" "}
+                        / {driverBeingConfigured.p95}
+                      </Text>
+                    </Text>
+                    <Text style={styles.driverFieldLabel}>
+                      Impact:{" "}
+                      <Text style={styles.driverFieldValue}>
+                        {driverBeingConfigured.direction} probability
+                      </Text>
+                    </Text>
+                    <Text style={styles.driverFieldExplanation}>
+                      Continuous drivers sample from the distribution (p5=5th
+                      percentile, p50=median, p95=95th percentile) and multiply
+                      the outcome
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.driverFieldLabel}>
+                      Probability:{" "}
+                      <Text style={styles.driverFieldValue}>
+                        {driverBeingConfigured.probability || 50}%
+                      </Text>
+                    </Text>
+                    <Text style={styles.driverFieldExplanation}>
+                      Binary drivers either happen (with this probability) or
+                      don't happen (forecast fails)
+                    </Text>
+                  </>
+                )}
+              </View>
               {driverBeingConfigured.agents &&
                 driverBeingConfigured.agents.length > 0 && (
                   <View style={styles.agentsContainer}>
@@ -1794,8 +2051,10 @@ export default function ForecastWorkspaceScreen() {
                   </View>
                 )}
               <Text style={styles.configHint}>
-                Use /type, /dist, /p, /direction to configure. Type @ to add
-                research agent. Then /save
+                {driverBeingConfigured.type === "continuous"
+                  ? "Commands: /type (continuous|binary) · /dist (triangular|normal|lognormal) · /p <p5> <p50> <p95> · /direction (increases|decreases)"
+                  : "Commands: /type (continuous|binary) · /prob <0-100>"}
+                {"\n"}Type @ to add research agent · /save to finish
               </Text>
             </View>
           </View>
@@ -2249,6 +2508,13 @@ export default function ForecastWorkspaceScreen() {
                 onPress={() => {
                   if (hint.key === "question") {
                     setCommandInput("/question ");
+                  } else if (hint.label.startsWith("@")) {
+                    // For agent autocomplete, check if we're in /run context
+                    if (commandInput.includes("/run")) {
+                      setCommandInput("/run " + hint.label + " ");
+                    } else {
+                      setCommandInput(hint.label + " ");
+                    }
                   } else {
                     setCommandInput(hint.label + " ");
                   }
@@ -2348,6 +2614,53 @@ const styles = StyleSheet.create({
     color: "#fabd2f",
     marginTop: 8,
     marginBottom: 4,
+  },
+  chartContainer: {
+    marginTop: 16,
+    marginBottom: 16,
+    backgroundColor: "#3c3836",
+    padding: 12,
+    borderRadius: 8,
+  },
+  chartTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#ebdbb2",
+    marginBottom: 8,
+  },
+  chart: {
+    marginVertical: 8,
+    borderRadius: 8,
+  },
+  chartCaption: {
+    fontSize: 11,
+    color: "#928374",
+    marginTop: 8,
+    textAlign: "center",
+    fontStyle: "italic",
+  },
+  simulationCount: {
+    fontSize: 11,
+    color: "#928374",
+    fontWeight: "normal",
+  },
+  simulationReason: {
+    fontSize: 11,
+    color: "#928374",
+    marginTop: 4,
+    fontStyle: "italic",
+  },
+  historyChartContainer: {
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#504945",
+  },
+  historyChartTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#d79921",
+    marginBottom: 8,
   },
   resolutionBox: {
     backgroundColor: "#3c3836",
@@ -2535,6 +2848,37 @@ const styles = StyleSheet.create({
   driverDetails: {
     fontSize: 12,
     color: "#928374",
+  },
+  driverDetailsContainer: {
+    marginTop: 8,
+    gap: 4,
+  },
+  driverTypeLabel: {
+    fontSize: 13,
+    color: "#ebdbb2",
+    marginBottom: 4,
+  },
+  driverTypeValue: {
+    fontWeight: "600",
+    color: "#fabd2f",
+  },
+  driverFieldLabel: {
+    fontSize: 12,
+    color: "#d5c4a1",
+    marginTop: 2,
+  },
+  driverFieldValue: {
+    fontWeight: "500",
+    color: "#b8bb26",
+  },
+  driverFieldExplanation: {
+    fontSize: 11,
+    color: "#928374",
+    fontStyle: "italic",
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: "#504945",
   },
   hintCard: {
     backgroundColor: "#3c3836",

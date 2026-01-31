@@ -232,6 +232,7 @@ export async function runSimulationWithSync(
   success: boolean;
   probability?: number;
   forecast?: any;
+  simulationData?: any;
   error?: string;
 }> {
   // Skip if local-only ID
@@ -251,6 +252,7 @@ export async function runSimulationWithSync(
       const forecast = result.forecast
         ? mapBackendToLocal(result.forecast)
         : undefined;
+
       console.log(`[BackendSync] Simulation complete: ${probability}`);
       return { success: true, probability, forecast };
     }
