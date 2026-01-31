@@ -23,6 +23,10 @@ interface SavedForecast {
   drivers: any[];
   createdAt: string;
   updatedAt: string;
+  resolved?: boolean;
+  actualOutcome?: boolean; // true = happened, false = didn't happen
+  resolvedAt?: string;
+  brierScore?: number;
 }
 
 const STORAGE_KEY = "@uffp_forecasts";
@@ -435,6 +439,13 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
+    // Handle /leaderboard command
+    if (trimmed === "/leaderboard") {
+      setShowForecastList(true); // Reuse list view but will show sorted by Brier
+      setCommandInput("");
+      return;
+    }
+
     // Handle /grounding command (only if forecast is active)
     if (trimmed.startsWith("/grounding ")) {
       if (!activeForecast) {
@@ -457,6 +468,48 @@ export default function ForecastWorkspaceScreen() {
       } else {
         setError("Grounding must be 'external', 'premortem', or 'analysis'");
       }
+      return;
+    }
+
+    // Handle /resolve command (only if forecast is active and has probability)
+    if (trimmed.startsWith("/resolve ")) {
+      if (!activeForecast) {
+        setError("No active forecast. Type /question first.");
+        setCommandInput("");
+        return;
+      }
+
+      if (!activeForecast.probability) {
+        setError("Run /simulate first to get a probability forecast");
+        setCommandInput("");
+        return;
+      }
+
+      const outcome = trimmed.replace("/resolve ", "").trim().toLowerCase();
+      if (outcome !== "yes" && outcome !== "no") {
+        setError("Use /resolve yes or /resolve no");
+        return;
+      }
+
+      const actualOutcome = outcome === "yes";
+      const forecastProb = activeForecast.probability;
+
+      // Calculate Brier score: (forecast_probability - actual_outcome)^2
+      const brierScore = Math.pow(forecastProb - (actualOutcome ? 1 : 0), 2);
+
+      const resolvedForecast = {
+        ...activeForecast,
+        resolved: true,
+        actualOutcome,
+        resolvedAt: new Date().toISOString(),
+        brierScore,
+        updatedAt: new Date().toISOString(),
+      };
+
+      setActiveForecast(resolvedForecast);
+      await saveForecast(resolvedForecast);
+      setCommandInput("");
+      setError("");
       return;
     }
 
@@ -855,6 +908,17 @@ export default function ForecastWorkspaceScreen() {
       "/simul": "/simulate",
       "/simula": "/simulate",
       "/simulat": "/simulate",
+      "/r": "/resolve yes",
+      "/re": "/resolve yes",
+      "/res": "/resolve yes",
+      "/reso": "/resolve yes",
+      "/resol": "/resolve yes",
+      "/resolv": "/resolve yes",
+      "/resolve": "/resolve yes",
+      "/resolve ": "/resolve yes",
+      "/resolve y": "/resolve yes",
+      "/resolve ye": "/resolve yes",
+      "/resolve n": "/resolve no",
     };
     if (regularSuggestions[query]) return regularSuggestions[query];
 
@@ -1061,6 +1125,23 @@ export default function ForecastWorkspaceScreen() {
         { key: "grounding", label: "/grounding", desc: "Set grounding type" },
         { key: "simulate", label: "/simulate", desc: "Run simulation" },
       );
+
+      // Show resolve command if forecast has a probability and isn't resolved yet
+      if (activeForecast.probability && !activeForecast.resolved) {
+        hints.push({
+          key: "resolve",
+          label: "/resolve",
+          desc: "Mark outcome (yes/no)",
+        });
+      }
+    }
+
+    // Autocomplete for /resolve values
+    if (query.startsWith("/resolve ")) {
+      return [
+        { key: "yes", label: "/resolve yes", desc: "Event happened" },
+        { key: "no", label: "/resolve no", desc: "Event didn't happen" },
+      ].filter((h) => h.label.includes(query));
     }
 
     return hints.filter(
@@ -1098,6 +1179,22 @@ export default function ForecastWorkspaceScreen() {
                   <Text style={styles.probabilityResult}>
                     Forecast: {Math.round(activeForecast.probability * 100)}%
                   </Text>
+                )}
+                {activeForecast?.resolved && (
+                  <View style={styles.resolutionBox}>
+                    <Text style={styles.resolutionText}>
+                      ✓ Resolved: {activeForecast.actualOutcome ? "YES" : "NO"}
+                    </Text>
+                    <Text style={styles.brierScore}>
+                      Brier Score: {activeForecast.brierScore?.toFixed(3)}
+                      {activeForecast.brierScore! < 0.1 && " (Excellent)"}
+                      {activeForecast.brierScore! >= 0.1 &&
+                        activeForecast.brierScore! < 0.25 &&
+                        " (Good)"}
+                      {activeForecast.brierScore! >= 0.25 &&
+                        " (Needs improvement)"}
+                    </Text>
+                  </View>
                 )}
                 {activeForecast && (
                   <Text style={styles.lastUpdated}>
@@ -1332,43 +1429,91 @@ export default function ForecastWorkspaceScreen() {
         {/* Forecast List */}
         {showForecastList && (
           <View style={styles.forecastList}>
-            <Text style={styles.listTitle}>Your Forecasts</Text>
+            <View style={styles.listHeader}>
+              <Text style={styles.listTitle}>Your Forecasts</Text>
+              {savedForecasts.filter((f) => f.resolved).length > 0 && (
+                <Text style={styles.resolvedCount}>
+                  {savedForecasts.filter((f) => f.resolved).length} resolved
+                </Text>
+              )}
+            </View>
             {savedForecasts.length === 0 ? (
               <Text style={styles.emptyListText}>
                 No forecasts yet. Type /question to create one.
               </Text>
             ) : (
-              savedForecasts.map((forecast) => (
-                <TouchableOpacity
-                  key={forecast.id}
-                  style={styles.forecastItem}
-                  onPress={() => loadForecast(forecast)}
-                >
-                  <View style={styles.forecastHeader}>
-                    <Text style={styles.forecastQuestion}>
-                      {forecast.question}
-                    </Text>
-                    {forecast.drivers && forecast.drivers.length > 0 && (
-                      <View style={styles.driverBadge}>
-                        <Text style={styles.driverBadgeText}>
-                          {forecast.drivers.length}
+              [...savedForecasts]
+                .sort((a, b) => {
+                  // Sort resolved forecasts by Brier score (best first)
+                  if (a.resolved && b.resolved) {
+                    return (a.brierScore || 1) - (b.brierScore || 1);
+                  }
+                  // Resolved forecasts come first
+                  if (a.resolved && !b.resolved) return -1;
+                  if (!a.resolved && b.resolved) return 1;
+                  // Then by date
+                  return (
+                    new Date(b.updatedAt).getTime() -
+                    new Date(a.updatedAt).getTime()
+                  );
+                })
+                .map((forecast) => (
+                  <TouchableOpacity
+                    key={forecast.id}
+                    style={styles.forecastItem}
+                    onPress={() => loadForecast(forecast)}
+                  >
+                    <View style={styles.forecastHeader}>
+                      <Text style={styles.forecastQuestion}>
+                        {forecast.question}
+                      </Text>
+                      {forecast.drivers && forecast.drivers.length > 0 && (
+                        <View style={styles.driverBadge}>
+                          <Text style={styles.driverBadgeText}>
+                            {forecast.drivers.length}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    {forecast.domain && (
+                      <Text style={styles.forecastMeta}>
+                        {forecast.domain}
+                        {forecast.timeframe && ` · ${forecast.timeframe}`}
+                        {forecast.probability != null &&
+                          ` · ${(forecast.probability * 100).toFixed(0)}%`}
+                      </Text>
+                    )}
+                    {forecast.resolved && (
+                      <View style={styles.forecastResolution}>
+                        <Text
+                          style={[
+                            styles.resolutionBadge,
+                            forecast.actualOutcome
+                              ? styles.resolvedYes
+                              : styles.resolvedNo,
+                          ]}
+                        >
+                          {forecast.actualOutcome ? "YES" : "NO"}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.brierBadge,
+                            forecast.brierScore! < 0.1 && styles.brierExcellent,
+                            forecast.brierScore! >= 0.1 &&
+                              forecast.brierScore! < 0.25 &&
+                              styles.brierGood,
+                            forecast.brierScore! >= 0.25 && styles.brierPoor,
+                          ]}
+                        >
+                          Brier: {forecast.brierScore?.toFixed(3)}
                         </Text>
                       </View>
                     )}
-                  </View>
-                  {forecast.domain && (
-                    <Text style={styles.forecastMeta}>
-                      {forecast.domain}
-                      {forecast.timeframe && ` · ${forecast.timeframe}`}
-                      {forecast.probability != null &&
-                        ` · ${(forecast.probability * 100).toFixed(0)}%`}
+                    <Text style={styles.forecastDate}>
+                      {new Date(forecast.updatedAt).toLocaleDateString()}
                     </Text>
-                  )}
-                  <Text style={styles.forecastDate}>
-                    {new Date(forecast.updatedAt).toLocaleDateString()}
-                  </Text>
-                </TouchableOpacity>
-              ))
+                  </TouchableOpacity>
+                ))
             )}
           </View>
         )}
@@ -1499,6 +1644,24 @@ const styles = StyleSheet.create({
     color: "#fabd2f",
     marginTop: 8,
     marginBottom: 4,
+  },
+  resolutionBox: {
+    backgroundColor: "#3c3836",
+    padding: 12,
+    borderRadius: 6,
+    marginTop: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#b8bb26",
+  },
+  resolutionText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#b8bb26",
+    marginBottom: 4,
+  },
+  brierScore: {
+    fontSize: 13,
+    color: "#ebdbb2",
   },
   loadingCard: {
     flexDirection: "row",
@@ -1769,11 +1932,21 @@ const styles = StyleSheet.create({
   forecastList: {
     marginTop: 24,
   },
+  listHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
   listTitle: {
     fontSize: 18,
     fontWeight: "500",
     color: "#ebdbb2",
-    marginBottom: 16,
+  },
+  resolvedCount: {
+    fontSize: 12,
+    color: "#b8bb26",
+    fontWeight: "600",
   },
   emptyListText: {
     fontSize: 14,
@@ -1823,5 +1996,43 @@ const styles = StyleSheet.create({
   forecastDate: {
     fontSize: 11,
     color: "#665c54",
+  },
+  forecastResolution: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  resolutionBadge: {
+    fontSize: 10,
+    fontWeight: "700",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  resolvedYes: {
+    backgroundColor: "#b8bb26",
+    color: "#282828",
+  },
+  resolvedNo: {
+    backgroundColor: "#fb4934",
+    color: "#282828",
+  },
+  brierBadge: {
+    fontSize: 10,
+    fontWeight: "600",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: "#3c3836",
+  },
+  brierExcellent: {
+    color: "#b8bb26",
+  },
+  brierGood: {
+    color: "#fabd2f",
+  },
+  brierPoor: {
+    color: "#fb4934",
   },
 });
