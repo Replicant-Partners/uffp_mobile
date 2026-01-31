@@ -88,7 +88,9 @@ export async function loadForecastsWithSync(params?: {
 
     if (result.success && result.forecasts) {
       const mapped = result.forecasts.map(mapBackendToLocal);
-      console.log(`[BackendSync] Loaded ${mapped.length} forecasts from backend`);
+      console.log(
+        `[BackendSync] Loaded ${mapped.length} forecasts from backend`,
+      );
       return { forecasts: mapped, fromBackend: true };
     }
 
@@ -131,7 +133,11 @@ export async function createForecastWithSync(data: {
   }
 
   try {
-    console.log("[BackendSync] Creating forecast on backend...");
+    console.log("[BackendSync] Creating forecast on backend...", {
+      userId: TEMP_USER_ID,
+      question: data.question,
+      domain: data.domain || data.parsedData?.domain || "general",
+    });
     const result = await researchService.createForecast({
       userId: TEMP_USER_ID,
       question: data.question,
@@ -139,6 +145,8 @@ export async function createForecastWithSync(data: {
       timeframe: data.timeframe || data.parsedData?.timeframe,
       resolutionCriteria: `Forecast resolves when outcome is known for: ${data.question}`,
     });
+
+    console.log("[BackendSync] Backend create response:", result);
 
     if (result.success && result.forecast) {
       const mapped = mapBackendToLocal(result.forecast);
@@ -149,7 +157,11 @@ export async function createForecastWithSync(data: {
     throw new Error("Backend response missing forecast");
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
-    console.error("[BackendSync] Failed to create on backend:", errorMsg);
+    console.error(
+      "[BackendSync] Failed to create on backend:",
+      errorMsg,
+      error,
+    );
 
     if (currentSyncMode === "backend-only") {
       throw error;
@@ -229,12 +241,16 @@ export async function runSimulationWithSync(
   }
 
   try {
-    console.log(`[BackendSync] Running simulation for forecast ${forecastId}...`);
+    console.log(
+      `[BackendSync] Running simulation for forecast ${forecastId}...`,
+    );
     const result = await researchService.simulate(forecastId, iterations);
 
     if (result.success && result.simulation) {
       const probability = result.simulation.probability;
-      const forecast = result.forecast ? mapBackendToLocal(result.forecast) : undefined;
+      const forecast = result.forecast
+        ? mapBackendToLocal(result.forecast)
+        : undefined;
       console.log(`[BackendSync] Simulation complete: ${probability}`);
       return { success: true, probability, forecast };
     }
@@ -273,7 +289,9 @@ export async function resolveForecastWithSync(
     );
 
     if (result.success) {
-      const forecast = result.forecast ? mapBackendToLocal(result.forecast) : undefined;
+      const forecast = result.forecast
+        ? mapBackendToLocal(result.forecast)
+        : undefined;
       console.log(
         `[BackendSync] Resolved with Brier score: ${result.brierScore}`,
       );

@@ -381,7 +381,12 @@ export default function ForecastWorkspaceScreen() {
 
       // /run - execute agent research
       if (trimmed.startsWith("/run @")) {
-        const agentName = trimmed.replace("/run @", "").trim();
+        let agentName = trimmed.replace("/run @", "").trim();
+        // Extract just the agent ID (before any space or parenthesis)
+        const match = agentName.match(/^([a-z_]+)/);
+        if (match) {
+          agentName = match[1];
+        }
         console.log("[Agent Config Mode] Attempting to run agent:", agentName);
 
         // First, try to find agent in driver being configured
@@ -636,7 +641,13 @@ export default function ForecastWorkspaceScreen() {
 
       // Handle @agent mentions - enter agent config mode
       if (trimmed.startsWith("@") && !trimmed.includes("/")) {
-        const agentName = trimmed.substring(1).trim();
+        let agentName = trimmed.substring(1).trim();
+        // Extract just the agent ID (before any space or parenthesis)
+        // e.g., "competitive_intel (competitor tracking)" -> "competitive_intel"
+        const match = agentName.match(/^([a-z_]+)/);
+        if (match) {
+          agentName = match[1];
+        }
         console.log("Agent mention detected:", agentName);
         if (agentName) {
           console.log("Setting agent being configured:", agentName);
@@ -668,7 +679,12 @@ export default function ForecastWorkspaceScreen() {
       !agentBeingConfigured &&
       !driverBeingConfigured
     ) {
-      const agentName = trimmed.replace("/run @", "").trim();
+      let agentName = trimmed.replace("/run @", "").trim();
+      // Extract just the agent ID (before any space or parenthesis)
+      const match = agentName.match(/^([a-z_]+)/);
+      if (match) {
+        agentName = match[1];
+      }
       console.log("[Agent Execution] Attempting to run agent:", agentName);
 
       if (!activeForecast) {
