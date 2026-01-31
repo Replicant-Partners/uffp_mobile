@@ -54,7 +54,11 @@ export default function ForecastWorkspaceScreen() {
 
   const loadForecasts = async () => {
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      // Use localStorage for web, AsyncStorage for native
+      const stored =
+        Platform.OS === "web"
+          ? localStorage.getItem(STORAGE_KEY)
+          : await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
         const forecasts = JSON.parse(stored);
         setSavedForecasts(forecasts);
@@ -69,7 +73,13 @@ export default function ForecastWorkspaceScreen() {
       const updated = savedForecasts.filter((f) => f.id !== forecast.id);
       updated.unshift(forecast); // Add to beginning
       setSavedForecasts(updated);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+      // Use localStorage for web, AsyncStorage for native
+      if (Platform.OS === "web") {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } else {
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      }
     } catch (err) {
       console.error("Failed to save forecast:", err);
     }
@@ -345,12 +355,14 @@ export default function ForecastWorkspaceScreen() {
         // Add drivers to backend forecast
         setProcessingAction("Adding drivers...");
         for (const driver of activeForecast.drivers) {
-          await researchService.addDriver(backendForecastId, {
+          const driverData = {
             name: driver.name,
             description: driver.name,
             direction: driver.direction,
             magnitude: "medium",
-          });
+          };
+          console.log("Adding driver:", driverData);
+          await researchService.addDriver(backendForecastId, driverData);
         }
 
         // Run simulation
