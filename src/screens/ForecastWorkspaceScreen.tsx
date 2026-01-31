@@ -33,7 +33,11 @@ interface Command {
 
 const COMMANDS: Command[] = [
   { key: "driver", label: "/driver", description: "Add new driver" },
-  { key: "simulate", label: "/simulate", description: "Run Monte Carlo simulation" },
+  {
+    key: "simulate",
+    label: "/simulate",
+    description: "Run Monte Carlo simulation",
+  },
   { key: "coach", label: "/coach", description: "Ask AI coach for help" },
   { key: "research", label: "/research", description: "Assign research agent" },
 ];
@@ -56,6 +60,10 @@ export default function ForecastWorkspaceScreen() {
   const [showAgentPicker, setShowAgentPicker] = useState(false);
   const [filteredCommands, setFilteredCommands] = useState<Command[]>([]);
   const [filteredAgents, setFilteredAgents] = useState(typeof AGENTS);
+  const [selectedDriverForAgent, setSelectedDriverForAgent] = useState<
+    string | null
+  >(null);
+  const [coachSuggestion, setCoachSuggestion] = useState<string>("");
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -66,7 +74,7 @@ export default function ForecastWorkspaceScreen() {
         (cmd) =>
           cmd.key.includes(query) ||
           cmd.label.includes(query) ||
-          cmd.description.toLowerCase().includes(query)
+          cmd.description.toLowerCase().includes(query),
       );
       setFilteredCommands(filtered);
       setShowCommandPalette(true);
@@ -77,7 +85,7 @@ export default function ForecastWorkspaceScreen() {
       const query = inputText.slice(1).toLowerCase();
       const filtered = AGENTS.filter(
         (agent) =>
-          agent.id.includes(query) || agent.name.toLowerCase().includes(query)
+          agent.id.includes(query) || agent.name.toLowerCase().includes(query),
       );
       setFilteredAgents(filtered);
       setShowAgentPicker(true);
@@ -88,38 +96,62 @@ export default function ForecastWorkspaceScreen() {
     }
   }, [inputText]);
 
-  const executeCommand = async (command: string) => {
+  const executeCommand = async (commandText: string) => {
+    const parts = commandText.trim().split(" ");
+    const command = parts[0].replace("/", "");
+    const args = parts.slice(1).join(" ");
+
     setInputText("");
     setShowCommandPalette(false);
 
     switch (command) {
       case "driver":
-        // Add new driver with defaults
+        // Parse driver name from args
+        const driverName = args || "New driver";
         const newDriver: Driver = {
           id: Date.now().toString(),
-          name: "New driver",
+          name: driverName,
           type: "continuous",
           distribution: "triangular",
           p5: 30,
           p50: 50,
           p95: 70,
           direction: "increases",
-          expanded: true,
+          expanded: false, // Start collapsed, let user expand to configure
         };
         setDrivers([...drivers, newDriver]);
+
+        // Get coach suggestion for this driver
+        getCoachSuggestion(driverName);
         break;
 
       case "simulate":
         await runSimulation();
         break;
 
-      case "coach":
-        // TODO: Implement coach interaction
-        break;
-
       case "research":
         setShowAgentPicker(true);
         break;
+    }
+  };
+
+  const getCoachSuggestion = async (driverName: string) => {
+    if (!forecast) return;
+
+    setCoachSuggestion("💭 Analyzing driver...");
+
+    try {
+      const response = await researchService.chatWithCoach(
+        `Suggest optimal parameters for this driver: "${driverName}" in the context of: "${question}"`,
+        {
+          forecastId: forecast.id,
+          stage: "quantify",
+        },
+      );
+
+      setCoachSuggestion(response.message || response.response || "");
+    } catch (err) {
+      setCoachSuggestion("");
     }
   };
 
@@ -130,8 +162,8 @@ export default function ForecastWorkspaceScreen() {
     if (driverId) {
       setDrivers(
         drivers.map((d) =>
-          d.id === driverId ? { ...d, researchAgent: agentId } : d
-        )
+          d.id === driverId ? { ...d, researchAgent: agentId } : d,
+        ),
       );
     }
   };
@@ -153,13 +185,15 @@ export default function ForecastWorkspaceScreen() {
   const toggleDriver = (driverId: string) => {
     setDrivers(
       drivers.map((d) =>
-        d.id === driverId ? { ...d, expanded: !d.expanded } : d
-      )
+        d.id === driverId ? { ...d, expanded: !d.expanded } : d,
+      ),
     );
   };
 
   const updateDriver = (driverId: string, updates: Partial<Driver>) => {
-    setDrivers(drivers.map((d) => (d.id === driverId ? { ...d, ...updates } : d)));
+    setDrivers(
+      drivers.map((d) => (d.id === driverId ? { ...d, ...updates } : d)),
+    );
   };
 
   const parseQuestion = async () => {
@@ -193,7 +227,7 @@ export default function ForecastWorkspaceScreen() {
             p95: 70,
             direction: "increases" as const,
             expanded: false,
-          })
+          }),
         );
         setDrivers(suggestedDrivers);
       }
@@ -283,7 +317,8 @@ export default function ForecastWorkspaceScreen() {
                             <Text
                               style={[
                                 styles.segmentText,
-                                driver.type === type && styles.segmentTextActive,
+                                driver.type === type &&
+                                  styles.segmentTextActive,
                               ]}
                             >
                               {type}
@@ -299,29 +334,33 @@ export default function ForecastWorkspaceScreen() {
                         <View style={styles.row}>
                           <Text style={styles.label}>Distribution:</Text>
                           <View style={styles.segmentedControl}>
-                            {["triangular", "normal", "lognormal"].map((dist) => (
-                              <TouchableOpacity
-                                key={dist}
-                                style={[
-                                  styles.segment,
-                                  driver.distribution === dist &&
-                                    styles.segmentActive,
-                                ]}
-                                onPress={() =>
-                                  updateDriver(driver.id, { distribution: dist as any })
-                                }
-                              >
-                                <Text
+                            {["triangular", "normal", "lognormal"].map(
+                              (dist) => (
+                                <TouchableOpacity
+                                  key={dist}
                                   style={[
-                                    styles.segmentText,
+                                    styles.segment,
                                     driver.distribution === dist &&
-                                      styles.segmentTextActive,
+                                      styles.segmentActive,
                                   ]}
+                                  onPress={() =>
+                                    updateDriver(driver.id, {
+                                      distribution: dist as any,
+                                    })
+                                  }
                                 >
-                                  {dist}
-                                </Text>
-                              </TouchableOpacity>
-                            ))}
+                                  <Text
+                                    style={[
+                                      styles.segmentText,
+                                      driver.distribution === dist &&
+                                        styles.segmentTextActive,
+                                    ]}
+                                  >
+                                    {dist}
+                                  </Text>
+                                </TouchableOpacity>
+                              ),
+                            )}
                           </View>
                         </View>
 
@@ -333,7 +372,9 @@ export default function ForecastWorkspaceScreen() {
                               style={styles.probValue}
                               value={driver.p5?.toString()}
                               onChangeText={(val) =>
-                                updateDriver(driver.id, { p5: Number(val) || 0 })
+                                updateDriver(driver.id, {
+                                  p5: Number(val) || 0,
+                                })
                               }
                               keyboardType="numeric"
                             />
@@ -344,7 +385,9 @@ export default function ForecastWorkspaceScreen() {
                               style={styles.probValue}
                               value={driver.p50?.toString()}
                               onChangeText={(val) =>
-                                updateDriver(driver.id, { p50: Number(val) || 0 })
+                                updateDriver(driver.id, {
+                                  p50: Number(val) || 0,
+                                })
                               }
                               keyboardType="numeric"
                             />
@@ -355,7 +398,9 @@ export default function ForecastWorkspaceScreen() {
                               style={styles.probValue}
                               value={driver.p95?.toString()}
                               onChangeText={(val) =>
-                                updateDriver(driver.id, { p95: Number(val) || 0 })
+                                updateDriver(driver.id, {
+                                  p95: Number(val) || 0,
+                                })
                               }
                               keyboardType="numeric"
                             />
@@ -404,7 +449,8 @@ export default function ForecastWorkspaceScreen() {
                             <Text
                               style={[
                                 styles.segmentText,
-                                driver.direction === dir && styles.segmentTextActive,
+                                driver.direction === dir &&
+                                  styles.segmentTextActive,
                               ]}
                             >
                               {dir}
@@ -422,7 +468,9 @@ export default function ForecastWorkspaceScreen() {
                         </Text>
                         <TouchableOpacity
                           onPress={() =>
-                            updateDriver(driver.id, { researchAgent: undefined })
+                            updateDriver(driver.id, {
+                              researchAgent: undefined,
+                            })
                           }
                         >
                           <Text style={styles.removeAgent}>✕</Text>
@@ -458,27 +506,61 @@ export default function ForecastWorkspaceScreen() {
           <TextInput
             ref={inputRef}
             style={styles.commandInput}
-            placeholder="Type / for commands or @ for agents"
+            placeholder="Type /driver Squad strength, @agent_name, or /simulate"
             placeholderTextColor="#928374"
             value={inputText}
             onChangeText={setInputText}
+            onSubmitEditing={() => {
+              if (inputText.startsWith("/")) {
+                executeCommand(inputText);
+              } else if (inputText.startsWith("@")) {
+                const agentId = inputText.slice(1).trim();
+                if (selectedDriverForAgent) {
+                  assignAgent(agentId, selectedDriverForAgent);
+                }
+              }
+            }}
             autoCapitalize="none"
+            returnKeyType="done"
           />
         </View>
 
+        {/* Coach Suggestion */}
+        {coachSuggestion && (
+          <View style={styles.coachCard}>
+            <Text style={styles.coachLabel}>💭 AI Coach</Text>
+            <Text style={styles.coachText}>{coachSuggestion}</Text>
+          </View>
+        )}
+
         {/* Command Palette */}
-        {showCommandPalette && (
+        {showCommandPalette && filteredCommands.length > 0 && (
           <View style={styles.palette}>
             {filteredCommands.map((cmd) => (
               <TouchableOpacity
                 key={cmd.key}
                 style={styles.paletteItem}
-                onPress={() => executeCommand(cmd.key)}
+                onPress={() => {
+                  if (cmd.key === "driver") {
+                    // Keep the input so user can type driver name
+                    setShowCommandPalette(false);
+                    // Focus will remain in input
+                  } else {
+                    executeCommand(cmd.key);
+                  }
+                }}
               >
                 <Text style={styles.paletteLabel}>{cmd.label}</Text>
                 <Text style={styles.paletteDesc}>{cmd.description}</Text>
               </TouchableOpacity>
             ))}
+            {inputText.length > 1 && (
+              <View style={styles.paletteHint}>
+                <Text style={styles.paletteHintText}>
+                  Press Enter to execute: {inputText}
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -732,5 +814,48 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(40, 40, 40, 0.8)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  coachCard: {
+    backgroundColor: "#3c3836",
+    borderLeftWidth: 3,
+    borderLeftColor: "#b8bb26",
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 12,
+  },
+  coachLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#b8bb26",
+    marginBottom: 8,
+  },
+  coachText: {
+    fontSize: 14,
+    color: "#d5c4a1",
+    lineHeight: 20,
+  },
+  paletteHint: {
+    padding: 12,
+    backgroundColor: "#282828",
+    borderTopWidth: 1,
+    borderTopColor: "#504945",
+  },
+  paletteHintText: {
+    fontSize: 11,
+    color: "#928374",
+    fontStyle: "italic",
+  },
+  assignAgentButton: {
+    backgroundColor: "#282828",
+    borderWidth: 1,
+    borderColor: "#504945",
+    borderStyle: "dashed",
+    borderRadius: 6,
+    padding: 12,
+    alignItems: "center",
+  },
+  assignAgentText: {
+    fontSize: 13,
+    color: "#83a598",
   },
 });
