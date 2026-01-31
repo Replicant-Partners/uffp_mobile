@@ -195,6 +195,130 @@ class ResearchService {
     });
     return response.json();
   }
+
+  // List forecasts
+  async listForecasts(params?: {
+    userId?: string;
+    status?: "draft" | "active" | "resolved";
+    limit?: number;
+    offset?: number;
+  }): Promise<{ forecasts: any[]; total: number }> {
+    const queryParams = new URLSearchParams();
+    if (params?.userId) queryParams.set("userId", params.userId);
+    if (params?.status) queryParams.set("status", params.status);
+    if (params?.limit) queryParams.set("limit", params.limit.toString());
+    if (params?.offset) queryParams.set("offset", params.offset.toString());
+
+    const response = await this.makeRequest(
+      `/forecasts?action=list&${queryParams.toString()}`,
+    );
+    return response.json();
+  }
+
+  // Update driver
+  async updateDriver(
+    forecastId: string,
+    driverId: string,
+    updates: any,
+    changeReason?: string,
+  ): Promise<any> {
+    const response = await this.makeRequest("/forecasts?action=updateDriver", {
+      method: "POST",
+      body: JSON.stringify({ forecastId, driverId, updates, changeReason }),
+    });
+    return response.json();
+  }
+
+  // Remove driver
+  async removeDriver(forecastId: string, driverId: string): Promise<any> {
+    const response = await this.makeRequest("/forecasts?action=removeDriver", {
+      method: "POST",
+      body: JSON.stringify({ forecastId, driverId }),
+    });
+    return response.json();
+  }
+
+  // Add evidence
+  async addEvidence(
+    forecastId: string,
+    evidence: any,
+    driverId?: string,
+  ): Promise<any> {
+    const response = await this.makeRequest("/forecasts?action=addEvidence", {
+      method: "POST",
+      body: JSON.stringify({ forecastId, evidence, driverId }),
+    });
+    return response.json();
+  }
+
+  // Set base rate
+  async setBaseRate(forecastId: string, baseRate: any): Promise<any> {
+    const response = await this.makeRequest("/forecasts?action=setBaseRate", {
+      method: "POST",
+      body: JSON.stringify({ forecastId, baseRate }),
+    });
+    return response.json();
+  }
+
+  // Get user stats
+  async getUserStats(userId: string): Promise<any> {
+    const response = await this.makeRequest(
+      `/forecasts?action=stats&userId=${userId}`,
+    );
+    return response.json();
+  }
+
+  // Get leaderboard
+  async getLeaderboard(params?: {
+    domain?: string;
+    limit?: number;
+  }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    queryParams.set("leaderboard", "true");
+    if (params?.domain) queryParams.set("domain", params.domain);
+    if (params?.limit) queryParams.set("limit", params.limit.toString());
+
+    const response = await this.makeRequest(
+      `/forecasts?action=stats&${queryParams.toString()}`,
+    );
+    return response.json();
+  }
+
+  // Update forecast (full update)
+  async updateForecast(
+    forecastId: string,
+    updates: Partial<{
+      question: string;
+      domain: string;
+      timeframe: string;
+      resolutionCriteria: string;
+      probability: number;
+      resolved: boolean;
+      actualOutcome: boolean;
+    }>,
+  ): Promise<any> {
+    const response = await this.makeRequest("/forecasts?action=update", {
+      method: "POST",
+      body: JSON.stringify({ forecastId, updates }),
+    });
+    return response.json();
+  }
+
+  // Resolve forecast (mark outcome and calculate Brier score)
+  async resolveForecast(
+    forecastId: string,
+    actualOutcome: boolean,
+  ): Promise<any> {
+    const response = await this.makeRequest("/forecasts?action=resolve", {
+      method: "POST",
+      body: JSON.stringify({
+        forecastId,
+        actualOutcome,
+        resolvedAt: new Date().toISOString(),
+      }),
+    });
+    return response.json();
+  }
 }
 
 export const researchService = new ResearchService();
