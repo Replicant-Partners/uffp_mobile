@@ -147,7 +147,7 @@ export default function ForecastWorkspaceScreen() {
     // Show hints when: typing /, typing @, or in driver config with empty field
     if (
       commandInput.startsWith("/") ||
-      commandInput.startsWith("@") ||
+      commandInput.includes("@") ||
       (driverBeingConfigured && commandInput === "")
     ) {
       setShowCommandHints(true);
@@ -382,52 +382,145 @@ export default function ForecastWorkspaceScreen() {
       // /run - execute agent research
       if (trimmed.startsWith("/run @")) {
         const agentName = trimmed.replace("/run @", "").trim();
-        if (driverBeingConfigured) {
-          const agent = driverBeingConfigured.agents?.find(
-            (a: any) => a.name === agentName,
-          );
-          if (agent && agent.query) {
-            setLoading(true);
-            setProcessingAction(`Running ${agentName} research...`);
-            try {
-              // Execute research
-              const result = await researchService.executeResearch({
-                agentId: agent.name,
-                promptId: "market_tam_sizing", // Default prompt, could be made configurable
-                variables: {
-                  MARKET_SEGMENT: agent.query,
-                  GEOGRAPHY: "United States",
-                },
-              });
+        console.log("[Agent Config Mode] Attempting to run agent:", agentName);
 
-              // Add result as evidence to driver
+        // First, try to find agent in driver being configured
+        let agent = null;
+        let targetDriver = null;
+
+        if (driverBeingConfigured) {
+          console.log(
+            "[Agent Config Mode] Searching in driverBeingConfigured.agents:",
+            driverBeingConfigured.agents,
+          );
+          agent = driverBeingConfigured.agents?.find((a: any) => {
+            const name = a.name || a;
+            console.log(
+              "[Agent Config Mode] Comparing:",
+              name,
+              "with:",
+              agentName,
+            );
+            return name === agentName || a === agentName;
+          });
+          targetDriver = driverBeingConfigured;
+          console.log(
+            "[Agent Config Mode] Found in driverBeingConfigured:",
+            agent,
+          );
+        }
+
+        // If not found and not configuring, search all drivers in active forecast
+        if (!agent && activeForecast && activeForecast.drivers) {
+          console.log(
+            "[Agent Config Mode] Not found in driver, searching active forecast drivers:",
+            activeForecast.drivers.length,
+          );
+          for (const driver of activeForecast.drivers) {
+            if (driver.agents && driver.agents.length > 0) {
+              const foundAgent = driver.agents.find((a: any) => {
+                const name = a.name || a;
+                return name === agentName || a === agentName;
+              });
+              if (foundAgent) {
+                console.log(
+                  "[Agent Config Mode] Found in saved driver:",
+                  driver.name,
+                );
+                agent = foundAgent;
+                targetDriver = driver;
+                break;
+              }
+            }
+          }
+        }
+
+        console.log(
+          "[Agent Config Mode] Final result - agent:",
+          agent,
+          "query:",
+          agent?.query,
+        );
+
+        if (agent && agent.query) {
+          setLoading(true);
+          setProcessingAction(`Running ${agentName} research...`);
+          try {
+            // Execute research
+            const result = await researchService.executeResearch({
+              agentId: agent.name || agent,
+              promptId: "market_tam_sizing", // Default prompt, could be made configurable
+              variables: {
+                MARKET_SEGMENT: agent.query,
+                GEOGRAPHY: "United States",
+              },
+            });
+
+            // Add result as evidence to the target driver
+            if (
+              driverBeingConfigured &&
+              targetDriver === driverBeingConfigured
+            ) {
+              // Update driver being configured
               setDriverBeingConfigured({
                 ...driverBeingConfigured,
                 evidence: [
                   ...(driverBeingConfigured.evidence || []),
                   {
                     type: "research",
-                    source: agent.name,
+                    source: agent.name || agent,
                     summary: result.summary || result.result?.summary,
                     timestamp: new Date().toISOString(),
                     fullResult: result,
                   },
                 ],
               });
-              setError(
-                `Research complete! ${result.summary || "See evidence below"}`,
-              );
-            } catch (err) {
-              setError(
-                `Research failed: ${err instanceof Error ? err.message : "Unknown error"}`,
-              );
-            } finally {
-              setLoading(false);
-              setProcessingAction("");
+            } else if (activeForecast && targetDriver) {
+              // Update saved driver in active forecast
+              const updatedDrivers = activeForecast.drivers.map((d: any) => {
+                if (d.id === targetDriver.id) {
+                  return {
+                    ...d,
+                    evidence: [
+                      ...(d.evidence || []),
+                      {
+                        type: "research",
+                        source: agent.name || agent,
+                        summary: result.summary || result.result?.summary,
+                        timestamp: new Date().toISOString(),
+                        fullResult: result,
+                      },
+                    ],
+                  };
+                }
+                return d;
+              });
+
+              const updatedForecast = {
+                ...activeForecast,
+                drivers: updatedDrivers,
+                updatedAt: new Date().toISOString(),
+              };
+
+              setActiveForecast(updatedForecast);
+              await saveForecast(updatedForecast);
             }
-          } else {
-            setError(`Agent @${agentName} not found or missing query`);
+
+            setError(
+              `Research complete! ${result.summary || "See evidence below"}`,
+            );
+          } catch (err) {
+            setError(
+              `Research failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+            );
+          } finally {
+            setLoading(false);
+            setProcessingAction("");
           }
+        } else {
+          setError(
+            `Agent @${agentName} not found or missing query. Make sure you added the agent to a driver and configured its query.`,
+          );
         }
         setCommandInput("");
         return;
@@ -567,6 +660,131 @@ export default function ForecastWorkspaceScreen() {
         setCommandInput("");
         return;
       }
+    }
+
+    // Handle /run @agent command in regular mode (outside agent/driver configuration)
+    if (
+      trimmed.startsWith("/run @") &&
+      !agentBeingConfigured &&
+      !driverBeingConfigured
+    ) {
+      const agentName = trimmed.replace("/run @", "").trim();
+      console.log("[Agent Execution] Attempting to run agent:", agentName);
+
+      if (!activeForecast) {
+        setError("No active forecast. Create a forecast first.");
+        setCommandInput("");
+        return;
+      }
+
+      // Search all drivers in active forecast for the agent
+      let agent = null;
+      let targetDriver = null;
+
+      console.log(
+        "[Agent Execution] Searching through",
+        activeForecast.drivers?.length || 0,
+        "drivers",
+      );
+
+      if (activeForecast.drivers) {
+        for (const driver of activeForecast.drivers) {
+          console.log(
+            "[Agent Execution] Checking driver:",
+            driver.name,
+            "with agents:",
+            driver.agents,
+          );
+          if (driver.agents && driver.agents.length > 0) {
+            const foundAgent = driver.agents.find((a: any) => {
+              const name = a.name || a;
+              console.log(
+                "[Agent Execution] Comparing agent name:",
+                name,
+                "with:",
+                agentName,
+              );
+              return name === agentName;
+            });
+            if (foundAgent) {
+              console.log("[Agent Execution] Found agent:", foundAgent);
+              agent = foundAgent;
+              targetDriver = driver;
+              break;
+            }
+          }
+        }
+      }
+
+      console.log(
+        "[Agent Execution] Final result - agent:",
+        agent,
+        "targetDriver:",
+        targetDriver?.name,
+      );
+
+      if (agent && agent.query) {
+        setLoading(true);
+        setProcessingAction(`Running ${agentName} research...`);
+        setCommandInput("");
+        try {
+          // Execute research
+          const result = await researchService.executeResearch({
+            agentId: agent.name || agent,
+            promptId: "market_tam_sizing",
+            variables: {
+              MARKET_SEGMENT: agent.query,
+              GEOGRAPHY: "United States",
+            },
+          });
+
+          // Update saved driver in active forecast
+          const updatedDrivers = activeForecast.drivers.map((d: any) => {
+            if (d.id === targetDriver.id) {
+              return {
+                ...d,
+                evidence: [
+                  ...(d.evidence || []),
+                  {
+                    type: "research",
+                    source: agent.name || agent,
+                    summary: result.summary || result.result?.summary,
+                    timestamp: new Date().toISOString(),
+                    fullResult: result,
+                  },
+                ],
+              };
+            }
+            return d;
+          });
+
+          const updatedForecast = {
+            ...activeForecast,
+            drivers: updatedDrivers,
+            updatedAt: new Date().toISOString(),
+          };
+
+          setActiveForecast(updatedForecast);
+          await saveForecast(updatedForecast);
+
+          setError(
+            `Research complete! ${result.summary || "See evidence below"}`,
+          );
+        } catch (err) {
+          setError(
+            `Research failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+          );
+        } finally {
+          setLoading(false);
+          setProcessingAction("");
+        }
+      } else {
+        setError(
+          `Agent @${agentName} not found or missing query. Make sure you added the agent to a driver and configured its query.`,
+        );
+        setCommandInput("");
+      }
+      return;
     }
 
     // Handle /list command - with optional filter
@@ -1284,6 +1502,36 @@ export default function ForecastWorkspaceScreen() {
       return configHints.filter(
         (h) => h.label.includes(query) || h.desc.toLowerCase().includes(query),
       );
+    }
+
+    // Show agent autocomplete when typing @ in regular mode (including in /run @ context)
+    if (commandInput.includes("@")) {
+      const agentDescriptions: Record<string, string> = {
+        research_analyst: "Deep research with citations, quantitative focus",
+        sentiment_monitor: "Social listening and sentiment scoring",
+        competitive_intel: "Competitor tracking and benchmarking",
+        financial_analyst: "Financial statement analysis and modeling",
+        market_researcher: "Market sizing and industry analysis",
+        expert_synthesizer: "Synthesize expert opinions and predictions",
+      };
+
+      // Extract the part after @ for filtering
+      const atIndex = commandInput.lastIndexOf("@");
+      const afterAt = commandInput.substring(atIndex + 1).toLowerCase();
+
+      const allAgents = Object.keys(agentDescriptions).map((name) => ({
+        key: name,
+        label: "@" + name,
+        desc: agentDescriptions[name],
+      }));
+
+      // Filter by partial match if typing @something
+      if (afterAt.length > 0) {
+        return allAgents.filter((a) => a.key.startsWith(afterAt));
+      }
+
+      // Show all agents when typing @ alone
+      return allAgents;
     }
 
     if (!commandInput || !commandInput.startsWith("/")) {
