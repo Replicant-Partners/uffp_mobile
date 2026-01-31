@@ -4,7 +4,7 @@
  * Using Vercel KV (Redis) for persistent storage
  */
 
-import { kv } from "@vercel/kv";
+import { createClient } from "@vercel/kv";
 import type {
   Forecast,
   Driver,
@@ -14,6 +14,14 @@ import type {
   ForecastVersion,
   DriverVersion,
 } from "./types";
+
+// Create KV client with REDIS_URL if available, otherwise use default KV env vars
+const kv = process.env.REDIS_URL
+  ? createClient({
+      url: process.env.REDIS_URL,
+      token: "", // Redis Labs doesn't use token, uses password in URL
+    })
+  : createClient();
 
 // KV key prefixes
 const FORECAST_PREFIX = "forecast:";
