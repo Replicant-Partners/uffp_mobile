@@ -270,7 +270,7 @@ export default function ForecastInputScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#282828", // gruvbox bg
   },
   content: {
     padding: 20,
@@ -278,78 +278,79 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#333",
+    color: "#ebdbb2", // gruvbox fg
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: "#666",
+    color: "#d5c4a1", // gruvbox fg2
     marginBottom: 24,
   },
   input: {
-    backgroundColor: "#fff",
+    backgroundColor: "#3c3836", // gruvbox bg1
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: "#665c54", // gruvbox bg3
     borderRadius: 8,
     padding: 16,
     fontSize: 16,
     minHeight: 80,
     textAlignVertical: "top",
     marginBottom: 16,
+    color: "#ebdbb2", // gruvbox fg
   },
   button: {
-    backgroundColor: "#007AFF",
+    backgroundColor: "#458588", // gruvbox blue
     padding: 16,
     borderRadius: 8,
     alignItems: "center",
     marginBottom: 16,
   },
   buttonDisabled: {
-    backgroundColor: "#ccc",
+    backgroundColor: "#504945", // gruvbox bg2
   },
   buttonText: {
-    color: "#fff",
+    color: "#ebdbb2", // gruvbox fg
     fontSize: 16,
     fontWeight: "600",
   },
   createButton: {
-    backgroundColor: "#34C759",
+    backgroundColor: "#98971a", // gruvbox green
     marginTop: 16,
   },
   simulateButton: {
-    backgroundColor: "#FF9500",
+    backgroundColor: "#d79921", // gruvbox yellow
     marginTop: 16,
   },
   errorContainer: {
-    backgroundColor: "#FFEBEE",
+    backgroundColor: "#cc241d", // gruvbox red
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,
   },
   errorText: {
-    color: "#C62828",
+    color: "#ebdbb2", // gruvbox fg
     fontSize: 14,
   },
   resultContainer: {
-    backgroundColor: "#fff",
+    backgroundColor: "#3c3836", // gruvbox bg1
     padding: 16,
     borderRadius: 8,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: "#665c54", // gruvbox bg3
   },
   forecastContainer: {
-    backgroundColor: "#fff",
+    backgroundColor: "#3c3836", // gruvbox bg1
     padding: 16,
     borderRadius: 8,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: "#665c54", // gruvbox bg3
   },
   resultTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#333",
+    color: "#ebdbb2", // gruvbox fg
     marginBottom: 16,
   },
   resultRow: {
@@ -358,16 +359,16 @@ const styles = StyleSheet.create({
   resultLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#666",
+    color: "#d5c4a1", // gruvbox fg2
     marginBottom: 4,
   },
   resultValue: {
     fontSize: 16,
-    color: "#333",
+    color: "#ebdbb2", // gruvbox fg
   },
   driverItem: {
     fontSize: 14,
-    color: "#333",
+    color: "#ebdbb2", // gruvbox fg
     marginLeft: 8,
     marginTop: 4,
   },
@@ -376,37 +377,41 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   driverButton: {
-    backgroundColor: "#E3F2FD",
+    backgroundColor: "#504945", // gruvbox bg2
     padding: 12,
     borderRadius: 6,
     marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#665c54", // gruvbox bg3
   },
   driverButtonText: {
-    color: "#1976D2",
+    color: "#83a598", // gruvbox bright blue
     fontSize: 14,
     fontWeight: "500",
   },
   probabilityContainer: {
-    backgroundColor: "#F3E5F5",
+    backgroundColor: "#504945", // gruvbox bg2
     padding: 16,
     borderRadius: 8,
     marginTop: 16,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#d79921", // gruvbox yellow
   },
   probabilityLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#666",
+    color: "#d5c4a1", // gruvbox fg2
     marginBottom: 8,
   },
   probabilityValue: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#7B1FA2",
+    color: "#fabd2f", // gruvbox bright yellow
   },
   helperText: {
     fontSize: 12,
-    color: "#999",
+    color: "#bdae93", // gruvbox fg3
     textAlign: "center",
     marginTop: 8,
   },

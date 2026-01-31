@@ -10,32 +10,32 @@
  */
 
 export const TufteColors = {
-  // Dark charcoal/brown palette
-  background: "#2B2520", // Dark charcoal brown
-  backgroundSecondary: "#332D28", // Slightly lighter
-  paper: "#3A342E", // Paper surface
-  text: "#F5EFE7", // Soft cream
-  textSecondary: "#D4C4B0", // Muted cream
-  textTertiary: "#A89B8C", // Darker muted cream
+  // Gruvbox dark theme
+  background: "#282828", // bg0_h
+  backgroundSecondary: "#3c3836", // bg1
+  paper: "#504945", // bg2
+  text: "#ebdbb2", // fg
+  textSecondary: "#d5c4a1", // fg2
+  textTertiary: "#bdae93", // fg3
 
-  // Functional colors (muted yellow/orange)
-  dataLine: "#E8B87E", // Muted gold
-  dataAccent: "#D89B5A", // Burnt orange
-  grid: "#4A4238", // Subtle grid
-  border: "#5A4F45", // Muted border
+  // Functional colors (gruvbox accents)
+  dataLine: "#fabd2f", // bright yellow
+  dataAccent: "#fe8019", // bright orange
+  grid: "#504945", // bg2
+  border: "#665c54", // bg3
 
-  // Semantic colors (muted tones)
-  success: "#9CAF88", // Muted olive green
-  warning: "#D89B5A", // Burnt orange
-  error: "#B87E6C", // Muted terracotta
+  // Semantic colors
+  success: "#b8bb26", // bright green
+  warning: "#fabd2f", // bright yellow
+  error: "#fb4934", // bright red
 
-  // Chart colors (muted yellow/orange palette)
-  chart1: "#E8B87E", // Muted gold
-  chart2: "#D89B5A", // Burnt orange
-  chart3: "#C9894B", // Deep orange
-  chart4: "#A89B8C", // Taupe
-  chart5: "#F5D9A8", // Pale gold
-  chartEmphasis: "#D89B5A", // Burnt orange emphasis
+  // Chart colors (gruvbox palette)
+  chart1: "#fabd2f", // bright yellow
+  chart2: "#fe8019", // bright orange
+  chart3: "#83a598", // bright blue
+  chart4: "#d3869b", // bright purple
+  chart5: "#8ec07c", // bright aqua
+  chartEmphasis: "#fe8019", // bright orange
 };
 
 export const TufteTypography = {
@@ -110,9 +110,9 @@ export const TufteChartConfig = {
   backgroundGradientFrom: TufteColors.paper,
   backgroundGradientTo: TufteColors.paper,
 
-  // Data ink (muted gold)
-  color: (opacity = 1) => `rgba(232, 184, 126, ${opacity})`,
-  labelColor: (opacity = 1) => `rgba(245, 239, 231, ${opacity})`,
+  // Data ink (gruvbox yellow)
+  color: (opacity = 1) => `rgba(250, 189, 47, ${opacity})`,
+  labelColor: (opacity = 1) => `rgba(235, 219, 178, ${opacity})`,
 
   // Minimal decoration
   decimalPlaces: 1,
@@ -124,7 +124,7 @@ export const TufteChartConfig = {
   propsForLabels: {
     fontSize: 11,
     fontFamily: TufteTypography.fontFamily.sans,
-    fill: "#F5EFE7",
+    fill: "#ebdbb2",
   },
 
   // No fills, lines only
