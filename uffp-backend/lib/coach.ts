@@ -88,12 +88,16 @@ Output: {
 
 Now parse: "${userInput}"`;
 
-  const response = await callCoachAgent(prompt);
-
   try {
+    const response = await callCoachAgent(prompt);
     const parsed = JSON.parse(response);
     return parsed;
   } catch (e) {
+    console.error("Parse question error:", e);
+    console.error(
+      "Error details:",
+      e instanceof Error ? e.message : "Unknown error",
+    );
     // Fallback if JSON parsing fails
     return {
       question: userInput.includes("?") ? userInput : userInput + "?",
@@ -377,10 +381,13 @@ Keep responses brief (2-4 sentences usually). Ask ONE clear question at a time.`
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Anthropic API error:", response.status, errorText);
     throw new Error(`Coach API error: ${response.status}`);
   }
 
   const data = (await response.json()) as any;
+  console.log("Anthropic API response:", JSON.stringify(data, null, 2));
   return data.content[0].text;
 }
 
