@@ -69,17 +69,31 @@ export default function ForecastWorkspaceScreen() {
 
   const loadForecasts = async () => {
     try {
-      // Use localStorage for web, AsyncStorage for native
+      // Try loading from backend first
+      const { loadForecastsWithSync } = await import("../utils/backendSync");
+      const result = await loadForecastsWithSync();
+
+      if (result.fromBackend && result.forecasts.length > 0) {
+        console.log(`Loaded ${result.forecasts.length} forecasts from backend`);
+        setSavedForecasts(result.forecasts);
+        return;
+      }
+
+      // Fall back to local storage if backend fails or returns empty
       const stored =
         Platform.OS === "web"
           ? localStorage.getItem(STORAGE_KEY)
           : await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
         const forecasts = JSON.parse(stored);
+        console.log(`Loaded ${forecasts.length} forecasts from local storage`);
         setSavedForecasts(forecasts);
+      } else {
+        setSavedForecasts([]);
       }
     } catch (err) {
       console.error("Failed to load forecasts:", err);
+      setSavedForecasts([]);
     }
   };
 
@@ -173,32 +187,92 @@ export default function ForecastWorkspaceScreen() {
 
     setProcessingAction("Saving driver...");
 
-    // Check if we're editing an existing driver
-    const existingIndex = activeForecast.drivers.findIndex(
-      (d: any) => d.id === driverBeingConfigured.id,
-    );
+    try {
+      // Check if we're editing an existing driver
+      const existingIndex = activeForecast.drivers.findIndex(
+        (d: any) => d.id === driverBeingConfigured.id,
+      );
 
-    let updatedDrivers;
-    if (existingIndex >= 0) {
-      // Update existing driver
-      updatedDrivers = [...activeForecast.drivers];
-      updatedDrivers[existingIndex] = driverBeingConfigured;
-    } else {
-      // Add new driver
-      updatedDrivers = [...activeForecast.drivers, driverBeingConfigured];
+      const isNewDriver = existingIndex < 0;
+
+      if (
+        isNewDriver &&
+        activeForecast.id &&
+        !activeForecast.id.startsWith("local-")
+      ) {
+        // Add new driver to backend
+        const { addDriverWithSync } = await import("../utils/backendSync");
+        const result = await addDriverWithSync(activeForecast.id, {
+          name: driverBeingConfigured.name,
+          type: driverBeingConfigured.type,
+          probability: driverBeingConfigured.probability,
+          p5: driverBeingConfigured.p5,
+          p50: driverBeingConfigured.p50,
+          p95: driverBeingConfigured.p95,
+          distribution: driverBeingConfigured.distribution,
+          direction: driverBeingConfigured.direction,
+          reasoning: driverBeingConfigured.reasoning,
+        });
+
+        if (result.success && result.forecast) {
+          // Update from backend response
+          setActiveForecast(result.forecast);
+          await saveForecast(result.forecast);
+          console.log("Driver added to backend");
+        } else {
+          // Fall back to local update
+          throw new Error(result.error || "Failed to add driver to backend");
+        }
+      } else {
+        // Local-only forecast or editing existing driver - update locally
+        let updatedDrivers;
+        if (existingIndex >= 0) {
+          updatedDrivers = [...activeForecast.drivers];
+          updatedDrivers[existingIndex] = driverBeingConfigured;
+        } else {
+          updatedDrivers = [...activeForecast.drivers, driverBeingConfigured];
+        }
+
+        const updatedForecast = {
+          ...activeForecast,
+          drivers: updatedDrivers,
+          updatedAt: new Date().toISOString(),
+        };
+
+        setActiveForecast(updatedForecast);
+        await saveForecast(updatedForecast);
+      }
+
+      setDriverBeingConfigured(null);
+      setError("");
+    } catch (err: any) {
+      console.error("Failed to save driver:", err);
+      // Fall back to local save
+      let updatedDrivers;
+      const existingIndex = activeForecast.drivers.findIndex(
+        (d: any) => d.id === driverBeingConfigured.id,
+      );
+
+      if (existingIndex >= 0) {
+        updatedDrivers = [...activeForecast.drivers];
+        updatedDrivers[existingIndex] = driverBeingConfigured;
+      } else {
+        updatedDrivers = [...activeForecast.drivers, driverBeingConfigured];
+      }
+
+      const updatedForecast = {
+        ...activeForecast,
+        drivers: updatedDrivers,
+        updatedAt: new Date().toISOString(),
+      };
+
+      setActiveForecast(updatedForecast);
+      await saveForecast(updatedForecast);
+      setDriverBeingConfigured(null);
+      setError("Driver saved locally (backend sync failed)");
+    } finally {
+      setProcessingAction("");
     }
-
-    const updatedForecast = {
-      ...activeForecast,
-      drivers: updatedDrivers,
-      updatedAt: new Date().toISOString(),
-    };
-
-    setActiveForecast(updatedForecast);
-    await saveForecast(updatedForecast);
-    setDriverBeingConfigured(null);
-    setError("");
-    setProcessingAction("");
   };
 
   const cancelDriverConfiguration = () => {
@@ -603,24 +677,58 @@ export default function ForecastWorkspaceScreen() {
       }
 
       const actualOutcome = outcome === "positive";
-      const forecastProb = activeForecast.probability;
-
-      // Calculate Brier score: (forecast_probability - actual_outcome)^2
-      const brierScore = Math.pow(forecastProb - (actualOutcome ? 1 : 0), 2);
-
-      const resolvedForecast = {
-        ...activeForecast,
-        resolved: true,
-        actualOutcome,
-        resolvedAt: new Date().toISOString(),
-        brierScore,
-        updatedAt: new Date().toISOString(),
-      };
-
-      setActiveForecast(resolvedForecast);
-      await saveForecast(resolvedForecast);
       setCommandInput("");
-      setError("");
+      setLoading(true);
+      setProcessingAction("Resolving forecast...");
+
+      try {
+        // Check if forecast has backend ID
+        if (activeForecast.id && !activeForecast.id.startsWith("local-")) {
+          // Resolve on backend
+          const { resolveForecastWithSync } =
+            await import("../utils/backendSync");
+          const result = await resolveForecastWithSync(
+            activeForecast.id,
+            actualOutcome,
+          );
+
+          if (result.success && result.forecast) {
+            setActiveForecast(result.forecast);
+            await saveForecast(result.forecast);
+            console.log(
+              `Forecast resolved with Brier score: ${result.brierScore}`,
+            );
+          } else {
+            throw new Error(result.error || "Resolution failed");
+          }
+        } else {
+          // Local-only forecast - calculate and save locally
+          const forecastProb = activeForecast.probability;
+          const brierScore = Math.pow(
+            forecastProb - (actualOutcome ? 1 : 0),
+            2,
+          );
+
+          const resolvedForecast = {
+            ...activeForecast,
+            resolved: true,
+            actualOutcome,
+            resolvedAt: new Date().toISOString(),
+            brierScore,
+            updatedAt: new Date().toISOString(),
+          };
+
+          setActiveForecast(resolvedForecast);
+          await saveForecast(resolvedForecast);
+        }
+
+        setError("");
+      } catch (err: any) {
+        setError(err.message || "Failed to resolve forecast");
+      } finally {
+        setLoading(false);
+        setProcessingAction("");
+      }
       return;
     }
 
@@ -638,71 +746,44 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
+      // Check if forecast has backend ID
+      if (!activeForecast.id || activeForecast.id.startsWith("local-")) {
+        setError(
+          "Forecast must be created on backend first. Cannot simulate local-only forecasts.",
+        );
+        setCommandInput("");
+        return;
+      }
+
       setCommandInput("");
       setLoading(true);
-      setProcessingAction("Creating forecast on backend...");
+      setProcessingAction("Running simulation...");
 
       try {
-        // First create the forecast on the backend
-        const forecastData = {
-          question: activeForecast.question,
-          domain: activeForecast.domain || parsedResult?.domain || "general",
-          timeframe:
-            activeForecast.timeframe || parsedResult?.timeframe || "unknown",
-          resolutionCriteria: `Forecast resolves when: ${activeForecast.question}. Based on ${activeForecast.drivers.length} driver(s).`,
-        };
+        // Use backend sync helper
+        const { runSimulationWithSync } = await import("../utils/backendSync");
+        const result = await runSimulationWithSync(activeForecast.id, 10000);
 
-        console.log("Creating forecast with data:", forecastData);
-        const createResponse =
-          await researchService.createForecast(forecastData);
-        console.log("Create response:", createResponse);
-
-        const backendForecastId =
-          createResponse.forecast?.id || createResponse.id;
-        console.log("Backend forecast ID:", backendForecastId);
-
-        if (!backendForecastId) {
-          throw new Error("No forecast ID returned from backend");
-        }
-
-        // Add drivers to backend forecast
-        setProcessingAction("Adding drivers...");
-        for (const driver of activeForecast.drivers) {
-          const driverData = {
-            name: driver.name,
-            description: driver.name,
-            direction: driver.direction,
-            magnitude: "medium" as const,
+        if (result.success && result.probability !== undefined) {
+          const updatedForecast = {
+            ...activeForecast,
+            probability: result.probability,
+            updatedAt: new Date().toISOString(),
           };
-          console.log(
-            "Adding driver to forecast",
-            backendForecastId,
-            ":",
-            driverData,
-          );
-          try {
-            await researchService.addDriver(backendForecastId, driverData);
-          } catch (driverErr: any) {
-            console.error("Driver add error:", driverErr);
-            // Continue with next driver even if one fails
+
+          // If backend returned full forecast, use it
+          if (result.forecast) {
+            setActiveForecast(result.forecast);
+            await saveForecast(result.forecast);
+          } else {
+            setActiveForecast(updatedForecast);
+            await saveForecast(updatedForecast);
           }
+
+          console.log(`Simulation complete: ${result.probability}`);
+        } else {
+          throw new Error(result.error || "Simulation failed");
         }
-
-        // Run simulation
-        setProcessingAction("Running Monte Carlo simulation...");
-        const simulationResult = await researchService.simulate(
-          backendForecastId,
-          10000,
-        );
-
-        const updatedForecast = {
-          ...activeForecast,
-          probability: simulationResult.probability,
-          updatedAt: new Date().toISOString(),
-        };
-
-        setActiveForecast(updatedForecast);
-        await saveForecast(updatedForecast);
       } catch (err: any) {
         setError(err.message || "Simulation failed");
       } finally {
@@ -764,56 +845,47 @@ export default function ForecastWorkspaceScreen() {
       setError("");
       setShowForecastList(false);
 
-      // Always create forecast, even if parsing fails
-      const newForecast: SavedForecast = {
-        id: Date.now().toString(),
-        question: question,
-        domain: undefined,
-        timeframe: undefined,
-        grounding: "analysis",
-        drivers: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      setActiveForecast(newForecast);
-      await saveForecast(newForecast);
-
       try {
+        // Parse question first
         console.log("Calling parseQuestion with:", question);
-        const result = await researchService.parseQuestion(question);
-        console.log("Parse result:", result);
-        console.log("Result type:", typeof result);
-        console.log("Result keys:", Object.keys(result));
-
-        const parsed = result.parsed || result;
+        const parseResult = await researchService.parseQuestion(question);
+        const parsed = parseResult.parsed || parseResult;
         console.log("Parsed object:", parsed);
-        console.log("Suggested drivers:", parsed.suggestedDrivers);
-
-        // Ensure suggestedDrivers exists
-        if (!parsed.suggestedDrivers) {
-          console.warn("No suggestedDrivers in parse result");
-        }
 
         setParsedResult(parsed);
 
-        // Update forecast with parsed data
-        const updatedForecast = {
-          ...newForecast,
+        // Create forecast on backend
+        setProcessingAction("Creating forecast...");
+        const { createForecastWithSync } = await import("../utils/backendSync");
+        const createResult = await createForecastWithSync({
           question: parsed.question || question,
           domain: parsed.domain,
           timeframe: parsed.timeframe,
-          grounding: parsed.grounding || "analysis",
-          updatedAt: new Date().toISOString(),
-        };
+          parsedData: parsed,
+        });
 
-        setActiveForecast(updatedForecast);
-        await saveForecast(updatedForecast);
+        if (createResult.forecast) {
+          const newForecast: SavedForecast = {
+            ...createResult.forecast,
+            grounding: "analysis",
+          };
+
+          setActiveForecast(newForecast);
+
+          // Also save to local storage as backup
+          await saveForecast(newForecast);
+
+          console.log(
+            createResult.fromBackend
+              ? `Created forecast ${newForecast.id} on backend`
+              : "Created forecast locally (backend unavailable)",
+          );
+        } else {
+          throw new Error("Failed to create forecast");
+        }
       } catch (err: any) {
-        console.error("Parse error:", err);
-        setError(
-          "Parsing failed, but forecast created. Use /setprob to set probability.",
-        );
+        console.error("Forecast creation error:", err);
+        setError(err.message || "Failed to create forecast. Please try again.");
       } finally {
         setLoading(false);
         setProcessingAction("");
