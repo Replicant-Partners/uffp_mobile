@@ -180,7 +180,7 @@ export default function ForecastWorkspaceScreen() {
     }
   }, [commandInput, driverBeingConfigured]);
 
-  const startDriverConfiguration = (index: number) => {
+  const startDriverConfiguration = async (index: number) => {
     if (!activeForecast || !parsedResult || !parsedResult.suggestedDrivers) {
       return;
     }
@@ -188,26 +188,163 @@ export default function ForecastWorkspaceScreen() {
     const suggestedDriver = parsedResult.suggestedDrivers[index];
     if (!suggestedDriver) return;
 
-    // Create a new driver in configuration mode
-    const newDriver = {
-      id: Date.now().toString(),
-      name: suggestedDriver,
-      type: "continuous",
-      distribution: "triangular",
-      p5: 30,
-      p50: 50,
-      p95: 70,
-      direction: "increases",
-      agents: [] as any[],
-      createdAt: new Date().toISOString(),
-    };
+    setProcessingAction("Analyzing driver...");
 
-    setDriverBeingConfigured(newDriver);
-    setCommandInput("");
+    try {
+      // Analyze driver semantically to get recommended configuration
+      const { analyzeDriver } =
+        await import("../services/driverAnalyzerService");
+      const recommendation = await analyzeDriver(
+        suggestedDriver,
+        activeForecast.question,
+      );
+
+      // Create driver with AI-recommended configuration
+      const newDriver: any = {
+        id: Date.now().toString(),
+        name: suggestedDriver,
+        type: recommendation.type,
+        direction: recommendation.direction,
+        agents: [] as any[],
+        createdAt: new Date().toISOString(),
+        aiRecommendation: recommendation, // Store for reference
+      };
+
+      if (recommendation.type === "binary") {
+        newDriver.probability = recommendation.examples?.probability || 50;
+      } else {
+        newDriver.distribution = recommendation.distribution || "triangular";
+        newDriver.p5 = recommendation.examples?.p5 || 30;
+        newDriver.p50 = recommendation.examples?.p50 || 50;
+        newDriver.p95 = recommendation.examples?.p95 || 70;
+      }
+
+      setDriverBeingConfigured(newDriver);
+      setCommandInput("");
+      setError(
+        `✓ AI configured as ${recommendation.type} ${recommendation.distribution || ""}. ${recommendation.reasoning}`,
+      );
+    } catch (err) {
+      console.error("[Driver Config] Analysis failed, using defaults:", err);
+
+      // Fallback to default configuration
+      const newDriver = {
+        id: Date.now().toString(),
+        name: suggestedDriver,
+        type: "continuous",
+        distribution: "triangular",
+        p5: 30,
+        p50: 50,
+        p95: 70,
+        direction: "increases",
+        agents: [] as any[],
+        createdAt: new Date().toISOString(),
+      };
+
+      setDriverBeingConfigured(newDriver);
+      setCommandInput("");
+    } finally {
+      setProcessingAction("");
+    }
+  };
+
+  const validateDriverConfig = (
+    driver: any,
+  ): { valid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+
+    if (driver.type === "binary") {
+      if (driver.probability === undefined || driver.probability === null) {
+        errors.push("Binary drivers require a probability value");
+      }
+      if (driver.probability < 0 || driver.probability > 100) {
+        errors.push("Probability must be between 0 and 100");
+      }
+    } else if (driver.type === "continuous") {
+      if (!driver.distribution) {
+        errors.push("Continuous drivers require a distribution");
+      }
+
+      if (driver.distribution === "triangular") {
+        if (
+          driver.p5 === undefined ||
+          driver.p50 === undefined ||
+          driver.p95 === undefined
+        ) {
+          errors.push(
+            "Triangular distribution requires p5, p50, and p95 values",
+          );
+        }
+        if (
+          driver.p5 !== undefined &&
+          driver.p50 !== undefined &&
+          driver.p95 !== undefined
+        ) {
+          if (driver.p5 >= driver.p50 || driver.p50 >= driver.p95) {
+            errors.push("Values must satisfy: p5 < p50 < p95");
+          }
+        }
+      } else if (
+        driver.distribution === "normal" ||
+        driver.distribution === "lognormal"
+      ) {
+        if (driver.p50 === undefined || driver.p95 === undefined) {
+          errors.push(
+            `${driver.distribution} distribution requires p50 and p95 values`,
+          );
+        }
+        if (
+          driver.p50 !== undefined &&
+          driver.p95 !== undefined &&
+          driver.p50 >= driver.p95
+        ) {
+          errors.push("p50 must be less than p95");
+        }
+      }
+    }
+
+    return { valid: errors.length === 0, errors };
+  };
+
+  const checkConfigOverride = (driver: any): string | null => {
+    if (!driver.aiRecommendation) return null;
+
+    const rec = driver.aiRecommendation;
+    const warnings: string[] = [];
+
+    if (driver.type !== rec.type) {
+      warnings.push(`⚠️ Changing from recommended type: ${rec.type}`);
+    }
+    if (
+      driver.type === "continuous" &&
+      driver.distribution !== rec.distribution
+    ) {
+      warnings.push(
+        `⚠️ Changing from recommended distribution: ${rec.distribution}`,
+      );
+    }
+    if (driver.direction !== rec.direction) {
+      warnings.push(`⚠️ Changing from recommended direction: ${rec.direction}`);
+    }
+
+    return warnings.length > 0 ? warnings.join(" ") : null;
   };
 
   const saveConfiguredDriver = async () => {
     if (!driverBeingConfigured || !activeForecast) return;
+
+    // Validate configuration
+    const validation = validateDriverConfig(driverBeingConfigured);
+    if (!validation.valid) {
+      setError(`Cannot save: ${validation.errors.join(", ")}`);
+      return;
+    }
+
+    // Check for overrides (soft warning)
+    const overrideWarning = checkConfigOverride(driverBeingConfigured);
+    if (overrideWarning) {
+      console.log("[Driver Config]", overrideWarning);
+    }
 
     setProcessingAction("Saving driver...");
 
@@ -1947,6 +2084,13 @@ export default function ForecastWorkspaceScreen() {
                 {driverBeingConfigured.name}
               </Text>
               <View style={styles.driverDetailsContainer}>
+                {driverBeingConfigured.aiRecommendation && (
+                  <View style={styles.aiRecommendationBadge}>
+                    <Text style={styles.aiRecommendationText}>
+                      🤖 AI: {driverBeingConfigured.aiRecommendation.reasoning}
+                    </Text>
+                  </View>
+                )}
                 <Text style={styles.driverTypeLabel}>
                   Type:{" "}
                   <Text style={styles.driverTypeValue}>
@@ -2852,6 +2996,19 @@ const styles = StyleSheet.create({
   driverDetailsContainer: {
     marginTop: 8,
     gap: 4,
+  },
+  aiRecommendationBadge: {
+    backgroundColor: "#3c3836",
+    padding: 8,
+    borderRadius: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: "#b8bb26",
+    marginBottom: 8,
+  },
+  aiRecommendationText: {
+    fontSize: 11,
+    color: "#b8bb26",
+    fontStyle: "italic",
   },
   driverTypeLabel: {
     fontSize: 13,
