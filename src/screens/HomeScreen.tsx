@@ -32,7 +32,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       <View style={styles.mainSection}>
         <TouchableOpacity
           style={styles.primaryButton}
-          onPress={() => navigation.navigate("ForecastInput")}
+          onPress={() => navigation.navigate("ForecastWorkspace")}
         >
           <Text style={styles.primaryButtonTitle}>Create Forecast</Text>
           <Text style={styles.primaryButtonDesc}>

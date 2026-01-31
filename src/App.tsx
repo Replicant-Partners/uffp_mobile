@@ -9,6 +9,7 @@ import { BrierScoreScreen } from "./screens/BrierScoreScreen";
 import { CalibrationScreen } from "./screens/CalibrationScreen";
 import ResearchScreen from "./screens/ResearchScreen";
 import ForecastInputScreen from "./screens/ForecastInputScreen";
+import ForecastWorkspaceScreen from "./screens/ForecastWorkspaceScreen";
 import { ForecastConfig } from "./types";
 import { TufteColors } from "./styles/tufte";
 
@@ -21,6 +22,7 @@ export type RootStackParamList = {
   Calibration: undefined;
   Research: undefined;
   ForecastInput: undefined;
+  ForecastWorkspace: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -81,6 +83,11 @@ export default function App() {
           name="ForecastInput"
           component={ForecastInputScreen}
           options={{ title: "Universal Forecasting" }}
+        />
+        <Stack.Screen
+          name="ForecastWorkspace"
+          component={ForecastWorkspaceScreen}
+          options={{ title: "Forecast", headerShown: false }}
         />
       </Stack.Navigator>
     </NavigationContainer>
