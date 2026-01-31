@@ -146,7 +146,7 @@ export default function ForecastWorkspaceScreen() {
       p50: 50,
       p95: 70,
       direction: "increases",
-      agents: [] as string[],
+      agents: [] as any[],
       createdAt: new Date().toISOString(),
     };
 
@@ -553,6 +553,7 @@ export default function ForecastWorkspaceScreen() {
         p50: 50,
         p95: 70,
         direction: "increases",
+        agents: [] as any[],
         createdAt: new Date().toISOString(),
       };
 
