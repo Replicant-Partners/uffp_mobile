@@ -263,6 +263,7 @@ export default function ForecastWorkspaceScreen() {
       // /save - save the configured driver
       if (trimmed === "/save") {
         await saveConfiguredDriver();
+        setCommandInput("");
         return;
       }
 
@@ -326,13 +327,18 @@ export default function ForecastWorkspaceScreen() {
 
       try {
         // First create the forecast on the backend
-        const createResponse = await researchService.createForecast({
+        const forecastData = {
           question: activeForecast.question,
           domain: activeForecast.domain || parsedResult?.domain || "general",
           timeframe:
             activeForecast.timeframe || parsedResult?.timeframe || "unknown",
           resolutionCriteria: `Forecast resolves when: ${activeForecast.question}. Based on ${activeForecast.drivers.length} driver(s).`,
-        });
+        };
+
+        console.log("Creating forecast with data:", forecastData);
+        const createResponse =
+          await researchService.createForecast(forecastData);
+        console.log("Create response:", createResponse);
 
         const backendForecastId = createResponse.id;
 
