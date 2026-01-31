@@ -225,6 +225,7 @@ export default function ForecastWorkspaceScreen() {
         const query = trimmed.replace("/query ", "").trim();
         setAgentBeingConfigured({ ...agentBeingConfigured, query });
         setCommandInput("");
+        setError("");
         return;
       }
 
@@ -234,6 +235,7 @@ export default function ForecastWorkspaceScreen() {
         if (["daily", "weekly", "on-demand"].includes(schedule)) {
           setAgentBeingConfigured({ ...agentBeingConfigured, schedule });
           setCommandInput("");
+          setError("");
         } else {
           setError("Schedule must be 'daily', 'weekly', or 'on-demand'");
         }
@@ -249,6 +251,7 @@ export default function ForecastWorkspaceScreen() {
         if (!isNaN(threshold) && threshold >= 0 && threshold <= 100) {
           setAgentBeingConfigured({ ...agentBeingConfigured, threshold });
           setCommandInput("");
+          setError("");
         } else {
           setError("Threshold must be a number between 0 and 100");
         }
@@ -272,6 +275,7 @@ export default function ForecastWorkspaceScreen() {
         }
         setAgentBeingConfigured(null);
         setCommandInput("");
+        setError("");
         return;
       }
 
@@ -279,6 +283,7 @@ export default function ForecastWorkspaceScreen() {
       if (trimmed === "/cancel") {
         setAgentBeingConfigured(null);
         setCommandInput("");
+        setError("");
         return;
       }
     }
@@ -296,6 +301,7 @@ export default function ForecastWorkspaceScreen() {
           }
           setDriverBeingConfigured(updated);
           setCommandInput("");
+          setError("");
         } else {
           setError("Type must be 'continuous' or 'binary'");
         }
@@ -315,6 +321,7 @@ export default function ForecastWorkspaceScreen() {
             probability: prob,
           });
           setCommandInput("");
+          setError("");
         } else {
           setError("Probability must be a number between 0 and 100");
         }
@@ -331,6 +338,7 @@ export default function ForecastWorkspaceScreen() {
         if (["triangular", "normal", "lognormal"].includes(distribution)) {
           setDriverBeingConfigured({ ...driverBeingConfigured, distribution });
           setCommandInput("");
+          setError("");
         } else {
           setError(
             "Distribution must be 'triangular', 'normal', or 'lognormal'",
@@ -356,6 +364,7 @@ export default function ForecastWorkspaceScreen() {
               p95,
             });
             setCommandInput("");
+            setError("");
           } else {
             setError("Values must be numbers");
           }
@@ -371,6 +380,7 @@ export default function ForecastWorkspaceScreen() {
         if (direction === "increases" || direction === "decreases") {
           setDriverBeingConfigured({ ...driverBeingConfigured, direction });
           setCommandInput("");
+          setError("");
         } else {
           setError("Direction must be 'increases' or 'decreases'");
         }
@@ -1179,10 +1189,14 @@ export default function ForecastWorkspaceScreen() {
             <TextInput
               ref={inputRef}
               style={styles.commandInput}
-              placeholder="Type / for commands"
+              placeholder="Type / for commands or @ for agents"
               placeholderTextColor="#665c54"
               value={commandInput}
-              onChangeText={setCommandInput}
+              onChangeText={(text) => {
+                setCommandInput(text);
+                // Clear error when typing
+                if (error) setError("");
+              }}
               onSubmitEditing={() => {
                 // Accept suggestion on enter if it exists
                 const suggestion = getSuggestion();
@@ -1190,6 +1204,16 @@ export default function ForecastWorkspaceScreen() {
                   setCommandInput(suggestion);
                 } else {
                   handleCommandSubmit();
+                }
+              }}
+              onKeyPress={(e) => {
+                // Tab key to accept suggestion
+                if (e.nativeEvent.key === "Tab") {
+                  e.preventDefault();
+                  const suggestion = getSuggestion();
+                  if (suggestion) {
+                    setCommandInput(suggestion);
+                  }
                 }
               }}
               autoCapitalize="none"
