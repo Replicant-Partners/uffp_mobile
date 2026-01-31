@@ -1,5 +1,10 @@
 {
   "version": 2,
   "buildCommand": null,
-  "framework": null
+  "framework": null,
+  "functions": {
+    "api/agents/execute.ts": {
+      "maxDuration": 60
+    }
+  }
 }
