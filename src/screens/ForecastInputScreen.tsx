@@ -29,7 +29,7 @@ export default function ForecastInputScreen() {
 
     try {
       const result = await researchService.parseQuestion(userInput);
-      setParsedResult(result);
+      setParsedResult(result.parsed || result);
     } catch (err: any) {
       setError(err.message || "Failed to parse question");
     } finally {
@@ -103,9 +103,7 @@ export default function ForecastInputScreen() {
     <ScrollView style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.title}>Universal Forecasting</Text>
-        <Text style={styles.subtitle}>
-          Ask any question about the future
-        </Text>
+        <Text style={styles.subtitle}>Ask any question about the future</Text>
 
         <TextInput
           style={styles.input}
@@ -172,12 +170,14 @@ export default function ForecastInputScreen() {
                 </View>
               )}
 
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Confidence:</Text>
-              <Text style={styles.resultValue}>
-                {(parsedResult.confidence * 100).toFixed(0)}%
-              </Text>
-            </View>
+            {parsedResult.confidence != null && (
+              <View style={styles.resultRow}>
+                <Text style={styles.resultLabel}>Confidence:</Text>
+                <Text style={styles.resultValue}>
+                  {(parsedResult.confidence * 100).toFixed(0)}%
+                </Text>
+              </View>
+            )}
 
             <TouchableOpacity
               style={[styles.button, styles.createButton]}
