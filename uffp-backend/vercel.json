@@ -3,8 +3,8 @@
   "buildCommand": null,
   "framework": null,
   "functions": {
-    "api/agents/execute.ts": {
-      "maxDuration": 60
+    "api/**/*.ts": {
+      "maxDuration": 300
     }
   }
 }
