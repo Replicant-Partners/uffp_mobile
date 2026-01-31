@@ -30,7 +30,7 @@ interface SavedForecast {
 }
 
 const STORAGE_KEY = "@uffp_forecasts";
-const VERSION = "2.2.0"; // Update this to force cache bust
+const VERSION = "2.2.1"; // Update this to force cache bust
 
 export default function ForecastWorkspaceScreen() {
   const [commandInput, setCommandInput] = useState("");
