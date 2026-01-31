@@ -933,33 +933,34 @@ export default function ForecastWorkspaceScreen() {
         { key: "cancel", label: "/cancel", desc: "Cancel" },
       );
 
-      if (!commandInput || !commandInput.startsWith("/")) {
-        // Show agent name suggestions if starting with @ OR when input is empty (agent directory)
-        if (commandInput.startsWith("@") || commandInput === "") {
-          const agentDescriptions: Record<string, string> = {
-            research_analyst:
-              "Deep research with citations, quantitative focus",
-            sentiment_monitor: "Social listening and sentiment scoring",
-            competitive_intel: "Competitor tracking and benchmarking",
-            financial_analyst: "Financial statement analysis and modeling",
-            market_researcher: "Market sizing and industry analysis",
-            expert_synthesizer: "Synthesize expert opinions and predictions",
-          };
-          const allAgents = Object.keys(agentDescriptions).map((name) => ({
-            key: name,
-            label: "@" + name,
-            desc: agentDescriptions[name],
-          }));
+      // Priority: Show agent directory if starting with @ OR when input is completely empty
+      if (commandInput.startsWith("@") || commandInput === "") {
+        const agentDescriptions: Record<string, string> = {
+          research_analyst: "Deep research with citations, quantitative focus",
+          sentiment_monitor: "Social listening and sentiment scoring",
+          competitive_intel: "Competitor tracking and benchmarking",
+          financial_analyst: "Financial statement analysis and modeling",
+          market_researcher: "Market sizing and industry analysis",
+          expert_synthesizer: "Synthesize expert opinions and predictions",
+        };
+        const allAgents = Object.keys(agentDescriptions).map((name) => ({
+          key: name,
+          label: "@" + name,
+          desc: agentDescriptions[name],
+        }));
 
-          // Filter by partial match if typing @something
-          if (commandInput.startsWith("@") && commandInput.length > 1) {
-            const partial = commandInput.substring(1).toLowerCase();
-            return allAgents.filter((a) => a.key.startsWith(partial));
-          }
-
-          // Show all agents when typing @ alone or when field is empty
-          return allAgents;
+        // Filter by partial match if typing @something
+        if (commandInput.startsWith("@") && commandInput.length > 1) {
+          const partial = commandInput.substring(1).toLowerCase();
+          return allAgents.filter((a) => a.key.startsWith(partial));
         }
+
+        // Show all agents when typing @ alone or when field is empty
+        return allAgents;
+      }
+
+      // Show driver config hints if not showing agents and not starting with /
+      if (!commandInput.startsWith("/")) {
         return configHints;
       }
 
