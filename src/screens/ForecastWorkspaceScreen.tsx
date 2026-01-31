@@ -171,7 +171,12 @@ export default function ForecastWorkspaceScreen() {
       if (trimmed.startsWith("/type ")) {
         const type = trimmed.replace("/type ", "").trim();
         if (type === "continuous" || type === "binary") {
-          setDriverBeingConfigured({ ...driverBeingConfigured, type });
+          const updated = { ...driverBeingConfigured, type };
+          // If switching to binary, set default probability
+          if (type === "binary" && !updated.probability) {
+            updated.probability = 50;
+          }
+          setDriverBeingConfigured(updated);
           setCommandInput("");
         } else {
           setError("Type must be 'continuous' or 'binary'");
@@ -179,8 +184,31 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
+      // /prob <number> (for binary drivers)
+      if (trimmed.startsWith("/prob ")) {
+        if (driverBeingConfigured.type !== "binary") {
+          setError("Use /prob only for binary drivers. Use /p for continuous.");
+          return;
+        }
+        const prob = parseInt(trimmed.replace("/prob ", "").trim(), 10);
+        if (!isNaN(prob) && prob >= 0 && prob <= 100) {
+          setDriverBeingConfigured({
+            ...driverBeingConfigured,
+            probability: prob,
+          });
+          setCommandInput("");
+        } else {
+          setError("Probability must be a number between 0 and 100");
+        }
+        return;
+      }
+
       // /dist <triangular|normal|lognormal>
       if (trimmed.startsWith("/dist ")) {
+        if (driverBeingConfigured.type !== "continuous") {
+          setError("Use /dist only for continuous drivers.");
+          return;
+        }
         const distribution = trimmed.replace("/dist ", "").trim();
         if (["triangular", "normal", "lognormal"].includes(distribution)) {
           setDriverBeingConfigured({ ...driverBeingConfigured, distribution });
@@ -195,6 +223,10 @@ export default function ForecastWorkspaceScreen() {
 
       // /p <p5> <p50> <p95>
       if (trimmed.startsWith("/p ")) {
+        if (driverBeingConfigured.type !== "continuous") {
+          setError("Use /p only for continuous drivers. Use /prob for binary.");
+          return;
+        }
         const values = trimmed.replace("/p ", "").trim().split(/\s+/);
         if (values.length === 3) {
           const [p5, p50, p95] = values.map(Number);
@@ -333,12 +365,27 @@ export default function ForecastWorkspaceScreen() {
     if (driverBeingConfigured) {
       const configHints = [
         { key: "type", label: "/type", desc: "Set type (continuous|binary)" },
-        {
-          key: "dist",
-          label: "/dist",
-          desc: "Set distribution (triangular|normal|lognormal)",
-        },
-        { key: "p", label: "/p", desc: "Set probabilities (p5 p50 p95)" },
+      ];
+
+      // Show different commands based on driver type
+      if (driverBeingConfigured.type === "continuous") {
+        configHints.push(
+          {
+            key: "dist",
+            label: "/dist",
+            desc: "Set distribution (triangular|normal|lognormal)",
+          },
+          { key: "p", label: "/p", desc: "Set probabilities (p5 p50 p95)" },
+        );
+      } else if (driverBeingConfigured.type === "binary") {
+        configHints.push({
+          key: "prob",
+          label: "/prob",
+          desc: "Set probability (0-100)",
+        });
+      }
+
+      configHints.push(
         {
           key: "direction",
           label: "/direction",
@@ -346,7 +393,7 @@ export default function ForecastWorkspaceScreen() {
         },
         { key: "save", label: "/save", desc: "Save driver" },
         { key: "cancel", label: "/cancel", desc: "Cancel" },
-      ];
+      );
 
       if (!commandInput || !commandInput.startsWith("/")) {
         return configHints;
