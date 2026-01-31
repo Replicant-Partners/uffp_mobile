@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,63 +6,111 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
   ActivityIndicator,
 } from "react-native";
 import { researchService } from "../services/researchService";
 
 export default function ForecastWorkspaceScreen() {
-  const [question, setQuestion] = useState("");
+  const [commandInput, setCommandInput] = useState("");
+  const [activeQuestion, setActiveQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [parsedResult, setParsedResult] = useState<any>(null);
   const [error, setError] = useState<string>("");
+  const [showCommandHints, setShowCommandHints] = useState(true);
+  const inputRef = useRef<TextInput>(null);
 
-  const handleParse = async () => {
-    if (!question.trim()) {
-      setError("Please enter a question");
-      return;
+  useEffect(() => {
+    // Focus input on mount
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, []);
+
+  useEffect(() => {
+    // Show/hide command hints based on input
+    if (commandInput.startsWith("/")) {
+      setShowCommandHints(true);
+    } else {
+      setShowCommandHints(false);
     }
+  }, [commandInput]);
 
-    setLoading(true);
-    setError("");
+  const handleCommandSubmit = async () => {
+    const trimmed = commandInput.trim();
 
-    try {
-      const result = await researchService.parseQuestion(question);
-      const parsed = result.parsed || result;
-      setParsedResult(parsed);
-    } catch (err: any) {
-      setError(err.message || "Failed to parse question");
-    } finally {
-      setLoading(false);
+    // Handle /question command
+    if (trimmed.startsWith("/question ")) {
+      const question = trimmed.replace("/question ", "").trim();
+      if (!question) return;
+
+      setActiveQuestion(question);
+      setCommandInput("");
+      setLoading(true);
+      setError("");
+
+      try {
+        const result = await researchService.parseQuestion(question);
+        const parsed = result.parsed || result;
+        setParsedResult(parsed);
+      } catch (err: any) {
+        setError(err.message || "Failed to parse question");
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
-  return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <View style={styles.workspace}>
-        {/* Main Question Input */}
-        <View style={styles.questionSection}>
-          <TextInput
-            style={styles.questionInput}
-            placeholder="What do you want to forecast?"
-            placeholderTextColor="#928374"
-            value={question}
-            onChangeText={setQuestion}
-            multiline
-            autoFocus
-          />
+  const getCommandHints = () => {
+    if (!commandInput || !commandInput.startsWith("/")) {
+      return [
+        { key: "question", label: "/question", desc: "Start a new forecast" },
+        { key: "help", label: "/help", desc: "Show all commands" },
+      ];
+    }
 
-          <TouchableOpacity
-            style={[styles.parseButton, loading && styles.parseButtonDisabled]}
-            onPress={handleParse}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#282828" />
-            ) : (
-              <Text style={styles.parseButtonText}>Parse Question</Text>
+    const query = commandInput.toLowerCase();
+    const hints = [
+      { key: "question", label: "/question", desc: "Start a new forecast" },
+      { key: "driver", label: "/driver", desc: "Add a driver" },
+      { key: "simulate", label: "/simulate", desc: "Run simulation" },
+    ];
+
+    return hints.filter(
+      (h) => h.label.includes(query) || h.desc.toLowerCase().includes(query),
+    );
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={0}
+    >
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Active Question Display */}
+        {activeQuestion && (
+          <View style={styles.questionDisplay}>
+            <Text style={styles.questionText}>{activeQuestion}</Text>
+            {parsedResult && (
+              <Text style={styles.metadata}>
+                {parsedResult.domain} · {parsedResult.timeframe} ·
+                {Math.round((parsedResult.confidence || 0) * 100)}% confidence
+              </Text>
             )}
-          </TouchableOpacity>
-        </View>
+          </View>
+        )}
+
+        {/* Loading */}
+        {loading && (
+          <View style={styles.loadingCard}>
+            <ActivityIndicator color="#fabd2f" />
+            <Text style={styles.loadingText}>Parsing question...</Text>
+          </View>
+        )}
 
         {/* Error */}
         {error && (
@@ -71,46 +119,82 @@ export default function ForecastWorkspaceScreen() {
           </View>
         )}
 
-        {/* Parsed Result */}
-        {parsedResult && (
-          <View style={styles.resultSection}>
-            <View style={styles.resultHeader}>
-              <Text style={styles.resultQuestion}>{parsedResult.question}</Text>
-              {parsedResult.domain && (
-                <Text style={styles.metadata}>
-                  {parsedResult.domain} · {parsedResult.timeframe} ·{" "}
-                  {Math.round(parsedResult.confidence * 100)}% confidence
+        {/* Suggested Drivers */}
+        {parsedResult &&
+          parsedResult.suggestedDrivers &&
+          parsedResult.suggestedDrivers.length > 0 && (
+            <View style={styles.driversSection}>
+              <Text style={styles.sectionLabel}>Suggested Drivers</Text>
+              {parsedResult.suggestedDrivers.map(
+                (driver: string, idx: number) => (
+                  <View key={idx} style={styles.driverCard}>
+                    <Text style={styles.driverName}>{driver}</Text>
+                  </View>
+                ),
+              )}
+              <View style={styles.hintCard}>
+                <Text style={styles.hintText}>
+                  Type{" "}
+                  <Text style={styles.hintCommand}>/driver Squad strength</Text>{" "}
+                  to add a driver
                 </Text>
-              )}
+              </View>
             </View>
+          )}
 
-            {/* Suggested Drivers */}
-            {parsedResult.suggestedDrivers &&
-              parsedResult.suggestedDrivers.length > 0 && (
-                <View style={styles.driversSection}>
-                  <Text style={styles.sectionLabel}>Suggested Drivers</Text>
-                  {parsedResult.suggestedDrivers.map(
-                    (driver: string, idx: number) => (
-                      <View key={idx} style={styles.driverCard}>
-                        <Text style={styles.driverName}>{driver}</Text>
-                      </View>
-                    ),
-                  )}
-                </View>
-              )}
-
-            {/* Next Steps Hint */}
-            <View style={styles.hintCard}>
-              <Text style={styles.hintText}>
-                Next: Type{" "}
-                <Text style={styles.hintCommand}>/driver Driver name</Text> to
-                add a driver
-              </Text>
-            </View>
+        {/* Empty State */}
+        {!activeQuestion && !loading && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>Universal Forecasting</Text>
+            <Text style={styles.emptySubtitle}>
+              Type <Text style={styles.emptyCommand}>/question</Text> to start
+            </Text>
           </View>
         )}
+      </ScrollView>
+
+      {/* Command Input - Fixed at bottom */}
+      <View style={styles.commandSection}>
+        {/* Command Hints */}
+        {showCommandHints && getCommandHints().length > 0 && (
+          <View style={styles.hintsPanel}>
+            {getCommandHints().map((hint) => (
+              <TouchableOpacity
+                key={hint.key}
+                style={styles.hintItem}
+                onPress={() => {
+                  if (hint.key === "question") {
+                    setCommandInput("/question ");
+                  } else {
+                    setCommandInput(hint.label + " ");
+                  }
+                  inputRef.current?.focus();
+                }}
+              >
+                <Text style={styles.hintLabel}>{hint.label}</Text>
+                <Text style={styles.hintDesc}>{hint.desc}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Command Input Field */}
+        <View style={styles.inputContainer}>
+          <TextInput
+            ref={inputRef}
+            style={styles.commandInput}
+            placeholder="Type / for commands"
+            placeholderTextColor="#665c54"
+            value={commandInput}
+            onChangeText={setCommandInput}
+            onSubmitEditing={handleCommandSubmit}
+            autoCapitalize="none"
+            returnKeyType="done"
+            blurOnSubmit={false}
+          />
+        </View>
       </View>
-    </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -119,35 +203,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#282828",
   },
-  workspace: {
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
     padding: 20,
-    paddingTop: 60, // Extra space at top
+    paddingBottom: 100, // Space for command input
   },
-  questionSection: {
-    marginBottom: 32,
+  questionDisplay: {
+    marginBottom: 24,
   },
-  questionInput: {
+  questionText: {
     fontSize: 28,
     fontWeight: "400",
     color: "#ebdbb2",
-    marginBottom: 20,
-    minHeight: 100,
-    textAlignVertical: "top",
     lineHeight: 38,
+    marginBottom: 8,
   },
-  parseButton: {
-    backgroundColor: "#fabd2f",
-    padding: 18,
-    borderRadius: 8,
+  metadata: {
+    fontSize: 13,
+    color: "#928374",
+  },
+  loadingCard: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 12,
+    padding: 16,
+    backgroundColor: "#3c3836",
+    borderRadius: 8,
+    marginBottom: 24,
   },
-  parseButtonDisabled: {
-    backgroundColor: "#504945",
-  },
-  parseButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#282828",
+  loadingText: {
+    fontSize: 14,
+    color: "#d5c4a1",
   },
   errorCard: {
     backgroundColor: "#cc241d",
@@ -159,24 +247,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#ebdbb2",
   },
-  resultSection: {
-    marginTop: 24,
-  },
-  resultHeader: {
-    marginBottom: 24,
-  },
-  resultQuestion: {
-    fontSize: 24,
-    fontWeight: "500",
-    color: "#ebdbb2",
-    marginBottom: 8,
-  },
-  metadata: {
-    fontSize: 13,
-    color: "#928374",
-  },
   driversSection: {
-    marginBottom: 24,
+    marginTop: 24,
   },
   sectionLabel: {
     fontSize: 11,
@@ -200,17 +272,76 @@ const styles = StyleSheet.create({
   },
   hintCard: {
     backgroundColor: "#3c3836",
-    padding: 16,
+    padding: 12,
     borderRadius: 8,
+    marginTop: 8,
     borderLeftWidth: 3,
     borderLeftColor: "#b8bb26",
   },
   hintText: {
     fontSize: 13,
-    color: "#d5c4a1",
+    color: "#928374",
   },
   hintCommand: {
     fontWeight: "600",
     color: "#fabd2f",
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 100,
+  },
+  emptyTitle: {
+    fontSize: 32,
+    fontWeight: "300",
+    color: "#ebdbb2",
+    marginBottom: 12,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: "#928374",
+  },
+  emptyCommand: {
+    fontWeight: "600",
+    color: "#fabd2f",
+  },
+  commandSection: {
+    backgroundColor: "#282828",
+    borderTopWidth: 1,
+    borderTopColor: "#3c3836",
+  },
+  hintsPanel: {
+    backgroundColor: "#3c3836",
+    borderTopWidth: 1,
+    borderTopColor: "#504945",
+  },
+  hintItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#504945",
+  },
+  hintLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#fabd2f",
+    marginBottom: 2,
+  },
+  hintDesc: {
+    fontSize: 12,
+    color: "#928374",
+  },
+  inputContainer: {
+    padding: 16,
+  },
+  commandInput: {
+    backgroundColor: "#3c3836",
+    borderWidth: 1,
+    borderColor: "#504945",
+    borderRadius: 8,
+    padding: 16,
+    fontSize: 15,
+    color: "#ebdbb2",
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
   },
 });
