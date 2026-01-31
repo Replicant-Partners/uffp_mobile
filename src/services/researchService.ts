@@ -127,6 +127,7 @@ class ResearchService {
   }
 
   async createForecast(data: {
+    userId?: string;
     question: string;
     domain?: string;
     timeframe?: string;

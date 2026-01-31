@@ -1,21 +1,48 @@
 /**
  * Database layer for forecasts
- * 
- * For now using in-memory storage.
- * Later will migrate to Vercel KV or PostgreSQL
+ *
+ * Using Vercel KV (Redis) for persistent storage
  */
 
-import type { Forecast, Driver, Evidence, ResearchSnapshot, Simulation, ForecastVersion, DriverVersion } from './types';
+import { kv } from "@vercel/kv";
+import type {
+  Forecast,
+  Driver,
+  Evidence,
+  ResearchSnapshot,
+  Simulation,
+  ForecastVersion,
+  DriverVersion,
+} from "./types";
 
-// In-memory storage (will be replaced with KV)
-const forecasts = new Map<string, Forecast>();
-const researchResults = new Map<string, any>();
+// KV key prefixes
+const FORECAST_PREFIX = "forecast:";
+const USER_FORECASTS_PREFIX = "user_forecasts:";
+const RESEARCH_PREFIX = "research:";
 
 /**
  * Generate unique ID
  */
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
+ * Helper: Get forecast from KV or throw error
+ */
+async function getForecastOrThrow(id: string): Promise<Forecast> {
+  const forecast = await kv.get<Forecast>(`${FORECAST_PREFIX}${id}`);
+  if (!forecast) {
+    throw new Error(`Forecast ${id} not found`);
+  }
+  return forecast;
+}
+
+/**
+ * Helper: Save forecast to KV
+ */
+async function saveForecast(forecast: Forecast): Promise<void> {
+  await kv.set(`${FORECAST_PREFIX}${forecast.id}`, forecast);
 }
 
 /**
@@ -29,7 +56,7 @@ export async function createForecast(data: {
   resolutionCriteria: string;
 }): Promise<Forecast> {
   const id = generateId();
-  
+
   const forecast: Forecast = {
     id,
     userId: data.userId,
@@ -42,13 +69,19 @@ export async function createForecast(data: {
     simulations: [],
     currentVersion: 1,
     versions: [],
-    status: 'draft',
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   };
-  
-  forecasts.set(id, forecast);
-  
+
+  // Store forecast in KV
+  await kv.set(`${FORECAST_PREFIX}${id}`, forecast);
+
+  // Add to user's forecast list if userId provided
+  if (data.userId) {
+    await kv.sadd(`${USER_FORECASTS_PREFIX}${data.userId}`, id);
+  }
+
   return forecast;
 }
 
@@ -56,7 +89,8 @@ export async function createForecast(data: {
  * Get forecast by ID
  */
 export async function getForecast(id: string): Promise<Forecast | null> {
-  return forecasts.get(id) || null;
+  const forecast = await kv.get<Forecast>(`${FORECAST_PREFIX}${id}`);
+  return forecast || null;
 }
 
 /**
@@ -64,32 +98,49 @@ export async function getForecast(id: string): Promise<Forecast | null> {
  */
 export async function listForecasts(filters?: {
   userId?: string;
-  status?: 'draft' | 'active' | 'resolved';
+  status?: "draft" | "active" | "resolved";
   limit?: number;
   offset?: number;
 }): Promise<{ forecasts: Forecast[]; total: number }> {
-  let allForecasts = Array.from(forecasts.values());
-  
-  // Filter by userId
+  let forecastIds: string[] = [];
+
+  // Get forecast IDs from user's set if userId provided
   if (filters?.userId) {
-    allForecasts = allForecasts.filter(f => f.userId === filters.userId);
+    forecastIds =
+      (await kv.smembers(`${USER_FORECASTS_PREFIX}${filters.userId}`)) || [];
+  } else {
+    // Get all forecast keys (scan pattern)
+    const keys = await kv.keys(`${FORECAST_PREFIX}*`);
+    forecastIds = keys.map((k) => k.replace(FORECAST_PREFIX, ""));
   }
-  
+
+  // Fetch all forecasts
+  const forecasts: Forecast[] = [];
+  for (const id of forecastIds) {
+    const forecast = await kv.get<Forecast>(`${FORECAST_PREFIX}${id}`);
+    if (forecast) {
+      forecasts.push(forecast);
+    }
+  }
+
   // Filter by status
+  let filtered = forecasts;
   if (filters?.status) {
-    allForecasts = allForecasts.filter(f => f.status === filters.status);
+    filtered = forecasts.filter((f) => f.status === filters.status);
   }
-  
+
   // Sort by updatedAt desc
-  allForecasts.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-  
-  const total = allForecasts.length;
-  
+  filtered.sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  );
+
+  const total = filtered.length;
+
   // Pagination
   const limit = filters?.limit || 50;
   const offset = filters?.offset || 0;
-  const paginated = allForecasts.slice(offset, offset + limit);
-  
+  const paginated = filtered.slice(offset, offset + limit);
+
   return {
     forecasts: paginated,
     total,
@@ -101,21 +152,18 @@ export async function listForecasts(filters?: {
  */
 export async function updateForecast(
   id: string,
-  updates: Partial<Forecast>
+  updates: Partial<Forecast>,
 ): Promise<Forecast> {
-  const forecast = forecasts.get(id);
-  if (!forecast) {
-    throw new Error('Forecast not found');
-  }
-  
+  const forecast = await getForecastOrThrow(id);
+
   const updated = {
     ...forecast,
     ...updates,
     updatedAt: new Date(),
   };
-  
-  forecasts.set(id, updated);
-  
+
+  await saveForecast(updated);
+
   return updated;
 }
 
@@ -123,7 +171,7 @@ export async function updateForecast(
  * Delete forecast
  */
 export async function deleteForecast(id: string): Promise<void> {
-  forecasts.delete(id);
+  await kv.del(`${FORECAST_PREFIX}${id}`);
 }
 
 /**
@@ -131,13 +179,13 @@ export async function deleteForecast(id: string): Promise<void> {
  */
 export async function addDriver(
   forecastId: string,
-  driver: Omit<Driver, 'id' | 'createdAt' | 'updatedAt' | 'currentVersion' | 'versions'>
+  driver: Omit<
+    Driver,
+    "id" | "createdAt" | "updatedAt" | "currentVersion" | "versions"
+  >,
 ): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
-  if (!forecast) {
-    throw new Error('Forecast not found');
-  }
-  
+  const forecast = await getForecastOrThrow(forecastId);
+
   const newDriver: Driver = {
     ...driver,
     id: generateId(),
@@ -148,12 +196,12 @@ export async function addDriver(
     createdAt: new Date(),
     updatedAt: new Date(),
   };
-  
+
   forecast.drivers.push(newDriver);
   forecast.updatedAt = new Date();
-  
-  forecasts.set(forecastId, forecast);
-  
+
+  await saveForecast(forecast);
+
   return forecast;
 }
 
@@ -164,20 +212,17 @@ export async function updateDriver(
   forecastId: string,
   driverId: string,
   updates: Partial<Driver>,
-  changeReason?: string
+  changeReason?: string,
 ): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
-  if (!forecast) {
-    throw new Error('Forecast not found');
-  }
-  
-  const driverIndex = forecast.drivers.findIndex(d => d.id === driverId);
+  const forecast = await getForecastOrThrow(forecastId);
+
+  const driverIndex = forecast.drivers.findIndex((d) => d.id === driverId);
   if (driverIndex === -1) {
-    throw new Error('Driver not found');
+    throw new Error("Driver not found");
   }
-  
+
   const driver = forecast.drivers[driverIndex];
-  
+
   // Create version snapshot before updating
   const version: DriverVersion = {
     version: driver.currentVersion,
@@ -190,9 +235,9 @@ export async function updateDriver(
     changeReason,
     createdAt: new Date(),
   };
-  
+
   driver.versions.push(version);
-  
+
   // Apply updates
   forecast.drivers[driverIndex] = {
     ...driver,
@@ -200,10 +245,10 @@ export async function updateDriver(
     currentVersion: driver.currentVersion + 1,
     updatedAt: new Date(),
   };
-  
+
   forecast.updatedAt = new Date();
-  forecasts.set(forecastId, forecast);
-  
+  await saveForecast(forecast);
+
   return forecast;
 }
 
@@ -212,18 +257,15 @@ export async function updateDriver(
  */
 export async function removeDriver(
   forecastId: string,
-  driverId: string
+  driverId: string,
 ): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
-  if (!forecast) {
-    throw new Error('Forecast not found');
-  }
-  
-  forecast.drivers = forecast.drivers.filter(d => d.id !== driverId);
+  const forecast = await getForecastOrThrow(forecastId);
+
+  forecast.drivers = forecast.drivers.filter((d) => d.id !== driverId);
   forecast.updatedAt = new Date();
-  
-  forecasts.set(forecastId, forecast);
-  
+
+  await saveForecast(forecast);
+
   return forecast;
 }
 
@@ -232,38 +274,35 @@ export async function removeDriver(
  */
 export async function addEvidence(
   forecastId: string,
-  evidence: Omit<Evidence, 'id' | 'timestamp'>,
-  driverId?: string
+  evidence: Omit<Evidence, "id" | "timestamp">,
+  driverId?: string,
 ): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
-  if (!forecast) {
-    throw new Error('Forecast not found');
-  }
-  
+  const forecast = await getForecastOrThrow(forecastId);
+
   const newEvidence: Evidence = {
     ...evidence,
     id: generateId(),
     timestamp: new Date(),
   };
-  
+
   if (driverId) {
     // Add to specific driver
-    const driver = forecast.drivers.find(d => d.id === driverId);
+    const driver = forecast.drivers.find((d) => d.id === driverId);
     if (!driver) {
-      throw new Error('Driver not found');
+      throw new Error("Driver not found");
     }
     driver.evidence.push(newEvidence);
-  } else if (evidence.attachedTo === 'forecast') {
+  } else if (evidence.attachedTo === "forecast") {
     // Add to forecast
     forecast.evidence.push(newEvidence);
-  } else if (evidence.attachedTo === 'baseRate' && forecast.baseRate) {
+  } else if (evidence.attachedTo === "baseRate" && forecast.baseRate) {
     // Add to base rate
     forecast.baseRate.evidence.push(newEvidence);
   }
-  
+
   forecast.updatedAt = new Date();
-  forecasts.set(forecastId, forecast);
-  
+  await saveForecast(forecast);
+
   return forecast;
 }
 
@@ -272,22 +311,19 @@ export async function addEvidence(
  */
 export async function setBaseRate(
   forecastId: string,
-  baseRate: Omit<import('./types').BaseRate, 'capturedAt' | 'evidence'>
+  baseRate: Omit<import("./types").BaseRate, "capturedAt" | "evidence">,
 ): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
-  if (!forecast) {
-    throw new Error('Forecast not found');
-  }
-  
+  const forecast = await getForecastOrThrow(forecastId);
+
   forecast.baseRate = {
     ...baseRate,
     evidence: [],
     capturedAt: new Date(),
   };
-  
+
   forecast.updatedAt = new Date();
-  forecasts.set(forecastId, forecast);
-  
+  await saveForecast(forecast);
+
   return forecast;
 }
 
@@ -295,7 +331,7 @@ export async function setBaseRate(
  * Save research result
  */
 export async function saveResearchResult(result: any): Promise<void> {
-  researchResults.set(result.id, result);
+  await kv.set(`${RESEARCH_PREFIX}${result.id}`, result);
 }
 
 /**
@@ -304,23 +340,20 @@ export async function saveResearchResult(result: any): Promise<void> {
 export async function attachResearch(
   forecastId: string,
   driverId: string,
-  researchSnapshot: ResearchSnapshot
+  researchSnapshot: ResearchSnapshot,
 ): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
-  if (!forecast) {
-    throw new Error('Forecast not found');
-  }
-  
-  const driver = forecast.drivers.find(d => d.id === driverId);
+  const forecast = await getForecastOrThrow(forecastId);
+
+  const driver = forecast.drivers.find((d) => d.id === driverId);
   if (!driver) {
-    throw new Error('Driver not found');
+    throw new Error("Driver not found");
   }
-  
+
   driver.researchResults.push(researchSnapshot);
   forecast.updatedAt = new Date();
-  
-  forecasts.set(forecastId, forecast);
-  
+
+  await saveForecast(forecast);
+
   return forecast;
 }
 
@@ -329,24 +362,21 @@ export async function attachResearch(
  */
 export async function saveSimulation(
   forecastId: string,
-  simulation: Omit<Simulation, 'id'>
+  simulation: Omit<Simulation, "id">,
 ): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
-  if (!forecast) {
-    throw new Error('Forecast not found');
-  }
-  
+  const forecast = await getForecastOrThrow(forecastId);
+
   const newSimulation: Simulation = {
     ...simulation,
     id: generateId(),
   };
-  
+
   forecast.simulations.push(newSimulation);
   forecast.probability = simulation.probability;
   forecast.updatedAt = new Date();
-  
-  forecasts.set(forecastId, forecast);
-  
+
+  await saveForecast(forecast);
+
   return forecast;
 }
 
@@ -356,31 +386,28 @@ export async function saveSimulation(
 export async function createForecastVersion(
   forecastId: string,
   changeReason?: string,
-  changedBy?: 'user' | 'coach' | 'research'
+  changedBy?: "user" | "coach" | "research",
 ): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
-  if (!forecast) {
-    throw new Error('Forecast not found');
-  }
-  
+  const forecast = await getForecastOrThrow(forecastId);
+
   const version: ForecastVersion = {
     version: forecast.currentVersion,
     probability: forecast.probability,
     baseRate: forecast.baseRate,
-    drivers: forecast.drivers.map(d => ({ ...d })),
-    evidence: forecast.evidence.map(e => ({ ...e })),
-    research: forecast.drivers.flatMap(d => d.researchResults),
+    drivers: forecast.drivers.map((d) => ({ ...d })),
+    evidence: forecast.evidence.map((e) => ({ ...e })),
+    research: forecast.drivers.flatMap((d) => d.researchResults),
     changeReason,
     changedBy,
     createdAt: new Date(),
   };
-  
+
   forecast.versions.push(version);
   forecast.currentVersion += 1;
   forecast.updatedAt = new Date();
-  
-  forecasts.set(forecastId, forecast);
-  
+
+  await saveForecast(forecast);
+
   return forecast;
 }
 
@@ -389,28 +416,25 @@ export async function createForecastVersion(
  */
 export async function resolveForecast(
   forecastId: string,
-  resolution: 'yes' | 'no' | 'ambiguous',
-  actualProbability?: number
+  resolution: "yes" | "no" | "ambiguous",
+  actualProbability?: number,
 ): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
-  if (!forecast) {
-    throw new Error('Forecast not found');
-  }
-  
-  forecast.status = 'resolved';
+  const forecast = await getForecastOrThrow(forecastId);
+
+  forecast.status = "resolved";
   forecast.resolution = resolution;
   forecast.resolvedAt = new Date();
-  
+
   // Calculate Brier score if we have a probability
   if (forecast.probability !== undefined) {
-    const actual = resolution === 'yes' ? 1 : resolution === 'no' ? 0 : 0.5;
+    const actual = resolution === "yes" ? 1 : resolution === "no" ? 0 : 0.5;
     const predicted = forecast.probability;
     forecast.brierScore = Math.pow(predicted - actual, 2);
   }
-  
+
   forecast.updatedAt = new Date();
-  forecasts.set(forecastId, forecast);
-  
+  await saveForecast(forecast);
+
   return forecast;
 }
 
@@ -423,22 +447,23 @@ export async function getUserStats(userId: string): Promise<{
   averageBrierScore: number;
   byDomain: Record<string, { count: number; avgBrier: number }>;
 }> {
-  const userForecasts = Array.from(forecasts.values()).filter(
-    f => f.userId === userId
-  );
-  
-  const resolved = userForecasts.filter(f => f.status === 'resolved');
-  const withBrier = resolved.filter(f => f.brierScore !== undefined);
-  
-  const avgBrier = withBrier.length > 0
-    ? withBrier.reduce((sum, f) => sum + (f.brierScore || 0), 0) / withBrier.length
-    : 0;
-  
+  // Get user's forecasts
+  const { forecasts: userForecasts } = await listForecasts({ userId });
+
+  const resolved = userForecasts.filter((f) => f.status === "resolved");
+  const withBrier = resolved.filter((f) => f.brierScore !== undefined);
+
+  const avgBrier =
+    withBrier.length > 0
+      ? withBrier.reduce((sum, f) => sum + (f.brierScore || 0), 0) /
+        withBrier.length
+      : 0;
+
   // By domain
   const byDomain: Record<string, { count: number; avgBrier: number }> = {};
-  
+
   for (const forecast of resolved) {
-    const domain = forecast.domain || 'general';
+    const domain = forecast.domain || "general";
     if (!byDomain[domain]) {
       byDomain[domain] = { count: 0, avgBrier: 0 };
     }
@@ -447,14 +472,14 @@ export async function getUserStats(userId: string): Promise<{
       byDomain[domain].avgBrier += forecast.brierScore;
     }
   }
-  
+
   // Average the Brier scores
   for (const domain in byDomain) {
     if (byDomain[domain].count > 0) {
       byDomain[domain].avgBrier /= byDomain[domain].count;
     }
   }
-  
+
   return {
     totalForecasts: userForecasts.length,
     resolvedForecasts: resolved.length,
@@ -469,41 +494,50 @@ export async function getUserStats(userId: string): Promise<{
 export async function getLeaderboard(options?: {
   domain?: string;
   limit?: number;
-}): Promise<Array<{
-  userId: string;
-  brierScore: number;
-  forecastCount: number;
-}>> {
+}): Promise<
+  Array<{
+    userId: string;
+    brierScore: number;
+    forecastCount: number;
+  }>
+> {
+  // Get all forecasts
+  const { forecasts: allForecasts } = await listForecasts({
+    status: "resolved",
+  });
+
   const userScores = new Map<string, { total: number; count: number }>();
-  
-  for (const forecast of forecasts.values()) {
-    if (!forecast.userId || forecast.status !== 'resolved' || !forecast.brierScore) {
+
+  for (const forecast of allForecasts) {
+    if (!forecast.userId || !forecast.brierScore) {
       continue;
     }
-    
+
     // Filter by domain if specified
     if (options?.domain && forecast.domain !== options.domain) {
       continue;
     }
-    
+
     if (!userScores.has(forecast.userId)) {
       userScores.set(forecast.userId, { total: 0, count: 0 });
     }
-    
+
     const score = userScores.get(forecast.userId)!;
     score.total += forecast.brierScore;
     score.count++;
   }
-  
-  const leaderboard = Array.from(userScores.entries()).map(([userId, score]) => ({
-    userId,
-    brierScore: score.total / score.count,
-    forecastCount: score.count,
-  }));
-  
+
+  const leaderboard = Array.from(userScores.entries()).map(
+    ([userId, score]) => ({
+      userId,
+      brierScore: score.total / score.count,
+      forecastCount: score.count,
+    }),
+  );
+
   // Sort by Brier score (lower is better)
   leaderboard.sort((a, b) => a.brierScore - b.brierScore);
-  
+
   const limit = options?.limit || 100;
   return leaderboard.slice(0, limit);
 }
