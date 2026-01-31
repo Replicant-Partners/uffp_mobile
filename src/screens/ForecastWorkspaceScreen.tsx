@@ -983,8 +983,8 @@ export default function ForecastWorkspaceScreen() {
                   </Text>
                 )}
               <Text style={styles.configHint}>
-                Use /type, /dist, /p, /direction, @agent to configure, then
-                /save
+                Use /type, /dist, /p, /direction to configure. Type @ to add
+                research agent. Then /save
               </Text>
             </View>
           </View>
