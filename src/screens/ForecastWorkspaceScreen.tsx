@@ -85,17 +85,32 @@ export default function ForecastWorkspaceScreen() {
     }
   };
 
-  const loadForecast = (forecast: SavedForecast) => {
+  const loadForecast = async (forecast: SavedForecast) => {
     setActiveForecast(forecast);
     setActiveQuestion(forecast.question);
-    setParsedResult({
-      question: forecast.question,
-      domain: forecast.domain,
-      timeframe: forecast.timeframe,
-      suggestedDrivers: [],
-    });
     setShowForecastList(false);
     setCommandInput("");
+
+    // Re-parse the question to get suggested drivers
+    setLoading(true);
+    setProcessingAction("Loading forecast...");
+    try {
+      const result = await researchService.parseQuestion(forecast.question);
+      const parsed = result.parsed || result;
+      setParsedResult(parsed);
+    } catch (err) {
+      console.error("Failed to re-parse question:", err);
+      // Set minimal parsedResult even if parsing fails
+      setParsedResult({
+        question: forecast.question,
+        domain: forecast.domain,
+        timeframe: forecast.timeframe,
+        suggestedDrivers: [],
+      });
+    } finally {
+      setLoading(false);
+      setProcessingAction("");
+    }
   };
 
   useEffect(() => {
