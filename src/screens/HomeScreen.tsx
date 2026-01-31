@@ -1,17 +1,13 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   SafeAreaView,
   TouchableOpacity,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { ForecastCard } from "../components/ForecastCard";
-import { forecastService } from "../services/forecastService";
 import { RootStackParamList } from "../App";
-import { ForecastConfig } from "../types";
 import {
   TufteColors,
   TufteTypography,
@@ -24,183 +20,41 @@ type HomeScreenProps = {
 };
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
-  const forecasts = forecastService.getExampleForecasts();
-  const [compareMode, setCompareMode] = useState(false);
-  const [selectedForecasts, setSelectedForecasts] = useState<ForecastConfig[]>(
-    [],
-  );
-
-  const toggleForecastSelection = (config: ForecastConfig) => {
-    const isSelected = selectedForecasts.some(
-      (f) => f.ticker === config.ticker,
-    );
-    if (isSelected) {
-      setSelectedForecasts(
-        selectedForecasts.filter((f) => f.ticker !== config.ticker),
-      );
-    } else {
-      setSelectedForecasts([...selectedForecasts, config]);
-    }
-  };
-
-  const handleCompare = () => {
-    if (selectedForecasts.length >= 2) {
-      navigation.navigate("Compare", { configs: selectedForecasts });
-      setCompareMode(false);
-      setSelectedForecasts([]);
-    }
-  };
-
-  const handleCancelCompare = () => {
-    setCompareMode(false);
-    setSelectedForecasts([]);
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Probabilistic Forecasting</Text>
+        <Text style={styles.title}>Universal Forecasting Platform</Text>
         <Text style={styles.subtitle}>
-          Tetlock Superforecasting methodology — Monte Carlo simulation — Brier
-          scoring
+          AI-powered probabilistic forecasting for any event
         </Text>
       </View>
 
-      <View style={styles.createSection}>
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={styles.createButton}
-            onPress={() => navigation.navigate("CreateForecast")}
-          >
-            <Text style={styles.createButtonText}>New Forecast</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.createButton, styles.compareToggle]}
-            onPress={() => setCompareMode(!compareMode)}
-          >
-            <Text style={styles.createButtonText}>
-              {compareMode ? "Cancel" : "Compare"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.createHint}>
-          {compareMode
-            ? `Select ${selectedForecasts.length >= 2 ? selectedForecasts.length : "2 or more"} forecasts to compare`
-            : "Build probabilistic predictions with explicit uncertainty quantification"}
-        </Text>
-      </View>
-
-      {compareMode && selectedForecasts.length >= 2 && (
-        <View style={styles.compareActionSection}>
-          <TouchableOpacity
-            style={styles.compareButton}
-            onPress={handleCompare}
-          >
-            <Text style={styles.compareButtonText}>
-              Compare {selectedForecasts.length} Forecasts
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <View style={styles.divider} />
-
-      <View style={styles.performanceSection}>
-        <Text style={styles.sectionLabel}>Performance Tracking</Text>
-        <View style={styles.performanceButtonRow}>
-          <TouchableOpacity
-            style={styles.performanceButton}
-            onPress={() => navigation.navigate("BrierScore")}
-          >
-            <Text style={styles.performanceButtonLabel}>Brier Score</Text>
-            <Text style={styles.performanceButtonDesc}>Accuracy analysis</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.performanceButton}
-            onPress={() => navigation.navigate("Calibration")}
-          >
-            <Text style={styles.performanceButtonLabel}>Calibration</Text>
-            <Text style={styles.performanceButtonDesc}>
-              Leaderboard & ranking
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.divider} />
-
-      <View style={styles.performanceSection}>
-        <Text style={styles.sectionLabel}>Research & Analysis</Text>
+      <View style={styles.mainSection}>
         <TouchableOpacity
-          style={styles.researchButton}
+          style={styles.primaryButton}
           onPress={() => navigation.navigate("ForecastInput")}
         >
-          <Text style={styles.researchButtonLabel}>Universal Forecasting</Text>
-          <Text style={styles.researchButtonDesc}>
-            AI-powered forecast creation for any event
+          <Text style={styles.primaryButtonTitle}>Create Forecast</Text>
+          <Text style={styles.primaryButtonDesc}>
+            Ask any question about the future
           </Text>
         </TouchableOpacity>
-        <View style={{ height: TufteSpacing.md }} />
+      </View>
+
+      <View style={styles.divider} />
+
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>Research Tools</Text>
         <TouchableOpacity
-          style={styles.researchButton}
+          style={styles.secondaryButton}
           onPress={() => navigation.navigate("Research")}
         >
-          <Text style={styles.researchButtonLabel}>Research Agents</Text>
-          <Text style={styles.researchButtonDesc}>
+          <Text style={styles.secondaryButtonLabel}>Research Agents</Text>
+          <Text style={styles.secondaryButtonDesc}>
             AI-powered research & evidence gathering
           </Text>
         </TouchableOpacity>
       </View>
-
-      <View style={styles.divider} />
-
-      <Text style={styles.sectionLabel}>Example Forecasts</Text>
-
-      <FlatList
-        data={forecasts}
-        keyExtractor={(item) => item.ticker}
-        renderItem={({ item }) => {
-          const isSelected = selectedForecasts.some(
-            (f) => f.ticker === item.ticker,
-          );
-          return (
-            <TouchableOpacity
-              onPress={() =>
-                compareMode
-                  ? toggleForecastSelection(item)
-                  : navigation.navigate("ForecastDetail", { config: item })
-              }
-              activeOpacity={0.7}
-            >
-              <View
-                style={[
-                  styles.forecastItem,
-                  compareMode && isSelected && styles.forecastItemSelected,
-                ]}
-              >
-                {compareMode && (
-                  <View style={styles.checkbox}>
-                    {isSelected && <View style={styles.checkboxInner} />}
-                  </View>
-                )}
-                <View style={styles.forecastCardWrapper}>
-                  <ForecastCard
-                    config={item}
-                    onPress={() =>
-                      compareMode
-                        ? toggleForecastSelection(item)
-                        : navigation.navigate("ForecastDetail", {
-                            config: item,
-                          })
-                    }
-                  />
-                </View>
-              </View>
-            </TouchableOpacity>
-          );
-        }}
-        contentContainerStyle={styles.listContent}
-      />
     </SafeAreaView>
   );
 };
@@ -213,7 +67,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: TufteLayout.marginHorizontal,
     paddingTop: TufteSpacing.xl,
-    paddingBottom: TufteSpacing.lg,
+    paddingBottom: TufteSpacing.xl,
   },
   title: {
     fontSize: TufteTypography.fontSize.display,
@@ -223,58 +77,29 @@ const styles = StyleSheet.create({
     marginBottom: TufteSpacing.sm,
   },
   subtitle: {
-    fontSize: TufteTypography.fontSize.sm,
+    fontSize: TufteTypography.fontSize.base,
     color: TufteColors.textSecondary,
     lineHeight:
-      TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.sm,
-    maxWidth: TufteLayout.maxWidth,
+      TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.base,
   },
-  createSection: {
+  mainSection: {
     paddingHorizontal: TufteLayout.marginHorizontal,
-    marginBottom: TufteSpacing.lg,
+    marginBottom: TufteSpacing.xl,
   },
-  buttonRow: {
-    flexDirection: "row",
-    gap: TufteSpacing.md,
-    marginBottom: TufteSpacing.sm,
-  },
-  createButton: {
-    borderWidth: 1,
-    borderColor: TufteColors.text,
-    paddingVertical: TufteSpacing.md,
-    paddingHorizontal: TufteSpacing.lg,
-  },
-  compareToggle: {
-    backgroundColor: TufteColors.background,
-  },
-  createButtonText: {
-    fontSize: TufteTypography.fontSize.base,
-    color: TufteColors.text,
-    fontWeight: "500" as const,
-    letterSpacing: 0.3,
-  },
-  createHint: {
-    fontSize: TufteTypography.fontSize.xs,
-    color: TufteColors.textTertiary,
-    lineHeight:
-      TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.xs,
-    maxWidth: 400,
-  },
-  compareActionSection: {
-    paddingHorizontal: TufteLayout.marginHorizontal,
-    marginBottom: TufteSpacing.md,
-  },
-  compareButton: {
+  primaryButton: {
     backgroundColor: TufteColors.text,
-    paddingVertical: TufteSpacing.md,
-    paddingHorizontal: TufteSpacing.lg,
-    alignSelf: "flex-start",
+    padding: TufteSpacing.xl,
+    borderRadius: 8,
   },
-  compareButtonText: {
-    fontSize: TufteTypography.fontSize.base,
+  primaryButtonTitle: {
+    fontSize: 24,
+    fontWeight: "600" as const,
     color: TufteColors.paper,
-    fontWeight: "500" as const,
-    letterSpacing: 0.3,
+    marginBottom: TufteSpacing.xs,
+  },
+  primaryButtonDesc: {
+    fontSize: TufteTypography.fontSize.base,
+    color: TufteColors.backgroundSecondary,
   },
   divider: {
     height: 1,
@@ -282,82 +107,31 @@ const styles = StyleSheet.create({
     marginHorizontal: TufteLayout.marginHorizontal,
     marginVertical: TufteSpacing.lg,
   },
-  performanceSection: {
+  section: {
     paddingHorizontal: TufteLayout.marginHorizontal,
-    marginBottom: TufteSpacing.lg,
-  },
-  performanceButtonRow: {
-    flexDirection: "row",
-    gap: TufteSpacing.md,
-  },
-  performanceButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: TufteColors.border,
-    backgroundColor: TufteColors.paper,
-    padding: TufteSpacing.lg,
-  },
-  performanceButtonLabel: {
-    fontSize: TufteTypography.fontSize.base,
-    fontWeight: "500" as const,
-    color: TufteColors.text,
-    marginBottom: TufteSpacing.xs,
-  },
-  performanceButtonDesc: {
-    fontSize: TufteTypography.fontSize.xs,
-    color: TufteColors.textSecondary,
   },
   sectionLabel: {
     fontSize: TufteTypography.fontSize.xs,
     color: TufteColors.textTertiary,
     textTransform: "uppercase",
     letterSpacing: 1,
-    paddingHorizontal: TufteLayout.marginHorizontal,
     marginBottom: TufteSpacing.md,
   },
-  listContent: {
-    paddingBottom: TufteSpacing.xxl,
-  },
-  forecastItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: TufteLayout.marginHorizontal,
-    paddingVertical: TufteSpacing.xs,
-  },
-  forecastItemSelected: {
-    backgroundColor: TufteColors.backgroundSecondary,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
+  secondaryButton: {
     borderWidth: 1,
-    borderColor: TufteColors.text,
-    marginRight: TufteSpacing.md,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checkboxInner: {
-    width: 12,
-    height: 12,
-    backgroundColor: TufteColors.text,
-  },
-  forecastCardWrapper: {
-    flex: 1,
-  },
-  researchButton: {
-    borderWidth: 1,
-    borderColor: TufteColors.text,
+    borderColor: TufteColors.border,
     backgroundColor: TufteColors.paper,
     padding: TufteSpacing.lg,
+    borderRadius: 8,
   },
-  researchButtonLabel: {
+  secondaryButtonLabel: {
     fontSize: TufteTypography.fontSize.base,
     fontWeight: "500" as const,
     color: TufteColors.text,
     marginBottom: TufteSpacing.xs,
   },
-  researchButtonDesc: {
-    fontSize: TufteTypography.fontSize.xs,
+  secondaryButtonDesc: {
+    fontSize: TufteTypography.fontSize.sm,
     color: TufteColors.textSecondary,
   },
 });
