@@ -30,7 +30,7 @@ interface SavedForecast {
 }
 
 const STORAGE_KEY = "@uffp_forecasts";
-const VERSION = "2.4.0"; // Update this to force cache bust
+const VERSION = "2.4.1"; // Update this to force cache bust
 
 export default function ForecastWorkspaceScreen() {
   const [commandInput, setCommandInput] = useState("");
@@ -1511,11 +1511,11 @@ export default function ForecastWorkspaceScreen() {
               let color = "#b8bb26";
 
               if (avgBrier >= 0.25) {
-                emoji = "📈";
+                emoji = "📊";
                 grade = "Learning";
                 color = "#fb4934";
               } else if (avgBrier >= 0.1) {
-                emoji = "🎲";
+                emoji = "⭐";
                 grade = "Good";
                 color = "#fabd2f";
               }
