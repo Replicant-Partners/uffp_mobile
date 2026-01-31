@@ -365,7 +365,13 @@ export default function ForecastWorkspaceScreen() {
           await researchService.createForecast(forecastData);
         console.log("Create response:", createResponse);
 
-        const backendForecastId = createResponse.id;
+        const backendForecastId =
+          createResponse.forecast?.id || createResponse.id;
+        console.log("Backend forecast ID:", backendForecastId);
+
+        if (!backendForecastId) {
+          throw new Error("No forecast ID returned from backend");
+        }
 
         // Add drivers to backend forecast
         setProcessingAction("Adding drivers...");
@@ -373,15 +379,15 @@ export default function ForecastWorkspaceScreen() {
           const driverData = {
             name: driver.name,
             description: driver.name,
-            type: driver.type,
             direction: driver.direction,
-            distribution: driver.distribution,
-            p5: driver.p5,
-            p50: driver.p50,
-            p95: driver.p95,
-            probability: driver.probability,
+            magnitude: "medium" as const,
           };
-          console.log("Adding driver:", driverData);
+          console.log(
+            "Adding driver to forecast",
+            backendForecastId,
+            ":",
+            driverData,
+          );
           try {
             await researchService.addDriver(backendForecastId, driverData);
           } catch (driverErr: any) {
