@@ -38,6 +38,7 @@ export default function ForecastWorkspaceScreen() {
   const [parsedResult, setParsedResult] = useState<any>(null);
   const [error, setError] = useState<string>("");
   const [showCommandHints, setShowCommandHints] = useState(true);
+  const [processingAction, setProcessingAction] = useState<string>("");
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -100,6 +101,8 @@ export default function ForecastWorkspaceScreen() {
     const suggestedDriver = parsedResult.suggestedDrivers[index];
     if (!suggestedDriver) return;
 
+    setProcessingAction("Adding driver...");
+
     const newDriver = {
       id: Date.now().toString(),
       name: suggestedDriver,
@@ -122,6 +125,7 @@ export default function ForecastWorkspaceScreen() {
     await saveForecast(updatedForecast);
     setCommandInput("");
     setError("");
+    setProcessingAction("");
   };
 
   const handleCommandSubmit = async () => {
@@ -155,6 +159,8 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
+      setProcessingAction("Adding driver...");
+
       // Add driver to active forecast
       const newDriver = {
         id: Date.now().toString(),
@@ -178,6 +184,7 @@ export default function ForecastWorkspaceScreen() {
       await saveForecast(updatedForecast);
       setCommandInput("");
       setError("");
+      setProcessingAction("");
       return;
     }
 
@@ -189,6 +196,7 @@ export default function ForecastWorkspaceScreen() {
       setActiveQuestion(question);
       setCommandInput("");
       setLoading(true);
+      setProcessingAction("Parsing question...");
       setError("");
       setShowForecastList(false);
 
@@ -196,6 +204,8 @@ export default function ForecastWorkspaceScreen() {
         const result = await researchService.parseQuestion(question);
         const parsed = result.parsed || result;
         setParsedResult(parsed);
+
+        setProcessingAction("Saving forecast...");
 
         // Create and save forecast
         const newForecast: SavedForecast = {
@@ -214,6 +224,7 @@ export default function ForecastWorkspaceScreen() {
         setError(err.message || "Failed to parse question");
       } finally {
         setLoading(false);
+        setProcessingAction("");
       }
     }
   };
@@ -266,7 +277,17 @@ export default function ForecastWorkspaceScreen() {
         {loading && (
           <View style={styles.loadingCard}>
             <ActivityIndicator color="#fabd2f" />
-            <Text style={styles.loadingText}>Parsing question...</Text>
+            <Text style={styles.loadingText}>
+              {processingAction || "Processing..."}
+            </Text>
+          </View>
+        )}
+
+        {/* Processing indicator (for quick actions) */}
+        {!loading && processingAction && (
+          <View style={styles.processingIndicator}>
+            <ActivityIndicator size="small" color="#fabd2f" />
+            <Text style={styles.processingText}>{processingAction}</Text>
           </View>
         )}
 
@@ -365,9 +386,18 @@ export default function ForecastWorkspaceScreen() {
                   style={styles.forecastItem}
                   onPress={() => loadForecast(forecast)}
                 >
-                  <Text style={styles.forecastQuestion}>
-                    {forecast.question}
-                  </Text>
+                  <View style={styles.forecastHeader}>
+                    <Text style={styles.forecastQuestion}>
+                      {forecast.question}
+                    </Text>
+                    {forecast.drivers && forecast.drivers.length > 0 && (
+                      <View style={styles.driverBadge}>
+                        <Text style={styles.driverBadgeText}>
+                          {forecast.drivers.length}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   {forecast.domain && (
                     <Text style={styles.forecastMeta}>
                       {forecast.domain}
@@ -480,6 +510,21 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     color: "#d5c4a1",
+  },
+  processingIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#3c3836",
+    borderRadius: 6,
+    alignSelf: "flex-start",
+    marginBottom: 16,
+  },
+  processingText: {
+    fontSize: 12,
+    color: "#928374",
   },
   errorCard: {
     backgroundColor: "#cc241d",
@@ -634,11 +679,32 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: "#458588",
   },
+  forecastHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
   forecastQuestion: {
     fontSize: 16,
     fontWeight: "500",
     color: "#ebdbb2",
-    marginBottom: 6,
+    flex: 1,
+    marginRight: 8,
+  },
+  driverBadge: {
+    backgroundColor: "#458588",
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  driverBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#ebdbb2",
   },
   forecastMeta: {
     fontSize: 12,
