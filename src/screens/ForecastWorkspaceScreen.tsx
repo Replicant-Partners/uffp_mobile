@@ -30,7 +30,7 @@ interface SavedForecast {
 }
 
 const STORAGE_KEY = "@uffp_forecasts";
-const VERSION = "3.0.1"; // Update this to force cache bust
+const VERSION = "3.1.0"; // Update this to force cache bust
 
 export default function ForecastWorkspaceScreen() {
   const [commandInput, setCommandInput] = useState("");
@@ -40,8 +40,10 @@ export default function ForecastWorkspaceScreen() {
   );
   const [savedForecasts, setSavedForecasts] = useState<SavedForecast[]>([]);
   const [showForecastList, setShowForecastList] = useState(false);
+  const [forecastFilter, setForecastFilter] = useState<
+    "all" | "active" | "expired"
+  >("all");
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [showResolvedList, setShowResolvedList] = useState(false);
   const [loading, setLoading] = useState(false);
   const [parsedResult, setParsedResult] = useState<any>(null);
   const [error, setError] = useState<string>("");
@@ -435,20 +437,25 @@ export default function ForecastWorkspaceScreen() {
       }
     }
 
-    // Handle /list command - all forecasts
-    if (trimmed === "/list") {
-      setShowForecastList(!showForecastList);
-      setShowLeaderboard(false);
-      setShowResolvedList(false);
-      setCommandInput("");
-      return;
-    }
-
-    // Handle /resolved command - user's resolved forecasts with Brier scores
-    if (trimmed === "/resolved") {
-      setShowResolvedList(!showResolvedList);
-      setShowForecastList(false);
-      setShowLeaderboard(false);
+    // Handle /list command - with optional filter
+    if (trimmed.startsWith("/list")) {
+      const filterArg = trimmed.replace("/list", "").trim().toLowerCase();
+      if (
+        filterArg === "" ||
+        filterArg === "all" ||
+        filterArg === "active" ||
+        filterArg === "expired"
+      ) {
+        const filter = (filterArg === "" ? "all" : filterArg) as
+          | "all"
+          | "active"
+          | "expired";
+        setForecastFilter(filter);
+        setShowForecastList(!showForecastList || forecastFilter !== filter);
+        setShowLeaderboard(false);
+      } else {
+        setError("Use /list, /list active, /list expired, or /list all");
+      }
       setCommandInput("");
       return;
     }
@@ -457,7 +464,6 @@ export default function ForecastWorkspaceScreen() {
     if (trimmed === "/leaderboard") {
       setShowLeaderboard(!showLeaderboard);
       setShowForecastList(false);
-      setShowResolvedList(false);
       setCommandInput("");
       return;
     }
@@ -518,8 +524,8 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
-    // Handle /resolve command (only if forecast is active and has probability)
-    if (trimmed.startsWith("/resolve ")) {
+    // Handle /expire command (only if forecast is active and has probability)
+    if (trimmed.startsWith("/expire ")) {
       if (!activeForecast) {
         setError("No active forecast. Type /question first.");
         setCommandInput("");
@@ -532,13 +538,13 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
-      const outcome = trimmed.replace("/resolve ", "").trim().toLowerCase();
-      if (outcome !== "yes" && outcome !== "no") {
-        setError("Use /resolve yes or /resolve no");
+      const outcome = trimmed.replace("/expire ", "").trim().toLowerCase();
+      if (outcome !== "positive" && outcome !== "negative") {
+        setError("Use /expire positive or /expire negative");
         return;
       }
 
-      const actualOutcome = outcome === "yes";
+      const actualOutcome = outcome === "positive";
       const forecastProb = activeForecast.probability;
 
       // Calculate Brier score: (forecast_probability - actual_outcome)^2
@@ -1181,8 +1187,11 @@ export default function ForecastWorkspaceScreen() {
 
     const hints = [
       { key: "question", label: "/question", desc: "Start a new forecast" },
-      { key: "list", label: "/list", desc: "View all forecasts" },
-      { key: "resolved", label: "/resolved", desc: "Your resolved forecasts" },
+      {
+        key: "list",
+        label: "/list",
+        desc: "View forecasts (active/expired/all)",
+      },
       { key: "leaderboard", label: "/leaderboard", desc: "Global rankings" },
     ];
 
@@ -1195,21 +1204,29 @@ export default function ForecastWorkspaceScreen() {
         { key: "simulate", label: "/simulate", desc: "Run simulation" },
       );
 
-      // Show resolve command if forecast has a probability and isn't resolved yet
+      // Show expire command if forecast has a probability and isn't resolved yet
       if (activeForecast.probability && !activeForecast.resolved) {
         hints.push({
-          key: "resolve",
-          label: "/resolve",
-          desc: "Mark outcome (yes/no)",
+          key: "expire",
+          label: "/expire",
+          desc: "Mark expiration (positive/negative)",
         });
       }
     }
 
-    // Autocomplete for /resolve values
-    if (query.startsWith("/resolve ")) {
+    // Autocomplete for /expire values
+    if (query.startsWith("/expire ")) {
       return [
-        { key: "yes", label: "/resolve yes", desc: "Event happened" },
-        { key: "no", label: "/resolve no", desc: "Event didn't happen" },
+        {
+          key: "positive",
+          label: "/expire positive",
+          desc: "Positive outcome",
+        },
+        {
+          key: "negative",
+          label: "/expire negative",
+          desc: "Negative outcome",
+        },
       ].filter((h) => h.label.includes(query));
     }
 
@@ -1512,22 +1529,22 @@ export default function ForecastWorkspaceScreen() {
                 name: "ForecastMaster",
                 avgBrier: 0.082,
                 forecasts: 47,
-                emoji: "🎯",
+                badge: "★★★",
               },
               {
                 rank: 2,
                 name: "DataDriven",
                 avgBrier: 0.095,
                 forecasts: 23,
-                emoji: "🎯",
+                badge: "★★★",
               },
               {
                 rank: 3,
                 name: "You",
                 avgBrier: userAvgBrier,
                 forecasts: resolved.length,
-                emoji:
-                  userAvgBrier < 0.1 ? "🎯" : userAvgBrier < 0.25 ? "⭐" : "📊",
+                badge:
+                  userAvgBrier < 0.1 ? "★★★" : userAvgBrier < 0.25 ? "★★" : "★",
                 isUser: true,
               },
               {
@@ -1535,28 +1552,28 @@ export default function ForecastWorkspaceScreen() {
                 name: "TrendSpotter",
                 avgBrier: 0.156,
                 forecasts: 31,
-                emoji: "⭐",
+                badge: "★★",
               },
               {
                 rank: 5,
                 name: "Predictor99",
                 avgBrier: 0.178,
                 forecasts: 19,
-                emoji: "⭐",
+                badge: "★★",
               },
               {
                 rank: 6,
                 name: "BayesianBob",
                 avgBrier: 0.213,
                 forecasts: 12,
-                emoji: "⭐",
+                badge: "★★",
               },
               {
                 rank: 7,
                 name: "Newbie2026",
                 avgBrier: 0.287,
                 forecasts: 8,
-                emoji: "📊",
+                badge: "★",
               },
             ]
               .sort((a, b) => a.avgBrier - b.avgBrier)
@@ -1577,7 +1594,7 @@ export default function ForecastWorkspaceScreen() {
                     ]}
                   >
                     <Text style={styles.leaderboardRank}>#{user.rank}</Text>
-                    <Text style={styles.leaderboardEmoji}>{user.emoji}</Text>
+                    <Text style={styles.leaderboardBadge}>{user.badge}</Text>
                     <View style={styles.leaderboardInfo}>
                       <Text
                         style={[
@@ -1602,237 +1619,181 @@ export default function ForecastWorkspaceScreen() {
             );
           })()}
 
-        {/* My Resolved Forecasts */}
-        {showResolvedList && (
-          <View style={styles.forecastList}>
-            <View style={styles.listHeader}>
-              <Text style={styles.listTitle}>✅ My Resolved Forecasts</Text>
-              {savedForecasts.filter((f) => f.resolved).length > 0 && (
-                <Text style={styles.resolvedCount}>
-                  {savedForecasts.filter((f) => f.resolved).length} resolved
-                </Text>
-              )}
-            </View>
+        {/* Forecast List - Filtered */}
+        {showForecastList &&
+          (() => {
+            const filteredForecasts = savedForecasts.filter((f) => {
+              if (forecastFilter === "active") return !f.resolved;
+              if (forecastFilter === "expired") return f.resolved;
+              return true; // all
+            });
 
-            {/* Performance Summary */}
-            {(() => {
-              const resolved = savedForecasts.filter((f) => f.resolved);
-              if (resolved.length === 0) return null;
+            const listTitle =
+              forecastFilter === "active"
+                ? "Active Forecasts"
+                : forecastFilter === "expired"
+                  ? "Expired Forecasts"
+                  : "All Forecasts";
 
-              const avgBrier =
-                resolved.reduce((sum, f) => sum + (f.brierScore || 0), 0) /
-                resolved.length;
-              const excellent = resolved.filter(
-                (f) => f.brierScore! < 0.1,
-              ).length;
-              const good = resolved.filter(
-                (f) => f.brierScore! >= 0.1 && f.brierScore! < 0.25,
-              ).length;
-              const poor = resolved.filter((f) => f.brierScore! >= 0.25).length;
-
-              let emoji = "🎯";
-              let grade = "Excellent";
-              let color = "#b8bb26";
-
-              if (avgBrier >= 0.25) {
-                emoji = "📊";
-                grade = "Learning";
-                color = "#fb4934";
-              } else if (avgBrier >= 0.1) {
-                emoji = "⭐";
-                grade = "Good";
-                color = "#fabd2f";
-              }
-
-              return (
-                <View style={styles.performanceSummary}>
-                  <Text style={[styles.performanceEmoji, { color }]}>
-                    {emoji}
-                  </Text>
-                  <View style={styles.performanceStats}>
-                    <Text style={[styles.performanceGrade, { color }]}>
-                      {grade} Forecaster
-                    </Text>
-                    <Text style={styles.performanceDetail}>
-                      Avg Brier: {avgBrier.toFixed(3)} • {excellent} excellent •{" "}
-                      {good} good • {poor} need work
-                    </Text>
-                  </View>
+            return (
+              <View style={styles.forecastList}>
+                <View style={styles.listHeader}>
+                  <Text style={styles.listTitle}>{listTitle}</Text>
+                  {forecastFilter === "expired" &&
+                    filteredForecasts.length > 0 && (
+                      <Text style={styles.resolvedCount}>
+                        {filteredForecasts.length} expired
+                      </Text>
+                    )}
                 </View>
-              );
-            })()}
-            {savedForecasts.filter((f) => f.resolved).length === 0 ? (
-              <Text style={styles.emptyListText}>
-                No resolved forecasts yet. Resolve some forecasts with /resolve
-                to build your track record!
-              </Text>
-            ) : (
-              [...savedForecasts]
-                .filter((f) => f.resolved)
-                .sort((a, b) => (a.brierScore || 1) - (b.brierScore || 1))
-                .map((forecast) => (
-                  <TouchableOpacity
-                    key={forecast.id}
-                    style={styles.forecastItem}
-                    onPress={() => loadForecast(forecast)}
-                  >
-                    <View style={styles.forecastHeader}>
-                      <Text style={styles.forecastQuestion}>
-                        {forecast.question}
-                      </Text>
-                      {forecast.drivers && forecast.drivers.length > 0 && (
-                        <View style={styles.driverBadge}>
-                          <Text style={styles.driverBadgeText}>
-                            {forecast.drivers.length}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    {forecast.domain && (
-                      <Text style={styles.forecastMeta}>
-                        {forecast.domain}
-                        {forecast.timeframe && ` · ${forecast.timeframe}`}
-                        {forecast.probability != null &&
-                          ` · ${(forecast.probability * 100).toFixed(0)}%`}
-                      </Text>
-                    )}
-                    <View style={styles.forecastResolution}>
-                      <Text
-                        style={[
-                          styles.resolutionBadge,
-                          forecast.actualOutcome
-                            ? styles.resolvedYes
-                            : styles.resolvedNo,
-                        ]}
-                      >
-                        {forecast.actualOutcome ? "YES" : "NO"}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.brierBadge,
-                          forecast.brierScore! < 0.1 && styles.brierExcellent,
-                          forecast.brierScore! >= 0.1 &&
-                            forecast.brierScore! < 0.25 &&
-                            styles.brierGood,
-                          forecast.brierScore! >= 0.25 && styles.brierPoor,
-                        ]}
-                      >
-                        Brier: {forecast.brierScore?.toFixed(3)}
-                      </Text>
-                    </View>
-                    <Text style={styles.forecastDate}>
-                      {new Date(forecast.updatedAt).toLocaleDateString()}
-                    </Text>
-                  </TouchableOpacity>
-                ))
-            )}
-          </View>
-        )}
 
-        {/* Forecast List */}
-        {showForecastList && (
-          <View style={styles.forecastList}>
-            <View style={styles.listHeader}>
-              <Text style={styles.listTitle}>Your Forecasts</Text>
-              {savedForecasts.filter((f) => f.resolved).length > 0 && (
-                <Text style={styles.resolvedCount}>
-                  {savedForecasts.filter((f) => f.resolved).length} resolved
-                </Text>
-              )}
-            </View>
+                {/* Performance Summary */}
+                {(() => {
+                  const resolved = savedForecasts.filter((f) => f.resolved);
+                  if (resolved.length === 0) return null;
 
-            {savedForecasts.length === 0 ? (
-              <Text style={styles.emptyListText}>
-                No forecasts yet. Type /question to create one.
-              </Text>
-            ) : (
-              [...savedForecasts]
-                .sort((a, b) => {
-                  // Sort resolved forecasts by Brier score (best first)
-                  if (a.resolved && b.resolved) {
-                    return (a.brierScore || 1) - (b.brierScore || 1);
+                  const avgBrier =
+                    resolved.reduce((sum, f) => sum + (f.brierScore || 0), 0) /
+                    resolved.length;
+                  const excellent = resolved.filter(
+                    (f) => f.brierScore! < 0.1,
+                  ).length;
+                  const good = resolved.filter(
+                    (f) => f.brierScore! >= 0.1 && f.brierScore! < 0.25,
+                  ).length;
+                  const poor = resolved.filter(
+                    (f) => f.brierScore! >= 0.25,
+                  ).length;
+
+                  let emoji = "🎯";
+                  let grade = "Excellent";
+                  let color = "#b8bb26";
+
+                  if (avgBrier >= 0.25) {
+                    emoji = "📊";
+                    grade = "Learning";
+                    color = "#fb4934";
+                  } else if (avgBrier >= 0.1) {
+                    emoji = "⭐";
+                    grade = "Good";
+                    color = "#fabd2f";
                   }
-                  // Resolved forecasts come first
-                  if (a.resolved && !b.resolved) return -1;
-                  if (!a.resolved && b.resolved) return 1;
-                  // Then by date
+
                   return (
-                    new Date(b.updatedAt).getTime() -
-                    new Date(a.updatedAt).getTime()
-                  );
-                })
-                .map((forecast) => (
-                  <TouchableOpacity
-                    key={forecast.id}
-                    style={styles.forecastItem}
-                    onPress={() => loadForecast(forecast)}
-                  >
-                    <View style={styles.forecastHeader}>
-                      <Text style={styles.forecastQuestion}>
-                        {forecast.question}
+                    <View style={styles.performanceSummary}>
+                      <Text style={[styles.performanceEmoji, { color }]}>
+                        {emoji}
                       </Text>
-                      {forecast.drivers && forecast.drivers.length > 0 && (
-                        <View style={styles.driverBadge}>
-                          <Text style={styles.driverBadgeText}>
-                            {forecast.drivers.length}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    {forecast.domain && (
-                      <Text style={styles.forecastMeta}>
-                        {forecast.domain}
-                        {forecast.timeframe && ` · ${forecast.timeframe}`}
-                        {forecast.probability != null &&
-                          ` · ${(forecast.probability * 100).toFixed(0)}%`}
-                      </Text>
-                    )}
-                    {forecast.resolved && (
-                      <View style={styles.forecastResolution}>
-                        <Text
-                          style={[
-                            styles.resolutionBadge,
-                            forecast.actualOutcome
-                              ? styles.resolvedYes
-                              : styles.resolvedNo,
-                          ]}
-                        >
-                          {forecast.actualOutcome ? "YES" : "NO"}
+                      <View style={styles.performanceStats}>
+                        <Text style={[styles.performanceGrade, { color }]}>
+                          {grade} Forecaster
                         </Text>
-                        <Text
-                          style={[
-                            styles.brierBadge,
-                            forecast.brierScore! < 0.1 && styles.brierExcellent,
-                            forecast.brierScore! >= 0.1 &&
-                              forecast.brierScore! < 0.25 &&
-                              styles.brierGood,
-                            forecast.brierScore! >= 0.25 && styles.brierPoor,
-                          ]}
-                        >
-                          Brier: {forecast.brierScore?.toFixed(3)}
+                        <Text style={styles.performanceDetail}>
+                          Avg Brier: {avgBrier.toFixed(3)} • {excellent}{" "}
+                          excellent • {good} good • {poor} need work
                         </Text>
                       </View>
-                    )}
-                    <Text style={styles.forecastDate}>
-                      {new Date(forecast.updatedAt).toLocaleDateString()}
-                    </Text>
-                  </TouchableOpacity>
-                ))
-            )}
-          </View>
-        )}
+                    </View>
+                  );
+                })()}
+                {filteredForecasts.length === 0 ? (
+                  <Text style={styles.emptyListText}>
+                    {forecastFilter === "active" &&
+                      "No active forecasts. Type /question to create one."}
+                    {forecastFilter === "expired" &&
+                      "No expired forecasts yet. Use /expire to mark outcomes."}
+                    {forecastFilter === "all" &&
+                      "No forecasts yet. Type /question to create one."}
+                  </Text>
+                ) : (
+                  [...filteredForecasts]
+                    .filter((f) =>
+                      forecastFilter === "expired" ? f.resolved : true,
+                    )
+                    .sort((a, b) => {
+                      if (
+                        forecastFilter === "expired" &&
+                        a.resolved &&
+                        b.resolved
+                      ) {
+                        return (a.brierScore || 1) - (b.brierScore || 1);
+                      }
+                      return (
+                        new Date(b.updatedAt).getTime() -
+                        new Date(a.updatedAt).getTime()
+                      );
+                    })
+                    .map((forecast) => (
+                      <TouchableOpacity
+                        key={forecast.id}
+                        style={styles.forecastItem}
+                        onPress={() => loadForecast(forecast)}
+                      >
+                        <View style={styles.forecastHeader}>
+                          <Text style={styles.forecastQuestion}>
+                            {forecast.question}
+                          </Text>
+                          {forecast.drivers && forecast.drivers.length > 0 && (
+                            <View style={styles.driverBadge}>
+                              <Text style={styles.driverBadgeText}>
+                                {forecast.drivers.length}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        {forecast.domain && (
+                          <Text style={styles.forecastMeta}>
+                            {forecast.domain}
+                            {forecast.timeframe && ` · ${forecast.timeframe}`}
+                            {forecast.probability != null &&
+                              ` · ${(forecast.probability * 100).toFixed(0)}%`}
+                          </Text>
+                        )}
+                        <View style={styles.forecastResolution}>
+                          <Text
+                            style={[
+                              styles.resolutionBadge,
+                              forecast.actualOutcome
+                                ? styles.resolvedYes
+                                : styles.resolvedNo,
+                            ]}
+                          >
+                            {forecast.actualOutcome ? "YES" : "NO"}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.brierBadge,
+                              forecast.brierScore! < 0.1 &&
+                                styles.brierExcellent,
+                              forecast.brierScore! >= 0.1 &&
+                                forecast.brierScore! < 0.25 &&
+                                styles.brierGood,
+                              forecast.brierScore! >= 0.25 && styles.brierPoor,
+                            ]}
+                          >
+                            Brier: {forecast.brierScore?.toFixed(3)}
+                          </Text>
+                        </View>
+                        <Text style={styles.forecastDate}>
+                          {new Date(forecast.updatedAt).toLocaleDateString()}
+                        </Text>
+                      </TouchableOpacity>
+                    ))
+                )}
+              </View>
+            );
+          })()}
 
         {/* Empty State */}
         {!activeQuestion &&
           !loading &&
           !showForecastList &&
           !showLeaderboard &&
-          !showResolvedList &&
           (() => {
             const resolved = savedForecasts.filter((f) => f.resolved);
-            let tamagotchiEmoji = "😊";
-            let tamagotchiMessage = "Ready to forecast!";
-            let tamagotchiColor = "#ebdbb2";
+            let statusIndicator = "◆";
+            let statusMessage = "Ready to forecast";
+            let statusColor = "#ebdbb2";
 
             if (resolved.length > 0) {
               const avgBrier =
@@ -1840,41 +1801,39 @@ export default function ForecastWorkspaceScreen() {
                 resolved.length;
 
               if (avgBrier < 0.1) {
-                tamagotchiEmoji = "🤩";
-                tamagotchiMessage = "You're crushing it!";
-                tamagotchiColor = "#b8bb26";
+                statusIndicator = "◆◆◆";
+                statusMessage = "Elite Performance";
+                statusColor = "#b8bb26";
               } else if (avgBrier < 0.15) {
-                tamagotchiEmoji = "😊";
-                tamagotchiMessage = "Doing great!";
-                tamagotchiColor = "#b8bb26";
+                statusIndicator = "◆◆◆";
+                statusMessage = "Strong Calibration";
+                statusColor = "#b8bb26";
               } else if (avgBrier < 0.2) {
-                tamagotchiEmoji = "🙂";
-                tamagotchiMessage = "Good progress!";
-                tamagotchiColor = "#fabd2f";
+                statusIndicator = "◆◆";
+                statusMessage = "Good Progress";
+                statusColor = "#fabd2f";
               } else if (avgBrier < 0.25) {
-                tamagotchiEmoji = "😐";
-                tamagotchiMessage = "Keep practicing!";
-                tamagotchiColor = "#fabd2f";
+                statusIndicator = "◆◆";
+                statusMessage = "Developing Skill";
+                statusColor = "#fabd2f";
               } else if (avgBrier < 0.3) {
-                tamagotchiEmoji = "😕";
-                tamagotchiMessage = "Room to improve...";
-                tamagotchiColor = "#fb4934";
+                statusIndicator = "◆";
+                statusMessage = "Building Foundation";
+                statusColor = "#fb4934";
               } else {
-                tamagotchiEmoji = "😰";
-                tamagotchiMessage = "Need more practice!";
-                tamagotchiColor = "#fb4934";
+                statusIndicator = "◆";
+                statusMessage = "Early Stage";
+                statusColor = "#fb4934";
               }
             }
 
             return (
               <View style={styles.emptyState}>
-                <Text style={[styles.tamagotchi, { color: tamagotchiColor }]}>
-                  {tamagotchiEmoji}
+                <Text style={[styles.statusIndicator, { color: statusColor }]}>
+                  {statusIndicator}
                 </Text>
-                <Text
-                  style={[styles.tamagotchiMessage, { color: tamagotchiColor }]}
-                >
-                  {tamagotchiMessage}
+                <Text style={[styles.statusMessage, { color: statusColor }]}>
+                  {statusMessage}
                 </Text>
                 <Text style={styles.emptyTitle}>Universal Forecasting</Text>
                 <Text style={styles.emptySubtitle}>
@@ -2213,14 +2172,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 100,
   },
-  tamagotchi: {
-    fontSize: 72,
+  statusIndicator: {
+    fontSize: 48,
+    fontWeight: "300",
+    letterSpacing: 8,
     marginBottom: 16,
   },
-  tamagotchiMessage: {
-    fontSize: 18,
-    fontWeight: "600",
+  statusMessage: {
+    fontSize: 16,
+    fontWeight: "500",
     marginBottom: 32,
+    textTransform: "uppercase",
+    letterSpacing: 2,
   },
   emptyTitle: {
     fontSize: 32,
@@ -2376,9 +2339,12 @@ const styles = StyleSheet.create({
     color: "#928374",
     width: 40,
   },
-  leaderboardEmoji: {
-    fontSize: 24,
+  leaderboardBadge: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#fabd2f",
     marginRight: 12,
+    width: 50,
   },
   leaderboardInfo: {
     flex: 1,
