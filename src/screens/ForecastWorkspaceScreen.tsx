@@ -596,9 +596,15 @@ export default function ForecastWorkspaceScreen() {
       setShowForecastList(false);
 
       try {
+        console.log("Calling parseQuestion with:", question);
         const result = await researchService.parseQuestion(question);
         console.log("Parse result:", result);
+        console.log("Result type:", typeof result);
+        console.log("Result keys:", Object.keys(result));
+
         const parsed = result.parsed || result;
+        console.log("Parsed object:", parsed);
+        console.log("Suggested drivers:", parsed.suggestedDrivers);
 
         // Ensure suggestedDrivers exists
         if (!parsed.suggestedDrivers) {
