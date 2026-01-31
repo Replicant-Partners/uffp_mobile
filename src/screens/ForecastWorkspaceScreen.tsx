@@ -627,36 +627,135 @@ export default function ForecastWorkspaceScreen() {
 
   const getSuggestion = () => {
     const query = commandInput.toLowerCase().trim();
+    if (!query) return "";
 
     // Agent configuration mode suggestions
     if (agentBeingConfigured) {
-      if (query === "/query") return "/query ";
-      if (query === "/schedule") return "/schedule on-demand";
-      if (query === "/schedule d") return "/schedule daily";
-      if (query === "/schedule w") return "/schedule weekly";
-      if (query === "/schedule o") return "/schedule on-demand";
-      if (query === "/threshold") return "/threshold 10";
+      const agentSuggestions: Record<string, string> = {
+        "/q": "/query ",
+        "/qu": "/query ",
+        "/que": "/query ",
+        "/quer": "/query ",
+        "/query": "/query ",
+        "/s": "/schedule on-demand",
+        "/sc": "/schedule on-demand",
+        "/sch": "/schedule on-demand",
+        "/sche": "/schedule on-demand",
+        "/sched": "/schedule on-demand",
+        "/schedu": "/schedule on-demand",
+        "/schedul": "/schedule on-demand",
+        "/schedule": "/schedule on-demand",
+        "/schedule ": "/schedule on-demand",
+        "/schedule d": "/schedule daily",
+        "/schedule da": "/schedule daily",
+        "/schedule dai": "/schedule daily",
+        "/schedule dail": "/schedule daily",
+        "/schedule w": "/schedule weekly",
+        "/schedule we": "/schedule weekly",
+        "/schedule wee": "/schedule weekly",
+        "/schedule week": "/schedule weekly",
+        "/schedule weekl": "/schedule weekly",
+        "/schedule o": "/schedule on-demand",
+        "/schedule on": "/schedule on-demand",
+        "/schedule on-": "/schedule on-demand",
+        "/schedule on-d": "/schedule on-demand",
+        "/schedule on-de": "/schedule on-demand",
+        "/schedule on-dem": "/schedule on-demand",
+        "/schedule on-dema": "/schedule on-demand",
+        "/schedule on-deman": "/schedule on-demand",
+        "/t": "/threshold 10",
+        "/th": "/threshold 10",
+        "/thr": "/threshold 10",
+        "/thre": "/threshold 10",
+        "/thres": "/threshold 10",
+        "/thresh": "/threshold 10",
+        "/thresho": "/threshold 10",
+        "/threshol": "/threshold 10",
+        "/threshold": "/threshold 10",
+      };
+      if (agentSuggestions[query]) return agentSuggestions[query];
     }
 
-    // Configuration mode suggestions
+    // Driver configuration mode suggestions
     if (driverBeingConfigured) {
-      if (query === "/type") return "/type continuous";
-      if (query === "/type c") return "/type continuous";
-      if (query === "/type b") return "/type binary";
+      const driverSuggestions: Record<string, string> = {
+        "/t": "/type continuous",
+        "/ty": "/type continuous",
+        "/typ": "/type continuous",
+        "/type": "/type continuous",
+        "/type ": "/type continuous",
+        "/type c": "/type continuous",
+        "/type co": "/type continuous",
+        "/type con": "/type continuous",
+        "/type cont": "/type continuous",
+        "/type conti": "/type continuous",
+        "/type contin": "/type continuous",
+        "/type continu": "/type continuous",
+        "/type continuo": "/type continuous",
+        "/type continuou": "/type continuous",
+        "/type b": "/type binary",
+        "/type bi": "/type binary",
+        "/type bin": "/type binary",
+        "/type bina": "/type binary",
+        "/type binar": "/type binary",
+        "/d": "/dist triangular",
+        "/di": "/dist triangular",
+        "/dis": "/dist triangular",
+        "/dist": "/dist triangular",
+        "/dist ": "/dist triangular",
+        "/dist t": "/dist triangular",
+        "/dist tr": "/dist triangular",
+        "/dist tri": "/dist triangular",
+        "/dist tria": "/dist triangular",
+        "/dist trian": "/dist triangular",
+        "/dist triang": "/dist triangular",
+        "/dist triangu": "/dist triangular",
+        "/dist triangul": "/dist triangular",
+        "/dist triangula": "/dist triangular",
+        "/dist n": "/dist normal",
+        "/dist no": "/dist normal",
+        "/dist nor": "/dist normal",
+        "/dist norm": "/dist normal",
+        "/dist norma": "/dist normal",
+        "/dist l": "/dist lognormal",
+        "/dist lo": "/dist lognormal",
+        "/dist log": "/dist lognormal",
+        "/dist logn": "/dist lognormal",
+        "/dist logno": "/dist lognormal",
+        "/dist lognor": "/dist lognormal",
+        "/dist lognorm": "/dist lognormal",
+        "/dist lognorma": "/dist lognormal",
+        "/dire": "/direction increases",
+        "/direc": "/direction increases",
+        "/direct": "/direction increases",
+        "/directi": "/direction increases",
+        "/directio": "/direction increases",
+        "/direction": "/direction increases",
+        "/direction ": "/direction increases",
+        "/direction i": "/direction increases",
+        "/direction in": "/direction increases",
+        "/direction inc": "/direction increases",
+        "/direction incr": "/direction increases",
+        "/direction incre": "/direction increases",
+        "/direction increa": "/direction increases",
+        "/direction increas": "/direction increases",
+        "/direction increase": "/direction increases",
+        "/direction d": "/direction decreases",
+        "/direction de": "/direction decreases",
+        "/direction dec": "/direction decreases",
+        "/direction decr": "/direction decreases",
+        "/direction decre": "/direction decreases",
+        "/direction decrea": "/direction decreases",
+        "/direction decreas": "/direction decreases",
+        "/direction decrease": "/direction decreases",
+        "/p": "/p 20 50 80",
+        "/pr": "/prob 50",
+        "/pro": "/prob 50",
+        "/prob": "/prob 50",
+      };
+      if (driverSuggestions[query]) return driverSuggestions[query];
 
-      if (query === "/dist") return "/dist triangular";
-      if (query === "/dist t") return "/dist triangular";
-      if (query === "/dist n") return "/dist normal";
-      if (query === "/dist l") return "/dist lognormal";
-
-      if (query === "/direction") return "/direction increases";
-      if (query === "/direction i") return "/direction increases";
-      if (query === "/direction d") return "/direction decreases";
-
-      if (query === "/p") return "/p 20 50 80";
-      if (query === "/prob") return "/prob 50";
-
-      // Agent name autocomplete - matching backend agent IDs
+      // Agent name autocomplete
       const agentNames = [
         "research_analyst",
         "sentiment_monitor",
@@ -665,22 +764,73 @@ export default function ForecastWorkspaceScreen() {
         "market_researcher",
         "expert_synthesizer",
       ];
-      if (query === "@") return "@research_analyst";
       if (query.startsWith("@")) {
-        const partial = query.substring(1);
+        const partial = query.substring(1).toLowerCase();
         const match = agentNames.find((name) => name.startsWith(partial));
         if (match) return "@" + match;
       }
     }
 
     // Regular mode suggestions
-    if (query === "/grounding") return "/grounding external";
-    if (query === "/grounding e") return "/grounding external";
-    if (query === "/grounding p") return "/grounding premortem";
-    if (query === "/grounding a") return "/grounding analysis";
-
-    if (query === "/question") return "/question ";
-    if (query === "/driver") return "/driver ";
+    const regularSuggestions: Record<string, string> = {
+      "/q": "/question ",
+      "/qu": "/question ",
+      "/que": "/question ",
+      "/ques": "/question ",
+      "/quest": "/question ",
+      "/questi": "/question ",
+      "/questio": "/question ",
+      "/question": "/question ",
+      "/d": "/driver ",
+      "/dr": "/driver ",
+      "/dri": "/driver ",
+      "/driv": "/driver ",
+      "/drive": "/driver ",
+      "/driver": "/driver ",
+      "/l": "/list",
+      "/li": "/list",
+      "/lis": "/list",
+      "/g": "/grounding external",
+      "/gr": "/grounding external",
+      "/gro": "/grounding external",
+      "/grou": "/grounding external",
+      "/groun": "/grounding external",
+      "/ground": "/grounding external",
+      "/groundi": "/grounding external",
+      "/groundin": "/grounding external",
+      "/grounding": "/grounding external",
+      "/grounding ": "/grounding external",
+      "/grounding e": "/grounding external",
+      "/grounding ex": "/grounding external",
+      "/grounding ext": "/grounding external",
+      "/grounding exte": "/grounding external",
+      "/grounding exter": "/grounding external",
+      "/grounding extern": "/grounding external",
+      "/grounding externa": "/grounding external",
+      "/grounding p": "/grounding premortem",
+      "/grounding pr": "/grounding premortem",
+      "/grounding pre": "/grounding premortem",
+      "/grounding prem": "/grounding premortem",
+      "/grounding premo": "/grounding premortem",
+      "/grounding premor": "/grounding premortem",
+      "/grounding premort": "/grounding premortem",
+      "/grounding premorte": "/grounding premortem",
+      "/grounding a": "/grounding analysis",
+      "/grounding an": "/grounding analysis",
+      "/grounding ana": "/grounding analysis",
+      "/grounding anal": "/grounding analysis",
+      "/grounding analy": "/grounding analysis",
+      "/grounding analys": "/grounding analysis",
+      "/grounding analysi": "/grounding analysis",
+      "/s": "/simulate",
+      "/si": "/simulate",
+      "/sim": "/simulate",
+      "/simu": "/simulate",
+      "/simul": "/simulate",
+      "/simula": "/simulate",
+      "/simulat": "/simulate",
+    };
+    if (regularSuggestions[query]) return regularSuggestions[query];
 
     return "";
   };
