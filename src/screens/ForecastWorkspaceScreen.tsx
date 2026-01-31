@@ -934,8 +934,8 @@ export default function ForecastWorkspaceScreen() {
       );
 
       if (!commandInput || !commandInput.startsWith("/")) {
-        // Show agent name suggestions if starting with @
-        if (commandInput.startsWith("@")) {
+        // Show agent name suggestions if starting with @ OR when input is empty (agent directory)
+        if (commandInput.startsWith("@") || commandInput === "") {
           const agentDescriptions: Record<string, string> = {
             research_analyst:
               "Deep research with citations, quantitative focus",
@@ -945,11 +945,20 @@ export default function ForecastWorkspaceScreen() {
             market_researcher: "Market sizing and industry analysis",
             expert_synthesizer: "Synthesize expert opinions and predictions",
           };
-          return Object.keys(agentDescriptions).map((name) => ({
+          const allAgents = Object.keys(agentDescriptions).map((name) => ({
             key: name,
             label: "@" + name,
             desc: agentDescriptions[name],
           }));
+
+          // Filter by partial match if typing @something
+          if (commandInput.startsWith("@") && commandInput.length > 1) {
+            const partial = commandInput.substring(1).toLowerCase();
+            return allAgents.filter((a) => a.key.startsWith(partial));
+          }
+
+          // Show all agents when typing @ alone or when field is empty
+          return allAgents;
         }
         return configHints;
       }
