@@ -1139,6 +1139,7 @@ export default function ForecastWorkspaceScreen() {
               Type <Text style={styles.emptyCommand}>/question</Text> to start
               or <Text style={styles.emptyCommand}>/list</Text> to see forecasts
             </Text>
+            <Text style={styles.versionText}>v2.0 - Agent Config</Text>
           </View>
         )}
       </ScrollView>
@@ -1409,6 +1410,12 @@ const styles = StyleSheet.create({
   emptyCommand: {
     fontWeight: "600",
     color: "#fabd2f",
+  },
+  versionText: {
+    fontSize: 11,
+    color: "#665c54",
+    marginTop: 12,
+    fontStyle: "italic",
   },
   commandSection: {
     backgroundColor: "#282828",
