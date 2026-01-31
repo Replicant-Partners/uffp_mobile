@@ -124,11 +124,26 @@ export default function ForecastWorkspaceScreen() {
   const saveConfiguredDriver = async () => {
     if (!driverBeingConfigured || !activeForecast) return;
 
-    setProcessingAction("Adding driver...");
+    setProcessingAction("Saving driver...");
+
+    // Check if we're editing an existing driver
+    const existingIndex = activeForecast.drivers.findIndex(
+      (d: any) => d.id === driverBeingConfigured.id,
+    );
+
+    let updatedDrivers;
+    if (existingIndex >= 0) {
+      // Update existing driver
+      updatedDrivers = [...activeForecast.drivers];
+      updatedDrivers[existingIndex] = driverBeingConfigured;
+    } else {
+      // Add new driver
+      updatedDrivers = [...activeForecast.drivers, driverBeingConfigured];
+    }
 
     const updatedForecast = {
       ...activeForecast,
-      drivers: [...activeForecast.drivers, driverBeingConfigured],
+      drivers: updatedDrivers,
       updatedAt: new Date().toISOString(),
     };
 
@@ -141,6 +156,10 @@ export default function ForecastWorkspaceScreen() {
 
   const cancelDriverConfiguration = () => {
     setDriverBeingConfigured(null);
+  };
+
+  const editDriver = (driver: any) => {
+    setDriverBeingConfigured(driver);
   };
 
   const handleCommandSubmit = async () => {
@@ -250,9 +269,7 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
-      setProcessingAction("Adding driver...");
-
-      // Add driver to active forecast
+      // Start configuration for custom driver
       const newDriver = {
         id: Date.now().toString(),
         name: driverName,
@@ -265,17 +282,8 @@ export default function ForecastWorkspaceScreen() {
         createdAt: new Date().toISOString(),
       };
 
-      const updatedForecast = {
-        ...activeForecast,
-        drivers: [...activeForecast.drivers, newDriver],
-        updatedAt: new Date().toISOString(),
-      };
-
-      setActiveForecast(updatedForecast);
-      await saveForecast(updatedForecast);
+      setDriverBeingConfigured(newDriver);
       setCommandInput("");
-      setError("");
-      setProcessingAction("");
       return;
     }
 
@@ -468,7 +476,11 @@ export default function ForecastWorkspaceScreen() {
                 Drivers ({activeForecast.drivers.length})
               </Text>
               {activeForecast.drivers.map((driver: any) => (
-                <View key={driver.id} style={styles.driverCard}>
+                <TouchableOpacity
+                  key={driver.id}
+                  style={styles.driverCard}
+                  onPress={() => editDriver(driver)}
+                >
                   <Text style={styles.driverName}>{driver.name}</Text>
                   <Text style={styles.driverDetails}>
                     {driver.type === "continuous"
@@ -476,31 +488,47 @@ export default function ForecastWorkspaceScreen() {
                       : `P(${driver.probability}%)`}{" "}
                     · {driver.direction}
                   </Text>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}
 
-        {/* Suggested Drivers (only on new forecasts) */}
+        {/* Suggested Drivers */}
         {parsedResult &&
           parsedResult.suggestedDrivers &&
           parsedResult.suggestedDrivers.length > 0 &&
           activeForecast &&
-          activeForecast.drivers.length === 0 &&
           !driverBeingConfigured && (
             <View style={styles.driversSection}>
               <Text style={styles.sectionLabel}>Suggested Drivers</Text>
               {parsedResult.suggestedDrivers.map(
-                (driver: string, idx: number) => (
-                  <TouchableOpacity
-                    key={idx}
-                    style={styles.suggestedDriverCard}
-                    onPress={() => startDriverConfiguration(idx)}
-                  >
-                    <Text style={styles.driverNumber}>{idx + 1}</Text>
-                    <Text style={styles.driverName}>{driver}</Text>
-                  </TouchableOpacity>
-                ),
+                (driver: string, idx: number) => {
+                  // Check if this driver is already added
+                  const alreadyAdded = activeForecast.drivers.some(
+                    (d: any) => d.name.toLowerCase() === driver.toLowerCase(),
+                  );
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[
+                        styles.suggestedDriverCard,
+                        alreadyAdded && styles.suggestedDriverCardAdded,
+                      ]}
+                      onPress={() => startDriverConfiguration(idx)}
+                      disabled={alreadyAdded}
+                    >
+                      <Text style={styles.driverNumber}>{idx + 1}</Text>
+                      <Text
+                        style={[
+                          styles.driverName,
+                          alreadyAdded && styles.driverNameAdded,
+                        ]}
+                      >
+                        {driver} {alreadyAdded && "✓"}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                },
               )}
             </View>
           )}
@@ -753,6 +781,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
+  suggestedDriverCardAdded: {
+    backgroundColor: "#32302f",
+    borderLeftColor: "#665c54",
+    opacity: 0.6,
+  },
   driverNumber: {
     fontSize: 18,
     fontWeight: "700",
@@ -765,6 +798,9 @@ const styles = StyleSheet.create({
     color: "#ebdbb2",
     marginBottom: 4,
     flex: 1,
+  },
+  driverNameAdded: {
+    color: "#928374",
   },
   driverDetails: {
     fontSize: 12,
