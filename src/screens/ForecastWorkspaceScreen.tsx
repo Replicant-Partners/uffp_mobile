@@ -18,6 +18,7 @@ interface SavedForecast {
   question: string;
   domain?: string;
   timeframe?: string;
+  grounding?: "external" | "premortem" | "analysis";
   probability?: number;
   drivers: any[];
   createdAt: string;
@@ -280,6 +281,31 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
+    // Handle /grounding command (only if forecast is active)
+    if (trimmed.startsWith("/grounding ")) {
+      if (!activeForecast) {
+        setError("No active forecast. Type /question first.");
+        setCommandInput("");
+        return;
+      }
+
+      const grounding = trimmed.replace("/grounding ", "").trim();
+      if (["external", "premortem", "analysis"].includes(grounding)) {
+        const updatedForecast = {
+          ...activeForecast,
+          grounding: grounding as "external" | "premortem" | "analysis",
+          updatedAt: new Date().toISOString(),
+        };
+        setActiveForecast(updatedForecast);
+        await saveForecast(updatedForecast);
+        setCommandInput("");
+        setError("");
+      } else {
+        setError("Grounding must be 'external', 'premortem', or 'analysis'");
+      }
+      return;
+    }
+
     // Handle numbered driver selection (e.g., "1", "2", "3")
     if (/^\d+$/.test(trimmed)) {
       const index = parseInt(trimmed, 10) - 1; // Convert to 0-indexed
@@ -344,6 +370,7 @@ export default function ForecastWorkspaceScreen() {
           question: parsed.question || question,
           domain: parsed.domain,
           timeframe: parsed.timeframe,
+          grounding: parsed.grounding || "analysis",
           drivers: [],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -422,6 +449,7 @@ export default function ForecastWorkspaceScreen() {
     if (activeForecast) {
       hints.push(
         { key: "driver", label: "/driver", desc: "Add a driver" },
+        { key: "grounding", label: "/grounding", desc: "Set grounding type" },
         { key: "simulate", label: "/simulate", desc: "Run simulation" },
       );
     }
@@ -452,6 +480,8 @@ export default function ForecastWorkspaceScreen() {
                   {parsedResult.domain}
                   {parsedResult.timeframe &&
                     ` · Resolves ${parsedResult.timeframe}`}
+                  {activeForecast?.grounding &&
+                    ` · ${activeForecast.grounding}`}
                   {parsedResult.confidence &&
                     ` · ${Math.round(parsedResult.confidence * 100)}% confidence`}
                 </Text>
