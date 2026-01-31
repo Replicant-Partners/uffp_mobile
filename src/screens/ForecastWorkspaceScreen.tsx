@@ -30,6 +30,7 @@ interface SavedForecast {
 }
 
 const STORAGE_KEY = "@uffp_forecasts";
+const VERSION = "2.2.0"; // Update this to force cache bust
 
 export default function ForecastWorkspaceScreen() {
   const [commandInput, setCommandInput] = useState("");
@@ -1565,7 +1566,7 @@ export default function ForecastWorkspaceScreen() {
               or <Text style={styles.emptyCommand}>/list</Text> to see forecasts
             </Text>
             <Text style={styles.versionText}>
-              v2.2 - /setprob & Brier Scoring
+              v{VERSION} - /setprob & Brier Scoring
             </Text>
           </View>
         )}
@@ -1573,6 +1574,10 @@ export default function ForecastWorkspaceScreen() {
 
       {/* Command Input - Fixed at bottom */}
       <View style={styles.commandSection}>
+        {/* Version indicator */}
+        <View style={styles.versionIndicator}>
+          <Text style={styles.versionIndicatorText}>v{VERSION}</Text>
+        </View>
         {/* Command Hints */}
         {showCommandHints && getCommandHints().length > 0 && (
           <View style={styles.hintsPanel}>
@@ -1916,6 +1921,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#282828",
     borderTopWidth: 1,
     borderTopColor: "#3c3836",
+  },
+  versionIndicator: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "#3c3836",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    zIndex: 1000,
+  },
+  versionIndicatorText: {
+    fontSize: 10,
+    color: "#928374",
+    fontWeight: "600",
   },
   hintsPanel: {
     backgroundColor: "#3c3836",
