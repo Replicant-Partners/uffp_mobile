@@ -268,6 +268,14 @@ export default function ForecastWorkspaceScreen() {
             schedule: agentBeingConfigured.schedule || "on-demand",
             threshold: agentBeingConfigured.threshold || 10,
           };
+          // Check for duplicates
+          const isDuplicate = currentAgents.some(
+            (a: any) => (a.name || a) === agentConfig.name,
+          );
+          if (isDuplicate) {
+            setError(`Agent @${agentConfig.name} already added to this driver`);
+            return;
+          }
           setDriverBeingConfigured({
             ...driverBeingConfigured,
             agents: [...currentAgents, agentConfig],
@@ -637,7 +645,9 @@ export default function ForecastWorkspaceScreen() {
         "/que": "/query ",
         "/quer": "/query ",
         "/query": "/query ",
-        "/s": "/schedule on-demand",
+        "/s": "/save",
+        "/sa": "/save",
+        "/sav": "/save",
         "/sc": "/schedule on-demand",
         "/sch": "/schedule on-demand",
         "/sche": "/schedule on-demand",
@@ -1135,12 +1145,35 @@ export default function ForecastWorkspaceScreen() {
               </Text>
               {driverBeingConfigured.agents &&
                 driverBeingConfigured.agents.length > 0 && (
-                  <Text style={styles.agentsList}>
-                    Agents:{" "}
-                    {driverBeingConfigured.agents
-                      .map((a: any) => `@${a.name || a}`)
-                      .join(", ")}
-                  </Text>
+                  <View style={styles.agentsContainer}>
+                    <Text style={styles.agentsLabel}>Agents:</Text>
+                    <View style={styles.agentsChips}>
+                      {driverBeingConfigured.agents.map(
+                        (a: any, idx: number) => (
+                          <TouchableOpacity
+                            key={idx}
+                            style={styles.agentChip}
+                            onPress={() => {
+                              // Remove agent on click
+                              const updated =
+                                driverBeingConfigured.agents.filter(
+                                  (_: any, i: number) => i !== idx,
+                                );
+                              setDriverBeingConfigured({
+                                ...driverBeingConfigured,
+                                agents: updated,
+                              });
+                            }}
+                          >
+                            <Text style={styles.agentChipText}>
+                              @{a.name || a}
+                            </Text>
+                            <Text style={styles.agentChipRemove}>×</Text>
+                          </TouchableOpacity>
+                        ),
+                      )}
+                    </View>
+                  </View>
                 )}
               <Text style={styles.configHint}>
                 Use /type, /dist, /p, /direction to configure. Type @ to add
@@ -1474,10 +1507,40 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontStyle: "italic",
   },
-  agentsList: {
-    fontSize: 12,
+  agentsContainer: {
+    marginTop: 8,
+  },
+  agentsLabel: {
+    fontSize: 11,
+    color: "#928374",
+    marginBottom: 4,
+  },
+  agentsChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  agentChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#3c3836",
+    borderWidth: 1,
+    borderColor: "#b8bb26",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 4,
+  },
+  agentChipText: {
+    fontSize: 11,
     color: "#b8bb26",
-    marginTop: 6,
+    fontWeight: "500",
+  },
+  agentChipRemove: {
+    fontSize: 16,
+    color: "#fb4934",
+    fontWeight: "700",
+    lineHeight: 16,
   },
   agentConfigCard: {
     backgroundColor: "#3c3836",
