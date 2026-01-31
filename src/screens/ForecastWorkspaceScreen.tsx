@@ -240,9 +240,16 @@ export default function ForecastWorkspaceScreen() {
     const query = commandInput.toLowerCase();
     const hints = [
       { key: "question", label: "/question", desc: "Start a new forecast" },
-      { key: "driver", label: "/driver", desc: "Add a driver" },
-      { key: "simulate", label: "/simulate", desc: "Run simulation" },
+      { key: "list", label: "/list", desc: "View all forecasts" },
     ];
+
+    // Only show driver and simulate commands if there's an active forecast
+    if (activeForecast) {
+      hints.push(
+        { key: "driver", label: "/driver", desc: "Add a driver" },
+        { key: "simulate", label: "/simulate", desc: "Run simulation" },
+      );
+    }
 
     return hints.filter(
       (h) => h.label.includes(query) || h.desc.toLowerCase().includes(query),
