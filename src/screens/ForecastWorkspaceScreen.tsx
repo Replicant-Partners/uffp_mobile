@@ -328,10 +328,10 @@ export default function ForecastWorkspaceScreen() {
         // First create the forecast on the backend
         const createResponse = await researchService.createForecast({
           question: activeForecast.question,
-          domain: parsedResult?.domain || "general",
+          domain: activeForecast.domain || parsedResult?.domain || "general",
           timeframe:
-            parsedResult?.timeframe || activeForecast.timeframe || "unknown",
-          resolutionCriteria: `This forecast will resolve based on: ${activeForecast.question}`,
+            activeForecast.timeframe || parsedResult?.timeframe || "unknown",
+          resolutionCriteria: `Forecast resolves when: ${activeForecast.question}. Based on ${activeForecast.drivers.length} driver(s).`,
         });
 
         const backendForecastId = createResponse.id;
