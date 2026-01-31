@@ -771,19 +771,24 @@ export default function ForecastWorkspaceScreen() {
       };
       if (driverSuggestions[query]) return driverSuggestions[query];
 
-      // Agent name autocomplete
-      const agentNames = [
-        "research_analyst",
-        "sentiment_monitor",
-        "competitive_intel",
-        "financial_analyst",
-        "market_researcher",
-        "expert_synthesizer",
-      ];
+      // Agent name autocomplete with descriptions
+      const agentInfo: Record<string, string> = {
+        research_analyst:
+          "research_analyst (deep research, citations, quantitative)",
+        sentiment_monitor:
+          "sentiment_monitor (social listening, sentiment scoring)",
+        competitive_intel:
+          "competitive_intel (competitor tracking, benchmarking)",
+        financial_analyst: "financial_analyst (financial statements, modeling)",
+        market_researcher: "market_researcher (market sizing, TAM/SAM/SOM)",
+        expert_synthesizer: "expert_synthesizer (synthesize expert opinions)",
+      };
       if (query.startsWith("@")) {
         const partial = query.substring(1).toLowerCase();
-        const match = agentNames.find((name) => name.startsWith(partial));
-        if (match) return "@" + match;
+        const match = Object.keys(agentInfo).find((name) =>
+          name.startsWith(partial),
+        );
+        if (match) return "@" + agentInfo[match];
       }
     }
 
@@ -1156,26 +1161,49 @@ export default function ForecastWorkspaceScreen() {
                     <View style={styles.agentsChips}>
                       {driverBeingConfigured.agents.map(
                         (a: any, idx: number) => (
-                          <TouchableOpacity
-                            key={idx}
-                            style={styles.agentChip}
-                            onPress={() => {
-                              // Remove agent on click
-                              const updated =
-                                driverBeingConfigured.agents.filter(
-                                  (_: any, i: number) => i !== idx,
-                                );
-                              setDriverBeingConfigured({
-                                ...driverBeingConfigured,
-                                agents: updated,
-                              });
-                            }}
-                          >
-                            <Text style={styles.agentChipText}>
-                              @{a.name || a}
-                            </Text>
-                            <Text style={styles.agentChipRemove}>×</Text>
-                          </TouchableOpacity>
+                          <View key={idx} style={styles.agentChipContainer}>
+                            <TouchableOpacity
+                              style={styles.agentChip}
+                              onPress={() => {
+                                // Click agent name to edit
+                                setAgentBeingConfigured({
+                                  name: a.name || a,
+                                  query: a.query,
+                                  schedule: a.schedule,
+                                  threshold: a.threshold,
+                                });
+                                // Remove from list temporarily while editing
+                                const updated =
+                                  driverBeingConfigured.agents.filter(
+                                    (_: any, i: number) => i !== idx,
+                                  );
+                                setDriverBeingConfigured({
+                                  ...driverBeingConfigured,
+                                  agents: updated,
+                                });
+                              }}
+                            >
+                              <Text style={styles.agentChipText}>
+                                @{a.name || a}
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.agentChipRemoveBtn}
+                              onPress={() => {
+                                // Click × to remove permanently
+                                const updated =
+                                  driverBeingConfigured.agents.filter(
+                                    (_: any, i: number) => i !== idx,
+                                  );
+                                setDriverBeingConfigured({
+                                  ...driverBeingConfigured,
+                                  agents: updated,
+                                });
+                              }}
+                            >
+                              <Text style={styles.agentChipRemove}>×</Text>
+                            </TouchableOpacity>
+                          </View>
                         ),
                       )}
                     </View>
@@ -1528,21 +1556,27 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 6,
   },
-  agentChip: {
+  agentChipContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#3c3836",
     borderWidth: 1,
     borderColor: "#b8bb26",
     borderRadius: 12,
-    paddingHorizontal: 8,
+  },
+  agentChip: {
+    paddingLeft: 8,
+    paddingRight: 4,
     paddingVertical: 4,
-    gap: 4,
   },
   agentChipText: {
     fontSize: 11,
     color: "#b8bb26",
     fontWeight: "500",
+  },
+  agentChipRemoveBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
   },
   agentChipRemove: {
     fontSize: 16,
