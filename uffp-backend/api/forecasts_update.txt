@@ -1,0 +1,33 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import {
+  createForecast,
+  getForecast,
+  listForecasts,
+  addDriver,
+  updateDriver,
+  removeDriver,
+  addEvidence,
+  setBaseRate,
+  saveSimulation,
+  getUserStats,
+  getLeaderboard,
+} from '../lib/database';
+import { coach } from '../lib/coach';
+import { setCorsHeaders } from './cors';
+
+/**
+ * Unified forecasts API
+ * /api/forecasts?action=xxx
+ */
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Set CORS headers
+  setCorsHeaders(res);
+  
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  const { action } = req.query;
+
+  try {
