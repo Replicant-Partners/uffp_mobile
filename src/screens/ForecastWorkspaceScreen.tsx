@@ -43,6 +43,12 @@ export default function ForecastWorkspaceScreen() {
   const [driverBeingConfigured, setDriverBeingConfigured] = useState<
     any | null
   >(null);
+  const [agentBeingConfigured, setAgentBeingConfigured] = useState<{
+    name: string;
+    query?: string;
+    schedule?: string;
+    threshold?: number;
+  } | null>(null);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -212,6 +218,71 @@ export default function ForecastWorkspaceScreen() {
   };
 
   const processSingleCommand = async (trimmed: string) => {
+    // Handle agent configuration commands
+    if (agentBeingConfigured) {
+      // /query <search query>
+      if (trimmed.startsWith("/query ")) {
+        const query = trimmed.replace("/query ", "").trim();
+        setAgentBeingConfigured({ ...agentBeingConfigured, query });
+        setCommandInput("");
+        return;
+      }
+
+      // /schedule <daily|weekly|on-demand>
+      if (trimmed.startsWith("/schedule ")) {
+        const schedule = trimmed.replace("/schedule ", "").trim();
+        if (["daily", "weekly", "on-demand"].includes(schedule)) {
+          setAgentBeingConfigured({ ...agentBeingConfigured, schedule });
+          setCommandInput("");
+        } else {
+          setError("Schedule must be 'daily', 'weekly', or 'on-demand'");
+        }
+        return;
+      }
+
+      // /threshold <number>
+      if (trimmed.startsWith("/threshold ")) {
+        const threshold = parseInt(
+          trimmed.replace("/threshold ", "").trim(),
+          10,
+        );
+        if (!isNaN(threshold) && threshold >= 0 && threshold <= 100) {
+          setAgentBeingConfigured({ ...agentBeingConfigured, threshold });
+          setCommandInput("");
+        } else {
+          setError("Threshold must be a number between 0 and 100");
+        }
+        return;
+      }
+
+      // /save - save agent to driver
+      if (trimmed === "/save") {
+        if (driverBeingConfigured) {
+          const currentAgents = driverBeingConfigured.agents || [];
+          const agentConfig = {
+            name: agentBeingConfigured.name,
+            query: agentBeingConfigured.query,
+            schedule: agentBeingConfigured.schedule || "on-demand",
+            threshold: agentBeingConfigured.threshold || 10,
+          };
+          setDriverBeingConfigured({
+            ...driverBeingConfigured,
+            agents: [...currentAgents, agentConfig],
+          });
+        }
+        setAgentBeingConfigured(null);
+        setCommandInput("");
+        return;
+      }
+
+      // /cancel - cancel agent config
+      if (trimmed === "/cancel") {
+        setAgentBeingConfigured(null);
+        setCommandInput("");
+        return;
+      }
+    }
+
     // Handle driver configuration commands
     if (driverBeingConfigured) {
       // /type <continuous|binary>
@@ -306,21 +377,11 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
-      // Handle @agent mentions
-      if (trimmed.startsWith("@")) {
+      // Handle @agent mentions - enter agent config mode
+      if (trimmed.startsWith("@") && !trimmed.includes("/")) {
         const agentName = trimmed.substring(1).trim();
         if (agentName) {
-          const currentAgents = driverBeingConfigured.agents || [];
-          // Toggle agent - add if not present, remove if present
-          const agentIndex = currentAgents.indexOf(agentName);
-          const updatedAgents =
-            agentIndex >= 0
-              ? currentAgents.filter((_, i) => i !== agentIndex)
-              : [...currentAgents, agentName];
-          setDriverBeingConfigured({
-            ...driverBeingConfigured,
-            agents: updatedAgents,
-          });
+          setAgentBeingConfigured({ name: agentName });
           setCommandInput("");
         }
         return;
@@ -553,6 +614,16 @@ export default function ForecastWorkspaceScreen() {
   const getSuggestion = () => {
     const query = commandInput.toLowerCase().trim();
 
+    // Agent configuration mode suggestions
+    if (agentBeingConfigured) {
+      if (query === "/query") return "/query ";
+      if (query === "/schedule") return "/schedule on-demand";
+      if (query === "/schedule d") return "/schedule daily";
+      if (query === "/schedule w") return "/schedule weekly";
+      if (query === "/schedule o") return "/schedule on-demand";
+      if (query === "/threshold") return "/threshold 10";
+    }
+
     // Configuration mode suggestions
     if (driverBeingConfigured) {
       if (query === "/type") return "/type continuous";
@@ -570,6 +641,8 @@ export default function ForecastWorkspaceScreen() {
 
       if (query === "/p") return "/p 20 50 80";
       if (query === "/prob") return "/prob 50";
+
+      if (query === "@") return "@web-research";
     }
 
     // Regular mode suggestions
@@ -585,6 +658,48 @@ export default function ForecastWorkspaceScreen() {
   };
 
   const getCommandHints = () => {
+    // Agent configuration mode hints
+    if (agentBeingConfigured) {
+      const agentHints = [
+        { key: "query", label: "/query", desc: "Set research query" },
+        {
+          key: "schedule",
+          label: "/schedule",
+          desc: "Set schedule (daily|weekly|on-demand)",
+        },
+        {
+          key: "threshold",
+          label: "/threshold",
+          desc: "Set update threshold (0-100)",
+        },
+        { key: "save", label: "/save", desc: "Save agent to driver" },
+        { key: "cancel", label: "/cancel", desc: "Cancel agent config" },
+      ];
+
+      if (!commandInput || !commandInput.startsWith("/")) {
+        return agentHints;
+      }
+
+      const query = commandInput.toLowerCase();
+
+      // Autocomplete for schedule values
+      if (query.startsWith("/schedule ")) {
+        return [
+          { key: "daily", label: "/schedule daily", desc: "Update daily" },
+          { key: "weekly", label: "/schedule weekly", desc: "Update weekly" },
+          {
+            key: "on-demand",
+            label: "/schedule on-demand",
+            desc: "Update on-demand",
+          },
+        ].filter((h) => h.label.includes(query));
+      }
+
+      return agentHints.filter(
+        (h) => h.label.includes(query) || h.desc.toLowerCase().includes(query),
+      );
+    }
+
     // Special hints for driver configuration mode
     if (driverBeingConfigured) {
       const configHints = [
@@ -615,6 +730,7 @@ export default function ForecastWorkspaceScreen() {
           label: "/direction",
           desc: "Set direction (increases|decreases)",
         },
+        { key: "agent", label: "@agent", desc: "Add research agent" },
         { key: "save", label: "/save", desc: "Save driver" },
         { key: "cancel", label: "/cancel", desc: "Cancel" },
       );
@@ -789,8 +905,26 @@ export default function ForecastWorkspaceScreen() {
           </View>
         )}
 
+        {/* Agent Being Configured */}
+        {agentBeingConfigured && (
+          <View style={styles.configSection}>
+            <Text style={styles.sectionLabel}>Configuring Agent</Text>
+            <View style={styles.agentConfigCard}>
+              <Text style={styles.agentName}>@{agentBeingConfigured.name}</Text>
+              <Text style={styles.agentDetails}>
+                Query: {agentBeingConfigured.query || "not set"} · Schedule:{" "}
+                {agentBeingConfigured.schedule || "on-demand"} · Threshold:{" "}
+                {agentBeingConfigured.threshold || 10}%
+              </Text>
+              <Text style={styles.configHint}>
+                Use /query, /schedule, /threshold to configure, then /save
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Driver Being Configured */}
-        {driverBeingConfigured && (
+        {driverBeingConfigured && !agentBeingConfigured && (
           <View style={styles.configSection}>
             <Text style={styles.sectionLabel}>Configuring Driver</Text>
             <View style={styles.configCard}>
@@ -810,7 +944,7 @@ export default function ForecastWorkspaceScreen() {
                   <Text style={styles.agentsList}>
                     Agents:{" "}
                     {driverBeingConfigured.agents
-                      .map((a) => `@${a}`)
+                      .map((a: any) => `@${a.name || a}`)
                       .join(", ")}
                   </Text>
                 )}
@@ -1135,6 +1269,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#b8bb26",
     marginTop: 6,
+  },
+  agentConfigCard: {
+    backgroundColor: "#3c3836",
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#b8bb26",
+  },
+  agentName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#b8bb26",
+    marginBottom: 4,
+  },
+  agentDetails: {
+    fontSize: 12,
+    color: "#928374",
   },
   sectionLabel: {
     fontSize: 11,
