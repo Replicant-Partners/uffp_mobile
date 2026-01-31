@@ -133,6 +133,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         <Text style={styles.sectionLabel}>Research & Analysis</Text>
         <TouchableOpacity
           style={styles.researchButton}
+          onPress={() => navigation.navigate("ForecastInput")}
+        >
+          <Text style={styles.researchButtonLabel}>Universal Forecasting</Text>
+          <Text style={styles.researchButtonDesc}>
+            AI-powered forecast creation for any event
+          </Text>
+        </TouchableOpacity>
+        <View style={{ height: TufteSpacing.md }} />
+        <TouchableOpacity
+          style={styles.researchButton}
           onPress={() => navigation.navigate("Research")}
         >
           <Text style={styles.researchButtonLabel}>Research Agents</Text>

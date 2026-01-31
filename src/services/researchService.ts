@@ -115,6 +115,74 @@ class ResearchService {
     const response = await this.makeRequest("/prompts/templates");
     return response.json();
   }
+
+  // Forecast endpoints
+  async parseQuestion(userInput: string): Promise<any> {
+    const response = await this.makeRequest("/forecasts?action=parse", {
+      method: "POST",
+      body: JSON.stringify({ userInput }),
+    });
+    return response.json();
+  }
+
+  async createForecast(data: {
+    question: string;
+    domain?: string;
+    timeframe?: string;
+    resolutionCriteria: string;
+  }): Promise<any> {
+    const response = await this.makeRequest("/forecasts?action=create", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
+  async getForecast(forecastId: string): Promise<any> {
+    const response = await this.makeRequest(
+      `/forecasts?action=get&forecastId=${forecastId}`,
+    );
+    return response.json();
+  }
+
+  async addDriver(
+    forecastId: string,
+    driver: {
+      name: string;
+      description: string;
+      direction: "increases" | "decreases";
+      magnitude: "low" | "medium" | "high";
+    },
+  ): Promise<any> {
+    const response = await this.makeRequest("/forecasts?action=addDriver", {
+      method: "POST",
+      body: JSON.stringify({ forecastId, driver }),
+    });
+    return response.json();
+  }
+
+  async simulate(forecastId: string, iterations: number = 10000): Promise<any> {
+    const response = await this.makeRequest("/forecasts?action=simulate", {
+      method: "POST",
+      body: JSON.stringify({ forecastId, iterations }),
+    });
+    return response.json();
+  }
+
+  async chatWithCoach(
+    message: string,
+    context?: {
+      forecastId?: string;
+      stage?: string;
+      conversationHistory?: any[];
+    },
+  ): Promise<any> {
+    const response = await this.makeRequest("/coach/chat", {
+      method: "POST",
+      body: JSON.stringify({ message, ...context }),
+    });
+    return response.json();
+  }
 }
 
 export const researchService = new ResearchService();
