@@ -799,6 +799,29 @@ export default function ForecastWorkspaceScreen() {
 
       {/* Command Input - Fixed at bottom */}
       <View style={styles.commandSection}>
+        {/* Command Hints */}
+        {showCommandHints && getCommandHints().length > 0 && (
+          <View style={styles.hintsPanel}>
+            {getCommandHints().map((hint) => (
+              <TouchableOpacity
+                key={hint.key}
+                style={styles.hintItem}
+                onPress={() => {
+                  if (hint.key === "question") {
+                    setCommandInput("/question ");
+                  } else {
+                    setCommandInput(hint.label + " ");
+                  }
+                  inputRef.current?.focus();
+                }}
+              >
+                <Text style={styles.hintLabel}>{hint.label}</Text>
+                <Text style={styles.hintDesc}>{hint.desc}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {/* Command Input Field */}
         <View style={styles.inputContainer}>
           <View style={styles.inputWrapper}>
