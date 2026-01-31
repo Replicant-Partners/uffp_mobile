@@ -272,7 +272,7 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
-      // /save - save agent to driver
+      // /save - save agent to driver and optionally execute
       if (trimmed === "/save") {
         if (driverBeingConfigured) {
           const currentAgents = driverBeingConfigured.agents || [];
@@ -294,10 +294,68 @@ export default function ForecastWorkspaceScreen() {
             ...driverBeingConfigured,
             agents: [...currentAgents, agentConfig],
           });
+
+          // Prompt to run the agent now
+          setError(
+            `Agent saved! Type /run @${agentConfig.name} to execute research`,
+          );
         }
         setAgentBeingConfigured(null);
         setCommandInput("");
-        setError("");
+        return;
+      }
+
+      // /run - execute agent research
+      if (trimmed.startsWith("/run @")) {
+        const agentName = trimmed.replace("/run @", "").trim();
+        if (driverBeingConfigured) {
+          const agent = driverBeingConfigured.agents?.find(
+            (a: any) => a.name === agentName,
+          );
+          if (agent && agent.query) {
+            setLoading(true);
+            setProcessingAction(`Running ${agentName} research...`);
+            try {
+              // Execute research
+              const result = await researchService.executeResearch({
+                agentId: agent.name,
+                promptId: "market_tam_sizing", // Default prompt, could be made configurable
+                variables: {
+                  MARKET_SEGMENT: agent.query,
+                  GEOGRAPHY: "United States",
+                },
+              });
+
+              // Add result as evidence to driver
+              setDriverBeingConfigured({
+                ...driverBeingConfigured,
+                evidence: [
+                  ...(driverBeingConfigured.evidence || []),
+                  {
+                    type: "research",
+                    source: agent.name,
+                    summary: result.summary || result.result?.summary,
+                    timestamp: new Date().toISOString(),
+                    fullResult: result,
+                  },
+                ],
+              });
+              setError(
+                `Research complete! ${result.summary || "See evidence below"}`,
+              );
+            } catch (err) {
+              setError(
+                `Research failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+              );
+            } finally {
+              setLoading(false);
+              setProcessingAction("");
+            }
+          } else {
+            setError(`Agent @${agentName} not found or missing query`);
+          }
+        }
+        setCommandInput("");
         return;
       }
 
@@ -1013,6 +1071,7 @@ export default function ForecastWorkspaceScreen() {
           desc: "Set update threshold (0-100)",
         },
         { key: "save", label: "/save", desc: "Save agent to driver" },
+        { key: "run", label: "/run @agent", desc: "Execute agent research" },
         { key: "cancel", label: "/cancel", desc: "Cancel agent config" },
       ];
 
