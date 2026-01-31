@@ -380,9 +380,12 @@ export default function ForecastWorkspaceScreen() {
       // Handle @agent mentions - enter agent config mode
       if (trimmed.startsWith("@") && !trimmed.includes("/")) {
         const agentName = trimmed.substring(1).trim();
+        console.log("Agent mention detected:", agentName);
         if (agentName) {
+          console.log("Setting agent being configured:", agentName);
           setAgentBeingConfigured({ name: agentName });
           setCommandInput("");
+          setError(""); // Clear any errors
         }
         return;
       }
@@ -643,7 +646,19 @@ export default function ForecastWorkspaceScreen() {
       if (query === "/p") return "/p 20 50 80";
       if (query === "/prob") return "/prob 50";
 
+      // Agent name autocomplete
+      const agentNames = [
+        "web-research",
+        "data-analysis",
+        "expert-survey",
+        "historical-trends",
+      ];
       if (query === "@") return "@web-research";
+      if (query.startsWith("@")) {
+        const partial = query.substring(1);
+        const match = agentNames.find((name) => name.startsWith(partial));
+        if (match) return "@" + match;
+      }
     }
 
     // Regular mode suggestions
@@ -731,12 +746,28 @@ export default function ForecastWorkspaceScreen() {
           label: "/direction",
           desc: "Set direction (increases|decreases)",
         },
-        { key: "agent", label: "@agent", desc: "Add research agent" },
         { key: "save", label: "/save", desc: "Save driver" },
         { key: "cancel", label: "/cancel", desc: "Cancel" },
       );
 
       if (!commandInput || !commandInput.startsWith("/")) {
+        // Show agent name suggestions if starting with @
+        if (commandInput.startsWith("@")) {
+          const agentNames = [
+            "web-research",
+            "data-analysis",
+            "expert-survey",
+            "historical-trends",
+          ];
+          return agentNames.map((name) => ({
+            key: name,
+            label: "@" + name,
+            desc: name
+              .split("-")
+              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(" "),
+          }));
+        }
         return configHints;
       }
 
