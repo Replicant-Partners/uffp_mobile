@@ -979,6 +979,33 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
+      // /evidence - add manual evidence to driver
+      if (trimmed.startsWith("/evidence ")) {
+        const evidenceText = trimmed.replace("/evidence ", "").trim();
+        if (!evidenceText) {
+          setError("Please provide evidence text");
+          return;
+        }
+
+        setDriverBeingConfigured({
+          ...driverBeingConfigured,
+          evidence: [
+            ...(driverBeingConfigured.evidence || []),
+            {
+              type: "manual",
+              source: "user",
+              summary: evidenceText,
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        });
+        setCommandInput("");
+        setError(
+          `✓ Evidence added: "${evidenceText.substring(0, 50)}${evidenceText.length > 50 ? "..." : ""}"`,
+        );
+        return;
+      }
+
       // /save - save the configured driver
       if (trimmed === "/save") {
         await saveConfiguredDriver();
@@ -1451,22 +1478,65 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
-      // Start configuration for custom driver
-      const newDriver = {
-        id: Date.now().toString(),
-        name: driverName,
-        type: "continuous",
-        distribution: "triangular",
-        p5: 30,
-        p50: 50,
-        p95: 70,
-        direction: "increases",
-        agents: [] as any[],
-        createdAt: new Date().toISOString(),
-      };
-
-      setDriverBeingConfigured(newDriver);
       setCommandInput("");
+      setLoading(true);
+      setProcessingAction("Analyzing custom driver...");
+
+      try {
+        // Analyze custom driver with AI
+        const { analyzeDriver } =
+          await import("../services/driverAnalyzerService");
+        const recommendation = await analyzeDriver(
+          driverName,
+          activeForecast.question,
+        );
+
+        // Create driver with AI-recommended configuration
+        const newDriver: any = {
+          id: Date.now().toString(),
+          name: driverName,
+          type: recommendation.type,
+          direction: recommendation.direction,
+          agents: [] as any[],
+          createdAt: new Date().toISOString(),
+          aiRecommendation: recommendation,
+        };
+
+        if (recommendation.type === "binary") {
+          newDriver.probability = recommendation.examples?.probability || 50;
+        } else {
+          newDriver.distribution = recommendation.distribution || "triangular";
+          newDriver.p5 = recommendation.examples?.p5 || 30;
+          newDriver.p50 = recommendation.examples?.p50 || 50;
+          newDriver.p95 = recommendation.examples?.p95 || 70;
+        }
+
+        setDriverBeingConfigured(newDriver);
+        setError(
+          `✓ AI configured as ${recommendation.type} ${recommendation.distribution || ""}. ${recommendation.reasoning}`,
+        );
+      } catch (err) {
+        console.error("[Custom Driver] Analysis failed, using defaults:", err);
+
+        // Fallback to default configuration
+        const newDriver = {
+          id: Date.now().toString(),
+          name: driverName,
+          type: "continuous",
+          distribution: "triangular",
+          p5: 30,
+          p50: 50,
+          p95: 70,
+          direction: "increases",
+          agents: [] as any[],
+          createdAt: new Date().toISOString(),
+        };
+
+        setDriverBeingConfigured(newDriver);
+      } finally {
+        setLoading(false);
+        setProcessingAction("");
+      }
       return;
     }
 
@@ -1875,6 +1945,7 @@ export default function ForecastWorkspaceScreen() {
           label: "/direction",
           desc: "Set direction (increases|decreases)",
         },
+        { key: "evidence", label: "/evidence", desc: "Add manual evidence" },
         { key: "save", label: "/save", desc: "Save driver" },
         { key: "cancel", label: "/cancel", desc: "Cancel" },
       );
