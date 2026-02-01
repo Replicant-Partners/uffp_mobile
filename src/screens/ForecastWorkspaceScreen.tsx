@@ -4055,12 +4055,6 @@ Type a command to get started!`);
         {/* Chat Header */}
         <View style={styles.fermiChatHeader}>
           <Text style={styles.fermiChatTitle}>🦊 fermi@uffp ~ $</Text>
-          <TouchableOpacity
-            style={styles.fermiMinimizeButton}
-            onPress={() => setFermiChatExpanded(false)}
-          >
-            <Text style={styles.fermiMinimizeText}>◀</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Chat History */}
@@ -4284,16 +4278,6 @@ Type a command to get started!`);
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Collapsed CLI button - small and minimal */}
-      {!fermiChatExpanded && (
-        <TouchableOpacity
-          style={styles.fermiCollapsedTab}
-          onPress={() => setFermiChatExpanded(true)}
-        >
-          <Text style={styles.fermiCollapsedText}>▶</Text>
-        </TouchableOpacity>
-      )}
     </KeyboardAvoidingView>
   );
 }
