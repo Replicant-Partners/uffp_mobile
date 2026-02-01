@@ -20,6 +20,246 @@ export interface FermiHint {
 }
 
 export const FERMI_HINTS: FermiHint[] = [
+  // ===== GENERAL / CROSS-DOMAIN HINTS =====
+
+  // Population / demographic estimates
+  {
+    driverPattern: /population|people|individuals|citizens|residents/i,
+    decomposition: [
+      "Start with total population of region/country",
+      "× Percentage in relevant demographic (age, location, etc.)",
+      "Adjust for specific criteria (occupation, behavior, etc.)",
+      "Consider growth/decline trends",
+    ],
+    anchors: [
+      { metric: "World population", value: "8.1B people" },
+      { metric: "US population", value: "335M people" },
+      { metric: "China population", value: "1.4B people" },
+      { metric: "EU population", value: "450M people" },
+      { metric: "Average city", value: "100K-500K people" },
+      { metric: "Major metro area", value: "5M-20M people" },
+    ],
+    sanityBounds: {
+      min: "1,000",
+      max: "8B",
+      reasoning:
+        "Smaller than 1K is a tiny group; larger than 8B exceeds world population",
+    },
+    exampleCalculation:
+      "US adults with college degrees: 335M × 65% (adults) × 38% (college) ≈ 83M",
+  },
+
+  // Event occurrence / frequency
+  {
+    driverPattern: /how often|frequency|occurrence|rate of|number of times/i,
+    decomposition: [
+      "Total population or system size",
+      "× Individual probability or rate",
+      "× Time period (daily, monthly, yearly)",
+      "Consider seasonal or cyclical patterns",
+    ],
+    anchors: [
+      { metric: "US births per year", value: "~3.6M" },
+      { metric: "US deaths per year", value: "~3.3M" },
+      { metric: "Global airline flights per day", value: "~100K" },
+      { metric: "Earthquakes magnitude 5+ per year", value: "~1,500" },
+      { metric: "US presidential elections", value: "Every 4 years" },
+    ],
+    sanityBounds: {
+      min: "0.01/year",
+      max: "1M/day",
+      reasoning:
+        "Events less than 0.01/year are extremely rare; more than 1M/day requires massive scale",
+    },
+    exampleCalculation:
+      "Heart attacks in US per day: 335M people × 805K/year ÷ 365 ≈ 2,200/day",
+  },
+
+  // Time duration estimates
+  {
+    driverPattern: /how long|duration|time to|timeline|takes to/i,
+    decomposition: [
+      "Break into sequential stages or phases",
+      "Estimate duration of each stage independently",
+      "Add buffer for dependencies and unknowns (20-50%)",
+      "Consider parallel vs sequential work",
+    ],
+    anchors: [
+      { metric: "Human gestation", value: "9 months" },
+      { metric: "K-12 education", value: "13 years" },
+      { metric: "Bachelor's degree", value: "4 years" },
+      { metric: "PhD completion", value: "5-7 years" },
+      { metric: "Clinical trial (drug)", value: "6-10 years" },
+      { metric: "Infrastructure project", value: "3-15 years" },
+      { metric: "Social movement tipping point", value: "10-30 years" },
+    ],
+    sanityBounds: {
+      min: "1 week",
+      max: "50 years",
+      reasoning:
+        "Projects under 1 week are tactical; over 50 years involves generational change",
+    },
+  },
+
+  // Distance / geographic scale
+  {
+    driverPattern: /distance|how far|miles|kilometers|travel|range/i,
+    decomposition: [
+      "Identify start and end points",
+      "Consider direct vs actual path",
+      "Account for terrain, obstacles, or route constraints",
+      "Factor in transportation method limits",
+    ],
+    anchors: [
+      { metric: "Marathon", value: "26.2 miles / 42 km" },
+      { metric: "US coast to coast", value: "~3,000 miles / 4,800 km" },
+      { metric: "Earth's circumference", value: "~25,000 miles / 40,000 km" },
+      { metric: "Earth to Moon", value: "240,000 miles / 384,000 km" },
+      { metric: "Daily walking range", value: "5-20 miles" },
+      { metric: "Electric vehicle range", value: "200-400 miles" },
+    ],
+    sanityBounds: {
+      min: "0.1 miles",
+      max: "100M miles",
+      reasoning:
+        "Shorter than 0.1mi is local; beyond 100M mi is interplanetary",
+    },
+  },
+
+  // Quantity / volume of physical items
+  {
+    driverPattern: /how many|quantity|volume|amount|number of|count/i,
+    decomposition: [
+      "Define the unit clearly (items, people, events, etc.)",
+      "Identify the containing system or population",
+      "Calculate rate or density",
+      "Multiply by relevant dimension (time, space, population)",
+    ],
+    anchors: [
+      { metric: "Books in Library of Congress", value: "~17M books" },
+      { metric: "Cars in US", value: "~280M vehicles" },
+      { metric: "Trees on Earth", value: "~3 trillion" },
+      { metric: "Neurons in human brain", value: "~86 billion" },
+      { metric: "Stars in Milky Way", value: "~100 billion" },
+      { metric: "Grains of sand on beach", value: "~10 quintillion" },
+    ],
+    sanityBounds: {
+      min: "1",
+      max: "10^25",
+      reasoning:
+        "Below 1 doesn't exist; above 10^25 exceeds atomic scale for Earth",
+    },
+  },
+
+  // Success rate / effectiveness
+  {
+    driverPattern: /success rate|effectiveness|works|failure rate|accuracy/i,
+    decomposition: [
+      "Base rate: how often this works in general?",
+      "Specific factors that improve success",
+      "Specific factors that reduce success",
+      "Adjust from base rate using those factors",
+    ],
+    anchors: [
+      { metric: "Medical diagnosis accuracy (expert)", value: "80-95%" },
+      { metric: "Weather forecast (1-day)", value: "~90% accurate" },
+      { metric: "Weather forecast (7-day)", value: "~80% accurate" },
+      {
+        metric: "Cancer screening sensitivity",
+        value: "70-95% depending on type",
+      },
+      { metric: "Lie detector accuracy", value: "~70% (controversial)" },
+      { metric: "Expert forecaster calibration", value: "75-85%" },
+    ],
+    sanityBounds: {
+      min: "5%",
+      max: "99.9%",
+      reasoning:
+        "Below 5% is nearly useless; above 99.9% is near-perfect and rare in complex systems",
+    },
+  },
+
+  // Energy / power consumption
+  {
+    driverPattern: /energy|power|electricity|consumption|watts|joules/i,
+    decomposition: [
+      "Power rating of device or system (watts)",
+      "× Usage duration (hours per day/year)",
+      "× Number of units",
+      "Convert to desired unit (kWh, MWh, etc.)",
+    ],
+    anchors: [
+      { metric: "LED bulb", value: "10 watts" },
+      { metric: "Laptop", value: "50-100 watts" },
+      { metric: "US home average", value: "900 kWh/month" },
+      { metric: "Electric car battery", value: "60-100 kWh" },
+      { metric: "Wind turbine (large)", value: "2-3 MW" },
+      { metric: "Nuclear power plant", value: "~1,000 MW (1 GW)" },
+    ],
+    sanityBounds: {
+      min: "1 watt",
+      max: "1 TW",
+      reasoning:
+        "Below 1W is negligible; above 1TW is global-scale infrastructure",
+    },
+    exampleCalculation:
+      "City lighting: 1M people × 2 lights/person × 10W × 12 hrs/day ÷ 1000 = 240 MWh/day",
+  },
+
+  // Information / data volume
+  {
+    driverPattern: /data|information|storage|bytes|gigabytes|files|documents/i,
+    decomposition: [
+      "Number of items (files, photos, records)",
+      "× Average size per item",
+      "Consider compression and format efficiency",
+      "Account for redundancy and backups",
+    ],
+    anchors: [
+      { metric: "Text character", value: "1 byte" },
+      { metric: "Digital photo (high-res)", value: "5-10 MB" },
+      { metric: "Song (MP3)", value: "3-5 MB" },
+      { metric: "Movie (HD)", value: "4-8 GB" },
+      { metric: "Human genome", value: "~750 MB" },
+      { metric: "Library of Congress (digitized)", value: "~20 TB" },
+      { metric: "Internet total data (2024)", value: "~175 ZB" },
+    ],
+    sanityBounds: {
+      min: "1 KB",
+      max: "1 YB",
+      reasoning:
+        "Below 1KB is trivial; above 1 yottabyte exceeds all human data",
+    },
+  },
+
+  // Speed / velocity
+  {
+    driverPattern: /speed|velocity|rate|pace|mph|kilometers per/i,
+    decomposition: [
+      "Distance to be covered",
+      "÷ Time available or typical",
+      "Consider acceleration and deceleration",
+      "Account for obstacles, traffic, or medium (air, water)",
+    ],
+    anchors: [
+      { metric: "Walking speed", value: "3 mph / 5 km/h" },
+      { metric: "Running speed", value: "6-8 mph / 10-13 km/h" },
+      { metric: "Cycling speed", value: "12-15 mph / 20-24 km/h" },
+      { metric: "Car (highway)", value: "60-75 mph / 100-120 km/h" },
+      { metric: "Commercial airplane", value: "500-600 mph / 800-965 km/h" },
+      { metric: "Speed of sound", value: "767 mph / 1,235 km/h" },
+      { metric: "Speed of light", value: "670M mph / 1.08B km/h" },
+    ],
+    sanityBounds: {
+      min: "0.1 mph",
+      max: "670M mph",
+      reasoning:
+        "Below 0.1mph is barely moving; above light speed violates physics",
+    },
+  },
+
+  // ===== DOMAIN-SPECIFIC HINTS (FINANCIAL) =====
+
   // Market size / TAM estimation
   {
     driverPattern: /market size|tam|total addressable market|market potential/i,
@@ -39,9 +279,11 @@ export const FERMI_HINTS: FermiHint[] = [
     sanityBounds: {
       min: "$10M",
       max: "$500B",
-      reasoning: "Markets smaller than $10M are typically niche; larger than $500B are rare (only ~20 companies globally)",
+      reasoning:
+        "Markets smaller than $10M are typically niche; larger than $500B are rare (only ~20 companies globally)",
     },
-    exampleCalculation: "SaaS TAM example: 10M potential businesses × 5% adoption × $5K ACV = $2.5B TAM",
+    exampleCalculation:
+      "SaaS TAM example: 10M potential businesses × 5% adoption × $5K ACV = $2.5B TAM",
   },
 
   // Growth rate / CAGR
@@ -63,7 +305,8 @@ export const FERMI_HINTS: FermiHint[] = [
     sanityBounds: {
       min: "-20%",
       max: "+300%",
-      reasoning: "Sustained growth >100% is rare; decline >20% suggests dying market",
+      reasoning:
+        "Sustained growth >100% is rare; decline >20% suggests dying market",
     },
   },
 
@@ -86,7 +329,8 @@ export const FERMI_HINTS: FermiHint[] = [
     sanityBounds: {
       min: "0.1%",
       max: "60%",
-      reasoning: "Conversion <0.1% suggests broken funnel; >60% suggests strong FOMO or very qualified audience",
+      reasoning:
+        "Conversion <0.1% suggests broken funnel; >60% suggests strong FOMO or very qualified audience",
     },
   },
 
@@ -108,7 +352,8 @@ export const FERMI_HINTS: FermiHint[] = [
     sanityBounds: {
       min: "0.1%",
       max: "95%",
-      reasoning: "Penetration >95% is very rare (near-universal adoption); <0.1% is negligible",
+      reasoning:
+        "Penetration >95% is very rare (near-universal adoption); <0.1% is negligible",
     },
   },
 
@@ -131,7 +376,8 @@ export const FERMI_HINTS: FermiHint[] = [
     sanityBounds: {
       min: "1 month",
       max: "20 years",
-      reasoning: "Milestones <1 month are operational, not strategic; >20 years have too much uncertainty",
+      reasoning:
+        "Milestones <1 month are operational, not strategic; >20 years have too much uncertainty",
     },
   },
 
@@ -154,7 +400,8 @@ export const FERMI_HINTS: FermiHint[] = [
     sanityBounds: {
       min: "$10K",
       max: "$500B",
-      reasoning: "Revenue <$10K isn't a business; >$500B is top-10 company globally",
+      reasoning:
+        "Revenue <$10K isn't a business; >$500B is top-10 company globally",
     },
     exampleCalculation: "1,000 customers × $50K ACV × 90% renewal = $45M ARR",
   },
@@ -177,7 +424,8 @@ export const FERMI_HINTS: FermiHint[] = [
     sanityBounds: {
       min: "$1K",
       max: "$100B",
-      reasoning: "Costs <$1K are negligible for business; >$100B is mega-project scale",
+      reasoning:
+        "Costs <$1K are negligible for business; >$100B is mega-project scale",
     },
   },
 
@@ -199,7 +447,8 @@ export const FERMI_HINTS: FermiHint[] = [
     sanityBounds: {
       min: "0.1%",
       max: "99.9%",
-      reasoning: "Very few events are <0.1% or >99.9% certain within relevant timeframes",
+      reasoning:
+        "Very few events are <0.1% or >99.9% certain within relevant timeframes",
     },
   },
 
@@ -222,9 +471,11 @@ export const FERMI_HINTS: FermiHint[] = [
     sanityBounds: {
       min: "$1M",
       max: "$5T",
-      reasoning: "Valuation <$1M isn't venture-scale; >$5T exceeds largest companies",
+      reasoning:
+        "Valuation <$1M isn't venture-scale; >$5T exceeds largest companies",
     },
-    exampleCalculation: "$100M ARR × 10x multiple × 80% growth discount = $800M valuation",
+    exampleCalculation:
+      "$100M ARR × 10x multiple × 80% growth discount = $800M valuation",
   },
 
   // User metrics (DAU/MAU)
@@ -245,7 +496,8 @@ export const FERMI_HINTS: FermiHint[] = [
     sanityBounds: {
       min: "100",
       max: "5B",
-      reasoning: "DAU <100 is hobby-scale; >5B is unrealistic (only 5.3B internet users)",
+      reasoning:
+        "DAU <100 is hobby-scale; >5B is unrealistic (only 5.3B internet users)",
     },
   },
 ];
@@ -268,7 +520,10 @@ export function getFermiHints(driverName: string): FermiHint | null {
 /**
  * Generate contextual Fermi guidance for a driver
  */
-export function generateFermiGuidance(driverName: string, driverType: string): string {
+export function generateFermiGuidance(
+  driverName: string,
+  driverType: string,
+): string {
   const hint = getFermiHints(driverName);
 
   if (!hint) {
@@ -286,7 +541,7 @@ export function generateFermiGuidance(driverName: string, driverType: string): s
   // Show anchors
   if (hint.anchors.length > 0) {
     guidance += `\n📊 Calibration Anchors:\n`;
-    hint.anchors.forEach(anchor => {
+    hint.anchors.forEach((anchor) => {
       guidance += `• ${anchor.metric}: ${anchor.value}\n`;
     });
   }
@@ -307,7 +562,9 @@ export function generateFermiGuidance(driverName: string, driverType: string): s
 /**
  * Get suggested bounds based on Fermi analysis
  */
-export function suggestBounds(driverName: string): { p5: number; p50: number; p95: number } | null {
+export function suggestBounds(
+  driverName: string,
+): { p5: number; p50: number; p95: number } | null {
   const hint = getFermiHints(driverName);
 
   if (!hint) {
