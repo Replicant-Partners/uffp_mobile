@@ -2087,8 +2087,10 @@ export default function ForecastWorkspaceScreen() {
                           segments={4}
                         />
                         <Text style={styles.chartCaption}>
-                          Distribution shows probability density across outcome
-                          range
+                          Histogram:{" "}
+                          {latestSimulation.iterations.toLocaleString()}{" "}
+                          simulated outcomes. Median outcome:{" "}
+                          {Math.round(latestSimulation.probability * 100)}%
                         </Text>
                         {latestSimulation.reasonForRun && (
                           <Text style={styles.simulationReason}>
