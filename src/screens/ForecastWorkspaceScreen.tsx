@@ -145,7 +145,9 @@ export default function ForecastWorkspaceScreen() {
   } | null>(null);
   const [fermiChatExpanded, setFermiChatExpanded] = useState(false);
   const [fermiChatInput, setFermiChatInput] = useState("");
+  const [fermiThinking, setFermiThinking] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  const chatScrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     // Load saved forecasts
@@ -459,6 +461,14 @@ export default function ForecastWorkspaceScreen() {
 
     setActiveForecast(updatedForecast);
     await saveForecast(updatedForecast);
+
+    // Clear thinking state
+    setFermiThinking(false);
+
+    // Auto-scroll to bottom after message is added
+    setTimeout(() => {
+      chatScrollRef.current?.scrollToEnd({ animated: true });
+    }, 100);
   };
 
   const handleFermiCoaching = async (userQuery?: string) => {
@@ -467,6 +477,9 @@ export default function ForecastWorkspaceScreen() {
 
     // Open chat pane
     setFermiChatExpanded(true);
+
+    // Show thinking indicator
+    setFermiThinking(true);
 
     // Get ontology service
     const ontology = getOntologyService();
@@ -4138,7 +4151,13 @@ export default function ForecastWorkspaceScreen() {
           </View>
 
           {/* Chat History */}
-          <ScrollView style={styles.fermiChatHistory}>
+          <ScrollView
+            ref={chatScrollRef}
+            style={styles.fermiChatHistory}
+            onContentSizeChange={() =>
+              chatScrollRef.current?.scrollToEnd({ animated: true })
+            }
+          >
             {activeForecast?.fermiConversation &&
             activeForecast.fermiConversation.length > 0 ? (
               activeForecast.fermiConversation.map((msg, idx) => {
@@ -4219,6 +4238,16 @@ export default function ForecastWorkspaceScreen() {
                 </Text>
               </View>
             )}
+
+            {/* Thinking Indicator */}
+            {fermiThinking && (
+              <View style={styles.fermiThinkingContainer}>
+                <ActivityIndicator size="small" color="#fabd2f" />
+                <Text style={styles.fermiThinkingText}>
+                  Fermi is thinking...
+                </Text>
+              </View>
+            )}
           </ScrollView>
 
           {/* Chat Input */}
@@ -4226,9 +4255,10 @@ export default function ForecastWorkspaceScreen() {
             <TextInput
               style={styles.fermiChatInput}
               placeholder="Ask @fermi anything..."
-              placeholderTextColor="#665c54"
+              placeholderTextColor="#928374"
               value={fermiChatInput}
               onChangeText={setFermiChatInput}
+              editable={!fermiThinking}
               onSubmitEditing={async () => {
                 if (fermiChatInput.trim()) {
                   console.log("[Fermi Chat] Sending message:", fermiChatInput);
@@ -4257,9 +4287,12 @@ export default function ForecastWorkspaceScreen() {
               blurOnSubmit={false}
             />
             <TouchableOpacity
-              style={styles.fermiSendButton}
+              style={[
+                styles.fermiSendButton,
+                fermiThinking && styles.fermiSendButtonDisabled,
+              ]}
               onPress={async () => {
-                if (fermiChatInput.trim()) {
+                if (fermiChatInput.trim() && !fermiThinking) {
                   console.log(
                     "[Fermi Chat] Send button pressed:",
                     fermiChatInput,
@@ -4269,6 +4302,7 @@ export default function ForecastWorkspaceScreen() {
                   await handleFermiCoaching(userMsg);
                 }
               }}
+              disabled={fermiThinking}
             >
               <Text style={styles.fermiSendButtonText}>→</Text>
             </TouchableOpacity>
@@ -5255,30 +5289,49 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#3c3836",
     color: "#ebdbb2",
-    padding: 10,
+    padding: 14,
     borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#665c54",
-    fontSize: 14,
+    borderWidth: 2,
+    borderColor: "#ebdbb2",
+    fontSize: 15,
     maxHeight: 80,
     marginRight: 8,
     minHeight: 40,
   },
   fermiSendButton: {
     backgroundColor: "#d79921",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderRadius: 6,
     justifyContent: "center",
     alignItems: "center",
     minHeight: 40,
     minWidth: 50,
   },
+  fermiSendButtonDisabled: {
+    backgroundColor: "#665c54",
+    opacity: 0.5,
+  },
   fermiSendButtonText: {
     color: "#282828",
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "bold",
-    lineHeight: 20,
+    lineHeight: 22,
+  },
+  fermiThinkingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 12,
+    backgroundColor: "#282828",
+    borderRadius: 8,
+    marginTop: 12,
+    marginHorizontal: 12,
+  },
+  fermiThinkingText: {
+    color: "#fabd2f",
+    fontSize: 14,
+    fontStyle: "italic",
   },
   suggestionChipsContainer: {
     flexDirection: "row",
