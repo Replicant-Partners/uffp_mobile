@@ -560,15 +560,19 @@ export default function ForecastWorkspaceScreen() {
         // Add new driver to backend
         const { addDriverWithSync } = await import("../utils/backendSync");
         const result = await addDriverWithSync(activeForecast.id, {
-          name: driverBeingConfigured.name,
-          type: driverBeingConfigured.type,
-          probability: driverBeingConfigured.probability,
-          p5: driverBeingConfigured.p5,
-          p50: driverBeingConfigured.p50,
-          p95: driverBeingConfigured.p95,
-          distribution: driverBeingConfigured.distribution,
-          direction: driverBeingConfigured.direction,
-          reasoning: driverBeingConfigured.reasoning,
+          name: updatedDriver.name,
+          type: updatedDriver.type,
+          probability: updatedDriver.probability,
+          p5: updatedDriver.p5,
+          p50: updatedDriver.p50,
+          p95: updatedDriver.p95,
+          distribution: updatedDriver.distribution,
+          direction: updatedDriver.direction,
+          reasoning: updatedDriver.reasoning,
+          evidence: updatedDriver.evidence,
+          agents: updatedDriver.agents,
+          version: updatedDriver.version,
+          versionHistory: updatedDriver.versionHistory,
         });
 
         if (result.success && result.forecast) {
@@ -3225,7 +3229,14 @@ export default function ForecastWorkspaceScreen() {
                   } else if (hint.label.startsWith("@")) {
                     // For agent autocomplete, check if we're in /run context
                     if (commandInput.includes("/run")) {
+                      // Replace everything after /run with the selected agent
                       setCommandInput("/run " + hint.label + " ");
+                    } else if (commandInput.includes("@")) {
+                      // Replace from @ onwards with the selected agent
+                      const atIndex = commandInput.lastIndexOf("@");
+                      setCommandInput(
+                        commandInput.substring(0, atIndex) + hint.label + " ",
+                      );
                     } else {
                       setCommandInput(hint.label + " ");
                     }
