@@ -2957,12 +2957,38 @@ export default function ForecastWorkspaceScreen() {
                                     const data = ev.fullResult;
                                     if (typeof data === "string") return data;
 
+                                    // Debug: log the actual structure
+                                    console.log(
+                                      "[Evidence Display] fullResult for",
+                                      ev.source,
+                                      {
+                                        hasResponse: !!data.response,
+                                        hasResult: !!data.result,
+                                        hasNestedResponse: !!(
+                                          data.result && data.result.response
+                                        ),
+                                        keys: Object.keys(data || {}),
+                                      },
+                                    );
+
                                     // PRIORITIZE: If this is a ResearchResult, show response directly
                                     if (
                                       data.response &&
                                       typeof data.response === "string"
                                     ) {
                                       return data.response;
+                                    }
+
+                                    // Handle nested result wrapper (old format)
+                                    if (
+                                      data.result &&
+                                      data.result.response &&
+                                      typeof data.result.response === "string"
+                                    ) {
+                                      console.log(
+                                        "[Evidence Display] Using nested result.response",
+                                      );
+                                      return data.result.response;
                                     }
 
                                     let formatted = "";
