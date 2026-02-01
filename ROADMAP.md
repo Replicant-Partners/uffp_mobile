@@ -28,7 +28,26 @@
 **Priority:** HIGH - Completes version tracking system
 **Effort:** 2-3 days
 
-### 1.2 Override Warnings in UI
+### 1.2 Forecast Comparison View
+**Status:** Not started
+- [ ] Side-by-side forecast comparison
+  - Compare two companies in same sector
+  - Compare different scenarios/assumptions
+  - Compare team member forecasts
+- [ ] Diff visualization
+  - Driver differences (type, distribution, values)
+  - Probability outcome comparison
+  - Evidence comparison
+- [ ] Comparison metrics
+  - Driver overlap analysis
+  - Key difference highlighting
+  - Consensus/divergence indicators
+- [ ] Export comparison report
+
+**Priority:** HIGH - Critical for investment/business use cases
+**Effort:** 3-4 days
+
+### 1.3 Override Warnings in UI
 **Status:** Currently console-only
 - [ ] Surface AI override warnings in warning banner
 - [ ] Show when user changes conflict with AI recommendations
@@ -37,7 +56,7 @@
 **Priority:** MEDIUM
 **Effort:** 1 day
 
-### 1.3 Fermi Estimation Context for Drivers
+### 1.4 Fermi Estimation Context for Drivers
 **Status:** Not started
 - [ ] Enrich driver suggestions with Fermi decomposition hints
 - [ ] Show relevant order-of-magnitude anchors
@@ -214,10 +233,14 @@
   - Diversification suggestions
   - Gap analysis
   - Resolution timeline
+- [ ] Batch comparison
+  - Compare multiple forecasts at once
+  - Sector/category analysis
+  - Investment thesis validation
 
 **Priority:** LOW - Power user feature
 **Effort:** 2-3 weeks
-**Dependencies:** User accounts
+**Dependencies:** User accounts, forecast comparison (Phase 1)
 
 ### 6.2 Prediction Market Portfolio
 - [ ] Holdings dashboard
@@ -263,6 +286,42 @@
 
 ---
 
+## Key Use Cases
+
+### Forecast Comparison Use Cases (Phase 1.2)
+
+**Investment Analysis:**
+- Compare forecasts for competing companies (e.g., Tesla vs Rivian)
+- Evaluate different investment theses side-by-side
+- Identify key driver differences between opportunities
+- Example: "Will ASTS reach $20 by 2026?" vs "Will RKLB reach $20 by 2026?"
+
+**Business Strategy:**
+- Compare market entry scenarios
+- Evaluate product launch strategies
+- Test different pricing/positioning assumptions
+- Example: "Product A success" vs "Product B success"
+
+**Team Calibration:**
+- Compare forecasts from different team members
+- Identify consensus and outliers
+- Surface different assumptions/mental models
+- Example: Sarah's forecast vs John's forecast for same question
+
+**Scenario Planning:**
+- Compare optimistic/base/pessimistic cases
+- Test sensitivity to key assumptions
+- Identify critical drivers across scenarios
+- Example: "Market size = $1B" vs "Market size = $10B"
+
+**Sector Analysis:**
+- Compare all companies in a sector (with batch view in Phase 6)
+- Identify common vs unique drivers
+- Benchmark probability distributions
+- Example: Compare 5 SaaS companies for IPO success
+
+---
+
 ## Technical Debt & Infrastructure
 
 ### Ongoing
@@ -294,6 +353,7 @@
 
 ### Phase 1 Success Metrics
 - Version tracking used in 80%+ of forecast edits
+- Forecast comparison used for 40%+ of investment/business decisions
 - Override warnings reduce AI conflicts by 50%
 - Fermi hints improve driver estimate quality
 
