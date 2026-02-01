@@ -1394,6 +1394,7 @@ export default function ForecastWorkspaceScreen() {
 
         // Special handling for @fermi coach agent
         if (agentName === "fermi") {
+          console.log("[Fermi] Opening @fermi coach chat pane");
           await handleFermiCoaching();
           setCommandInput("");
           return;
@@ -3915,7 +3916,7 @@ export default function ForecastWorkspaceScreen() {
             <TextInput
               ref={inputRef}
               style={styles.commandInput}
-              placeholder="Type / for commands or @ for agents"
+              placeholder="Type @fermi for help, / for commands, or @ for agents"
               placeholderTextColor="#665c54"
               value={commandInput}
               onChangeText={(text) => {
