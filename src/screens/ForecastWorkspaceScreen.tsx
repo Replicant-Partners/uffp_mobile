@@ -12,6 +12,30 @@ import {
   AsyncStorage,
   Dimensions,
 } from "react-native";
+
+// Add custom scrollbar CSS for web
+if (Platform.OS === "web" && typeof document !== "undefined") {
+  const style = document.createElement("style");
+  style.textContent = `
+    .fermi-chat-scroll::-webkit-scrollbar {
+      width: 8px;
+    }
+    .fermi-chat-scroll::-webkit-scrollbar-track {
+      background: #282828;
+    }
+    .fermi-chat-scroll::-webkit-scrollbar-thumb {
+      background: #665c54;
+      border-radius: 4px;
+    }
+    .fermi-chat-scroll::-webkit-scrollbar-thumb:hover {
+      background: #7c6f64;
+    }
+  `;
+  if (!document.head.querySelector("style[data-fermi-scrollbar]")) {
+    style.setAttribute("data-fermi-scrollbar", "true");
+    document.head.appendChild(style);
+  }
+}
 import { BarChart, LineChart } from "react-native-chart-kit";
 import Markdown from "react-native-markdown-display";
 import { researchService } from "../services/researchService";
@@ -144,6 +168,7 @@ export default function ForecastWorkspaceScreen() {
     threshold?: number;
   } | null>(null);
   const [fermiChatExpanded, setFermiChatExpanded] = useState(false);
+  const [fermiChatCollapsed, setFermiChatCollapsed] = useState(false);
   const [fermiChatInput, setFermiChatInput] = useState("");
   const [fermiThinking, setFermiThinking] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -4161,9 +4186,18 @@ export default function ForecastWorkspaceScreen() {
             <Text style={styles.fermiChatTitle}>💡 @fermi Coach</Text>
             <TouchableOpacity
               style={styles.fermiMinimizeButton}
-              onPress={() => setFermiChatExpanded(false)}
+              onPress={() => {
+                if (isWideScreen) {
+                  // On desktop, collapse to left edge
+                  setFermiChatCollapsed(true);
+                  setFermiChatExpanded(false);
+                } else {
+                  // On mobile, hide completely
+                  setFermiChatExpanded(false);
+                }
+              }}
             >
-              <Text style={styles.fermiMinimizeText}>▼ minimize</Text>
+              <Text style={styles.fermiMinimizeText}>◀ collapse</Text>
             </TouchableOpacity>
           </View>
 
@@ -4171,6 +4205,9 @@ export default function ForecastWorkspaceScreen() {
           <ScrollView
             ref={chatScrollRef}
             style={styles.fermiChatHistory}
+            contentContainerStyle={styles.fermiChatHistoryContent}
+            // @ts-ignore - web-only prop
+            className={Platform.OS === "web" ? "fermi-chat-scroll" : undefined}
             onContentSizeChange={() =>
               chatScrollRef.current?.scrollToEnd({ animated: true })
             }
@@ -4334,7 +4371,10 @@ export default function ForecastWorkspaceScreen() {
             styles.fermiCollapsedTab,
             !isWideScreen && styles.fermiCollapsedTabMobile,
           ]}
-          onPress={() => setFermiChatExpanded(true)}
+          onPress={() => {
+            setFermiChatExpanded(true);
+            setFermiChatCollapsed(false);
+          }}
         >
           <Text
             style={[
@@ -4342,7 +4382,7 @@ export default function ForecastWorkspaceScreen() {
               !isWideScreen && styles.fermiCollapsedTextMobile,
             ]}
           >
-            {isWideScreen ? "▶ @fermi coach" : "▲ @fermi coach"}
+            {isWideScreen ? "▶ @fermi" : "▲ @fermi coach"}
           </Text>
         </TouchableOpacity>
       )}
@@ -5275,12 +5315,15 @@ const styles = StyleSheet.create({
   },
   fermiChatHistory: {
     flex: 1,
-    padding: 12,
+    padding: 8,
     maxHeight: "70%",
   },
+  fermiChatHistoryContent: {
+    paddingBottom: 8,
+  },
   fermiMessage: {
-    marginBottom: 18,
-    padding: 14,
+    marginBottom: 12,
+    padding: 10,
     borderRadius: 8,
   },
   fermiMessageUser: {
@@ -5303,8 +5346,14 @@ const styles = StyleSheet.create({
   },
   fermiMessageText: {
     color: "#ebdbb2",
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
   },
   fermiMessageTime: {
     color: "#665c54",
@@ -5333,9 +5382,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: "#665c54",
-    padding: 12,
+    padding: 10,
     backgroundColor: "#1d2021",
-    minHeight: 70,
+    minHeight: 60,
   },
   fermiChatInput: {
     flex: 1,
@@ -5351,7 +5400,7 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   fermiSendButton: {
-    backgroundColor: "#d79921",
+    backgroundColor: "#b57614",
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderRadius: 6,
