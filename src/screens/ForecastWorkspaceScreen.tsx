@@ -15,6 +15,11 @@ import {
 import { BarChart, LineChart } from "react-native-chart-kit";
 import Markdown from "react-native-markdown-display";
 import { researchService } from "../services/researchService";
+import {
+  executeCommand,
+  type CommandContext,
+  type CommandSuggestion,
+} from "../services/fermiCommands";
 
 interface SimulationData {
   id: string;
@@ -324,6 +329,19 @@ export default function ForecastWorkspaceScreen() {
     }
   }, [commandInput, driverBeingConfigured, agentBeingConfigured]);
 
+  // Detect current context for command system
+  const getCurrentContext = (): CommandContext => {
+    if (agentBeingConfigured) return "agent_config";
+    if (driverBeingConfigured) return "driver_config";
+    if (activeForecast) {
+      if (activeForecast.probability !== undefined) return "simulation_results";
+      if (activeForecast.drivers && activeForecast.drivers.length > 0)
+        return "forecast_active";
+      return "forecast_active";
+    }
+    return "forecast_list";
+  };
+
   const startDriverConfiguration = async (index: number) => {
     if (!activeForecast || !parsedResult || !parsedResult.suggestedDrivers) {
       return;
@@ -405,6 +423,44 @@ export default function ForecastWorkspaceScreen() {
     }
   };
 
+  // Add message to fermi conversation
+  const addFermiMessage = async (
+    userQuery: string,
+    fermiResponse: string,
+    suggestions?: CommandSuggestion[],
+  ) => {
+    if (!activeForecast) return;
+
+    const conversation = activeForecast.fermiConversation || [];
+
+    // Add user message
+    conversation.push({
+      timestamp: new Date().toISOString(),
+      role: "user",
+      message: userQuery,
+    });
+
+    // Add fermi response (with suggestions embedded if present)
+    let responseMessage = fermiResponse;
+    if (suggestions && suggestions.length > 0) {
+      responseMessage += "\n\n__SUGGESTIONS__:" + JSON.stringify(suggestions);
+    }
+
+    conversation.push({
+      timestamp: new Date().toISOString(),
+      role: "fermi",
+      message: responseMessage,
+    });
+
+    const updatedForecast = {
+      ...activeForecast,
+      fermiConversation: conversation,
+    };
+
+    setActiveForecast(updatedForecast);
+    await saveForecast(updatedForecast);
+  };
+
   const handleFermiCoaching = async (userQuery?: string) => {
     const { generateFermiGuidance } = await import("../services/fermiHints");
     const { getOntologyService } = await import("../services/ontology");
@@ -423,9 +479,84 @@ export default function ForecastWorkspaceScreen() {
       context: userQuery || "general_help",
     });
 
+    const queryText = userQuery || "help";
+
+    // Check if this is a command (starts with /)
+    if (queryText.startsWith("/")) {
+      const context = getCurrentContext();
+      const state = {
+        activeForecast,
+        driverBeingConfigured,
+        agentBeingConfigured,
+        drivers: activeForecast?.drivers || [],
+      };
+
+      const result = await executeCommand(queryText, context, state);
+
+      // Handle state updates from command
+      if (result.updateState) {
+        if (result.updateState.question) {
+          setActiveQuestion(result.updateState.question);
+          // Auto-execute /question command
+          await processSingleCommand(
+            `/question ${result.updateState.question}`,
+          );
+        }
+        if (result.updateState.configureDriver) {
+          await processSingleCommand(
+            `/driver ${result.updateState.configureDriver}`,
+          );
+        }
+        if (result.updateState.runSimulation) {
+          await processSingleCommand("/simulate");
+        }
+        if (result.updateState.showList !== undefined) {
+          setShowForecastList(result.updateState.showList);
+        }
+        if (result.updateState.save) {
+          await saveConfiguredDriver();
+        }
+        if (result.updateState.cancel) {
+          if (agentBeingConfigured) setAgentBeingConfigured(null);
+          if (driverBeingConfigured) setDriverBeingConfigured(null);
+        }
+        if (result.updateState.p5 !== undefined) {
+          setDriverBeingConfigured((prev) =>
+            prev ? { ...prev, p5: result.updateState.p5 } : null,
+          );
+        }
+        if (result.updateState.p50 !== undefined) {
+          setDriverBeingConfigured((prev) =>
+            prev ? { ...prev, p50: result.updateState.p50 } : null,
+          );
+        }
+        if (result.updateState.p95 !== undefined) {
+          setDriverBeingConfigured((prev) =>
+            prev ? { ...prev, p95: result.updateState.p95 } : null,
+          );
+        }
+        if (result.updateState.distribution) {
+          setDriverBeingConfigured((prev) =>
+            prev
+              ? { ...prev, distribution: result.updateState.distribution }
+              : null,
+          );
+        }
+        if (result.updateState.direction) {
+          setDriverBeingConfigured((prev) =>
+            prev ? { ...prev, direction: result.updateState.direction } : null,
+          );
+        }
+      }
+
+      // Add to fermi conversation with suggestions
+      await addFermiMessage(queryText, result.message, result.suggestions);
+      return;
+    }
+
     // Determine context and provide appropriate coaching
     let guidance = "";
-    const queryText = userQuery || "help";
+    const suggestions: CommandSuggestion[] = [];
 
     // Check if user is asking about a specific concept
     if (userQuery && userQuery.length > 0) {
@@ -531,36 +662,8 @@ export default function ForecastWorkspaceScreen() {
       guidance += `• Mention me (@fermi) anytime for help!\n`;
     }
 
-    // Add to conversation
-    await addFermiMessage(queryText, guidance);
-  };
-
-  const addFermiMessage = async (userQuery: string, fermiResponse: string) => {
-    if (!activeForecast) return;
-
-    const conversation = activeForecast.fermiConversation || [];
-
-    // Add user message
-    conversation.push({
-      timestamp: new Date().toISOString(),
-      role: "user",
-      message: userQuery,
-    });
-
-    // Add fermi response
-    conversation.push({
-      timestamp: new Date().toISOString(),
-      role: "fermi",
-      message: fermiResponse,
-    });
-
-    const updatedForecast = {
-      ...activeForecast,
-      fermiConversation: conversation,
-    };
-
-    setActiveForecast(updatedForecast);
-    await saveForecast(updatedForecast);
+    // Add to conversation with suggestions
+    await addFermiMessage(queryText, guidance, suggestions);
   };
 
   const validateDriverConfig = (
@@ -3870,69 +3973,73 @@ export default function ForecastWorkspaceScreen() {
         <View style={styles.versionIndicator}>
           <Text style={styles.versionIndicatorText}>v{VERSION}</Text>
         </View>
-        {/* Command Hints - Show when hints are available */}
-        {showCommandHints && getCommandHints().length > 0 && (
-          <ScrollView
-            style={styles.hintsPanel}
-            keyboardShouldPersistTaps="always"
-            nestedScrollEnabled={true}
-          >
-            {getCommandHints().map((hint, index) => {
-              const isTabSelected =
-                index === tabCycleIndex % getCommandHints().length;
-              return (
-                <TouchableOpacity
-                  key={hint.key}
-                  style={[
-                    styles.hintItem,
-                    isTabSelected && styles.hintItemTabSelected,
-                  ]}
-                  onPress={() => {
-                    // Check if this is a complete command suggestion (like "/schedule daily")
-                    const isCompleteCommand =
-                      hint.label.includes(" ") && hint.label.startsWith("/");
+        {/* Command Hints - Show when hints are available and fermi chat is NOT open */}
+        {!fermiChatExpanded &&
+          showCommandHints &&
+          getCommandHints().length > 0 && (
+            <ScrollView
+              style={styles.hintsPanel}
+              keyboardShouldPersistTaps="always"
+              nestedScrollEnabled={true}
+            >
+              {getCommandHints().map((hint, index) => {
+                const isTabSelected =
+                  index === tabCycleIndex % getCommandHints().length;
+                return (
+                  <TouchableOpacity
+                    key={hint.key}
+                    style={[
+                      styles.hintItem,
+                      isTabSelected && styles.hintItemTabSelected,
+                    ]}
+                    onPress={() => {
+                      // Check if this is a complete command suggestion (like "/schedule daily")
+                      const isCompleteCommand =
+                        hint.label.includes(" ") && hint.label.startsWith("/");
 
-                    if (hint.key === "question") {
-                      setCommandInput("/question ");
-                    } else if (hint.label.startsWith("@")) {
-                      // For agent autocomplete, check if we're in /run context
-                      if (commandInput.includes("/run")) {
-                        // Replace everything after /run with the selected agent
-                        setCommandInput("/run " + hint.label + " ");
-                      } else if (commandInput.includes("@")) {
-                        // Replace from @ onwards with the selected agent
-                        const atIndex = commandInput.lastIndexOf("@");
-                        setCommandInput(
-                          commandInput.substring(0, atIndex) + hint.label + " ",
-                        );
+                      if (hint.key === "question") {
+                        setCommandInput("/question ");
+                      } else if (hint.label.startsWith("@")) {
+                        // For agent autocomplete, check if we're in /run context
+                        if (commandInput.includes("/run")) {
+                          // Replace everything after /run with the selected agent
+                          setCommandInput("/run " + hint.label + " ");
+                        } else if (commandInput.includes("@")) {
+                          // Replace from @ onwards with the selected agent
+                          const atIndex = commandInput.lastIndexOf("@");
+                          setCommandInput(
+                            commandInput.substring(0, atIndex) +
+                              hint.label +
+                              " ",
+                          );
+                        } else {
+                          setCommandInput(hint.label + " ");
+                        }
+                      } else if (isCompleteCommand) {
+                        // Complete command like "/schedule daily" - just set it
+                        setCommandInput(hint.label);
+                      } else if (
+                        hint.key === "save" ||
+                        hint.key === "cancel" ||
+                        hint.key === "help" ||
+                        hint.key === "list"
+                      ) {
+                        // Commands that don't need a space after them
+                        setCommandInput(hint.label);
                       } else {
+                        // Commands that need space for arguments (like /query, /schedule, /p, etc.)
                         setCommandInput(hint.label + " ");
                       }
-                    } else if (isCompleteCommand) {
-                      // Complete command like "/schedule daily" - just set it
-                      setCommandInput(hint.label);
-                    } else if (
-                      hint.key === "save" ||
-                      hint.key === "cancel" ||
-                      hint.key === "help" ||
-                      hint.key === "list"
-                    ) {
-                      // Commands that don't need a space after them
-                      setCommandInput(hint.label);
-                    } else {
-                      // Commands that need space for arguments (like /query, /schedule, /p, etc.)
-                      setCommandInput(hint.label + " ");
-                    }
-                    inputRef.current?.focus();
-                  }}
-                >
-                  <Text style={styles.hintLabel}>{hint.label}</Text>
-                  <Text style={styles.hintDesc}>{hint.desc}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        )}
+                      inputRef.current?.focus();
+                    }}
+                  >
+                    <Text style={styles.hintLabel}>{hint.label}</Text>
+                    <Text style={styles.hintDesc}>{hint.desc}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
 
         {/* Command Input Field - hidden when fermi chat is open */}
         {!fermiChatExpanded && (
@@ -4034,25 +4141,74 @@ export default function ForecastWorkspaceScreen() {
           <ScrollView style={styles.fermiChatHistory}>
             {activeForecast?.fermiConversation &&
             activeForecast.fermiConversation.length > 0 ? (
-              activeForecast.fermiConversation.map((msg, idx) => (
-                <View
-                  key={idx}
-                  style={[
-                    styles.fermiMessage,
-                    msg.role === "user"
-                      ? styles.fermiMessageUser
-                      : styles.fermiMessageFermi,
-                  ]}
-                >
-                  <Text style={styles.fermiMessageRole}>
-                    {msg.role === "user" ? "You" : "💡 Fermi"}
-                  </Text>
-                  <Text style={styles.fermiMessageText}>{msg.message}</Text>
-                  <Text style={styles.fermiMessageTime}>
-                    {new Date(msg.timestamp).toLocaleTimeString()}
-                  </Text>
-                </View>
-              ))
+              activeForecast.fermiConversation.map((msg, idx) => {
+                // Parse suggestions if present
+                let messageText = msg.message;
+                let suggestions: CommandSuggestion[] = [];
+
+                if (
+                  msg.role === "fermi" &&
+                  msg.message.includes("__SUGGESTIONS__:")
+                ) {
+                  const parts = msg.message.split("__SUGGESTIONS__:");
+                  messageText = parts[0].trim();
+                  try {
+                    suggestions = JSON.parse(parts[1]);
+                  } catch (e) {
+                    console.error("Failed to parse suggestions:", e);
+                  }
+                }
+
+                return (
+                  <View
+                    key={idx}
+                    style={[
+                      styles.fermiMessage,
+                      msg.role === "user"
+                        ? styles.fermiMessageUser
+                        : styles.fermiMessageFermi,
+                    ]}
+                  >
+                    <Text style={styles.fermiMessageRole}>
+                      {msg.role === "user" ? "You" : "💡 Fermi"}
+                    </Text>
+                    <Text style={styles.fermiMessageText}>{messageText}</Text>
+
+                    {/* Render clickable suggestions */}
+                    {suggestions.length > 0 && (
+                      <View style={styles.suggestionChipsContainer}>
+                        {suggestions.map((suggestion, sidx) => (
+                          <TouchableOpacity
+                            key={sidx}
+                            style={styles.suggestionChip}
+                            onPress={async () => {
+                              if (suggestion.clickable) {
+                                // Execute the command
+                                setFermiChatInput(suggestion.command);
+                                await handleFermiCoaching(suggestion.command);
+                              } else {
+                                // Just populate input
+                                setFermiChatInput(suggestion.command);
+                              }
+                            }}
+                          >
+                            <Text style={styles.suggestionChipText}>
+                              {suggestion.command}
+                            </Text>
+                            <Text style={styles.suggestionChipDesc}>
+                              {suggestion.description}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    <Text style={styles.fermiMessageTime}>
+                      {new Date(msg.timestamp).toLocaleTimeString()}
+                    </Text>
+                  </View>
+                );
+              })
             ) : (
               <View style={styles.fermiWelcome}>
                 <Text style={styles.fermiWelcomeText}>
@@ -5089,42 +5245,65 @@ const styles = StyleSheet.create({
   fermiChatInputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    borderTopWidth: 2,
-    borderTopColor: "#fabd2f",
-    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#665c54",
+    padding: 12,
     backgroundColor: "#1d2021",
-    minHeight: 80,
+    minHeight: 60,
   },
   fermiChatInput: {
     flex: 1,
     backgroundColor: "#3c3836",
     color: "#ebdbb2",
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "#fabd2f",
-    fontSize: 16,
-    maxHeight: 100,
+    padding: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#665c54",
+    fontSize: 14,
+    maxHeight: 80,
     marginRight: 8,
-    minHeight: 44,
+    minHeight: 40,
   },
   fermiSendButton: {
-    backgroundColor: "#fabd2f",
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 8,
+    backgroundColor: "#d79921",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 6,
     justifyContent: "center",
     alignItems: "center",
-    minHeight: 44,
-    minWidth: 60,
-    borderWidth: 2,
-    borderColor: "#d79921",
+    minHeight: 40,
+    minWidth: 50,
   },
   fermiSendButtonText: {
     color: "#282828",
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "bold",
-    lineHeight: 24,
+    lineHeight: 20,
+  },
+  suggestionChipsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
+  },
+  suggestionChip: {
+    backgroundColor: "#3c3836",
+    borderWidth: 1,
+    borderColor: "#fabd2f",
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: "column",
+  },
+  suggestionChipText: {
+    color: "#fabd2f",
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  suggestionChipDesc: {
+    color: "#928374",
+    fontSize: 11,
   },
   fermiCollapsedTab: {
     position: "absolute",
