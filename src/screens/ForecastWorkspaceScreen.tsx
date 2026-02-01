@@ -398,6 +398,95 @@ export default function ForecastWorkspaceScreen() {
     }
   };
 
+  const handleFermiCoaching = async () => {
+    const { generateFermiGuidance } = await import("../services/fermiHints");
+
+    // Determine context and provide appropriate coaching
+    let guidance = "";
+
+    if (driverBeingConfigured) {
+      // Context: Configuring a driver
+      guidance = generateFermiGuidance(
+        driverBeingConfigured.name,
+        driverBeingConfigured.type,
+        driverBeingConfigured,
+      );
+    } else if (activeForecast && activeForecast.probability !== undefined) {
+      // Context: Looking at forecast results
+      guidance = `💡 @fermi — Simulation Results Coach\n\n`;
+      guidance += `📊 Your Forecast: ${activeForecast.probability}%\n\n`;
+      guidance += `🎯 What This Means:\n`;
+      guidance += `• This is the probability the outcome happens\n`;
+      guidance += `• Based on ${activeForecast.drivers?.length || 0} drivers with uncertainty ranges\n`;
+      guidance += `• Monte Carlo simulation: ${activeForecast.iterations || 10000} scenarios tested\n\n`;
+
+      if (activeForecast.probability < 10) {
+        guidance += `📉 Very Unlikely (<10%): Consider if you're missing positive drivers or being too pessimistic\n`;
+      } else if (activeForecast.probability < 30) {
+        guidance += `📉 Unlikely (10-30%): Possible but factors lean against it\n`;
+      } else if (activeForecast.probability < 70) {
+        guidance += `⚖️ Uncertain (30-70%): Could go either way - good epistemic humility!\n`;
+      } else if (activeForecast.probability < 90) {
+        guidance += `📈 Likely (70-90%): Factors lean toward this outcome\n`;
+      } else {
+        guidance += `📈 Very Likely (>90%): Consider if you're overconfident or missing negative drivers\n`;
+      }
+
+      guidance += `\n💡 Next Steps:\n`;
+      guidance += `• Review your drivers - any missing?\n`;
+      guidance += `• Check uncertainty ranges - are they realistic?\n`;
+      guidance += `• Consider running research agents for more evidence\n`;
+      guidance += `• Track this forecast and update as new info comes in\n`;
+
+      if (activeForecast.brierScore !== undefined) {
+        guidance += `\n🎯 Your Brier Score: ${activeForecast.brierScore.toFixed(3)}\n`;
+        guidance += `• 0.00 = perfect (predicted exactly right)\n`;
+        guidance += `• 0.25 = coin flip (no better than guessing)\n`;
+        guidance += `• Lower is better!\n`;
+        if (activeForecast.brierScore < 0.1) {
+          guidance += `• Excellent! You're well-calibrated\n`;
+        } else if (activeForecast.brierScore < 0.2) {
+          guidance += `• Good! Better than average forecaster\n`;
+        } else {
+          guidance += `• Room to improve - review what you got wrong\n`;
+        }
+      }
+    } else if (activeForecast) {
+      // Context: Have a forecast but no results yet
+      guidance = `💡 @fermi — Getting Started\n\n`;
+      guidance += `📋 Your Question: ${activeForecast.question}\n\n`;
+      guidance += `🎯 Next Steps:\n`;
+      if (!activeForecast.drivers || activeForecast.drivers.length === 0) {
+        guidance += `1. Add drivers - what factors influence this outcome?\n`;
+        guidance += `2. Configure each driver with realistic ranges\n`;
+        guidance += `3. Set direction (increases/decreases likelihood)\n`;
+        guidance += `4. Run simulation to see probability\n\n`;
+        guidance += `💡 Tip: Start with 2-4 key drivers. You can always add more!\n`;
+      } else {
+        guidance += `1. You have ${activeForecast.drivers.length} driver(s) - need more?\n`;
+        guidance += `2. Review driver configurations - are ranges realistic?\n`;
+        guidance += `3. Consider adding research agents for evidence\n`;
+        guidance += `4. Ready to simulate? Type /simulate\n`;
+      }
+    } else {
+      // Context: No active forecast
+      guidance = `💡 @fermi — Universal Coach\n\n`;
+      guidance += `👋 I'm Fermi, your forecasting coach!\n\n`;
+      guidance += `I can help you:\n`;
+      guidance += `• Understand driver types and distributions\n`;
+      guidance += `• Set realistic p5/p50/p95 values\n`;
+      guidance += `• Interpret simulation results\n`;
+      guidance += `• Improve your calibration with Brier scores\n`;
+      guidance += `• Suggest query+agent combinations for research\n\n`;
+      guidance += `🚀 Get Started:\n`;
+      guidance += `• Type /question to start a new forecast\n`;
+      guidance += `• Type /list to see your forecasts\n`;
+      guidance += `• Mention me (@fermi) anytime for help!\n`;
+    }
+
+    setError(guidance);
+  };
+
   const validateDriverConfig = (
     driver: any,
   ): { valid: boolean; errors: string[] } => {
@@ -1238,6 +1327,14 @@ export default function ForecastWorkspaceScreen() {
           agentName = agentName.substring(0, cutIndex).trim();
         }
         console.log("Agent mention detected:", agentName);
+
+        // Special handling for @fermi coach agent
+        if (agentName === "fermi") {
+          await handleFermiCoaching();
+          setCommandInput("");
+          return;
+        }
+
         if (agentName) {
           console.log("Setting agent being configured:", agentName);
           setAgentBeingConfigured({ name: agentName });
@@ -1321,16 +1418,10 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
-      // /fermi - show Fermi estimation hints
+      // @fermi is handled in the agent mention section below
+      // Keep /fermi as alias for backwards compatibility
       if (trimmed === "/fermi") {
-        const { generateFermiGuidance } =
-          await import("../services/fermiHints");
-        const guidance = generateFermiGuidance(
-          driverBeingConfigured.name,
-          driverBeingConfigured.type,
-          driverBeingConfigured, // Pass current config for context
-        );
-        setError(guidance);
+        handleFermiCoaching();
         setCommandInput("");
         return;
       }
@@ -2191,6 +2282,7 @@ export default function ForecastWorkspaceScreen() {
     // GLOBAL: Show agent autocomplete whenever @ is typed in ANY context
     if (commandInput.includes("@")) {
       const agentDescriptions: Record<string, string> = {
+        fermi: "🎓 Your forecasting coach - helps with everything!",
         research_analyst: "Deep research with citations, quantitative focus",
         sentiment_monitor: "Social listening and sentiment scoring",
         competitive_intel: "Competitor tracking and benchmarking",
@@ -2305,7 +2397,11 @@ export default function ForecastWorkspaceScreen() {
         },
         { key: "evidence", label: "/evidence", desc: "Add manual evidence" },
         { key: "history", label: "/history", desc: "View version history" },
-        { key: "fermi", label: "/fermi", desc: "Show Fermi estimation hints" },
+        {
+          key: "fermi",
+          label: "@fermi",
+          desc: "🎓 Ask your forecasting coach",
+        },
         { key: "save", label: "/save", desc: "Save driver" },
         { key: "cancel", label: "/cancel", desc: "Cancel" },
       );
