@@ -4144,6 +4144,46 @@ export default function ForecastWorkspaceScreen() {
             )}
           </ScrollView>
 
+          {/* Command Hints - Show above input when typing */}
+          {fermiChatInput.length > 0 && getCommandHints().length > 0 && (
+            <ScrollView
+              style={styles.fermiCommandHints}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+            >
+              {getCommandHints().slice(0, 5).map((hint) => (
+                <TouchableOpacity
+                  key={hint.key}
+                  style={styles.fermiHintChip}
+                  onPress={() => {
+                    // Apply hint
+                    if (hint.label.startsWith("@")) {
+                      if (fermiChatInput.includes("@")) {
+                        const atIndex = fermiChatInput.lastIndexOf("@");
+                        setFermiChatInput(
+                          fermiChatInput.substring(0, atIndex) + hint.label + " "
+                        );
+                      } else {
+                        setFermiChatInput(hint.label + " ");
+                      }
+                    } else if (
+                      hint.key === "save" ||
+                      hint.key === "cancel" ||
+                      hint.key === "help" ||
+                      hint.key === "list"
+                    ) {
+                      setFermiChatInput(hint.label);
+                    } else {
+                      setFermiChatInput(hint.label + " ");
+                    }
+                  }}
+                >
+                  <Text style={styles.fermiHintChipLabel}>{hint.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
           {/* Chat Input */}
           <View style={styles.fermiChatInputContainer}>
             <TextInput
@@ -5210,15 +5250,37 @@ const styles = StyleSheet.create({
           ? "monospace"
           : "Courier New, monospace",
   },
+  fermiCommandHints: {
+    flexDirection: "row",
+    backgroundColor: "#282828",
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#3c3836",
+  },
+  fermiHintChip: {
+    backgroundColor: "#3c3836",
+    borderWidth: 1,
+    borderColor: "#665c54",
+    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginRight: 6,
+  },
+  fermiHintChipLabel: {
+    color: "#d5c4a1",
+    fontSize: 12,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : Platform.OS === "android" ? "monospace" : "Courier New, monospace",
+  },
   fermiChatInputContainer: {
     flexDirection: "row",
     alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: "#665c54",
     padding: 8,
-    paddingBottom: 8,
+    paddingBottom: 4,
     backgroundColor: "#1d2021",
-    minHeight: 54,
+    minHeight: 48,
   },
   fermiChatInput: {
     flex: 1,
@@ -5234,14 +5296,14 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   fermiSendButton: {
-    backgroundColor: "#b57614",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 6,
+    backgroundColor: "#504945",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 4,
     justifyContent: "center",
     alignItems: "center",
-    minHeight: 40,
-    minWidth: 50,
+    minHeight: 36,
+    minWidth: 40,
   },
   fermiSendButtonDisabled: {
     backgroundColor: "#665c54",
