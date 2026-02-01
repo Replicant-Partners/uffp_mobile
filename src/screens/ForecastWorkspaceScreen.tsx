@@ -864,9 +864,11 @@ export default function ForecastWorkspaceScreen() {
                   {
                     type: "research",
                     source: agent.name || agent,
-                    summary: result.summary || result.result?.summary,
+                    summary:
+                      result.result?.summary ||
+                      "Research completed successfully",
                     timestamp: new Date().toISOString(),
-                    fullResult: result,
+                    fullResult: result.result, // Store the actual ResearchResult
                   },
                 ],
               });
@@ -881,9 +883,11 @@ export default function ForecastWorkspaceScreen() {
                       {
                         type: "research",
                         source: agent.name || agent,
-                        summary: result.summary || result.result?.summary,
+                        summary:
+                          result.result?.summary ||
+                          "Research completed successfully",
                         timestamp: new Date().toISOString(),
-                        fullResult: result,
+                        fullResult: result.result, // Store the actual ResearchResult
                       },
                     ],
                   };
@@ -1256,9 +1260,11 @@ export default function ForecastWorkspaceScreen() {
                   {
                     type: "research",
                     source: agent.name || agent,
-                    summary: result.summary || result.result?.summary,
+                    summary:
+                      result.result?.summary ||
+                      "Research completed successfully",
                     timestamp: new Date().toISOString(),
-                    fullResult: result,
+                    fullResult: result.result, // Store the actual ResearchResult
                   },
                 ],
               };
@@ -2877,9 +2883,17 @@ export default function ForecastWorkspaceScreen() {
                                     const data = ev.fullResult;
                                     if (typeof data === "string") return data;
 
+                                    // PRIORITIZE: If this is a ResearchResult, show response directly
+                                    if (
+                                      data.response &&
+                                      typeof data.response === "string"
+                                    ) {
+                                      return data.response;
+                                    }
+
                                     let formatted = "";
 
-                                    // Handle backend research result structure
+                                    // Legacy handling for other structures
                                     const result =
                                       data.result || data.response || data;
 
@@ -2891,14 +2905,13 @@ export default function ForecastWorkspaceScreen() {
                                       formatted += "\n";
                                     }
 
-                                    // Research response (main content) - PRIORITIZE THIS
+                                    // Research response (main content)
                                     if (typeof result === "string") {
-                                      // This is the actual research - show it directly!
                                       return result;
                                     } else if (result) {
                                       // Try various field names for summary
-                                      if (result.summary || result.result) {
-                                        formatted += `Summary:\n${result.summary || result.result}\n\n`;
+                                      if (result.summary) {
+                                        formatted += `Summary:\n${result.summary}\n\n`;
                                       }
 
                                       if (result.findings) {
