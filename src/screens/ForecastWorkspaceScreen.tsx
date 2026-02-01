@@ -3063,32 +3063,30 @@ export default function ForecastWorkspaceScreen() {
         {/* Command Hints - Only show when input is focused */}
         {inputFocused && showCommandHints && getCommandHints().length > 0 && (
           <View style={styles.hintsPanel}>
-            {getCommandHints()
-              .slice(0, 4)
-              .map((hint) => (
-                <TouchableOpacity
-                  key={hint.key}
-                  style={styles.hintItem}
-                  onPress={() => {
-                    if (hint.key === "question") {
-                      setCommandInput("/question ");
-                    } else if (hint.label.startsWith("@")) {
-                      // For agent autocomplete, check if we're in /run context
-                      if (commandInput.includes("/run")) {
-                        setCommandInput("/run " + hint.label + " ");
-                      } else {
-                        setCommandInput(hint.label + " ");
-                      }
+            {getCommandHints().map((hint) => (
+              <TouchableOpacity
+                key={hint.key}
+                style={styles.hintItem}
+                onPress={() => {
+                  if (hint.key === "question") {
+                    setCommandInput("/question ");
+                  } else if (hint.label.startsWith("@")) {
+                    // For agent autocomplete, check if we're in /run context
+                    if (commandInput.includes("/run")) {
+                      setCommandInput("/run " + hint.label + " ");
                     } else {
                       setCommandInput(hint.label + " ");
                     }
-                    inputRef.current?.focus();
-                  }}
-                >
-                  <Text style={styles.hintLabel}>{hint.label}</Text>
-                  <Text style={styles.hintDesc}>{hint.desc}</Text>
-                </TouchableOpacity>
-              ))}
+                  } else {
+                    setCommandInput(hint.label + " ");
+                  }
+                  inputRef.current?.focus();
+                }}
+              >
+                <Text style={styles.hintLabel}>{hint.label}</Text>
+                <Text style={styles.hintDesc}>{hint.desc}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         )}
 
@@ -3686,8 +3684,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#3c3836",
     borderTopWidth: 1,
     borderTopColor: "#504945",
-    maxHeight: 150, // Limit height to ~3-4 hints
-    overflow: "hidden",
   },
   hintItem: {
     padding: 8, // Reduced from 12
