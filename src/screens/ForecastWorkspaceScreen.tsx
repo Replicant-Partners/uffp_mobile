@@ -4045,16 +4045,47 @@ export default function ForecastWorkspaceScreen() {
               onChangeText={setFermiChatInput}
               onSubmitEditing={async () => {
                 if (fermiChatInput.trim()) {
-                  // Handle user message
+                  console.log("[Fermi Chat] Sending message:", fermiChatInput);
                   const userMsg = fermiChatInput.trim();
                   setFermiChatInput("");
                   await handleFermiCoaching(userMsg);
                 }
               }}
+              onKeyPress={(e) => {
+                // Handle Enter key explicitly for web
+                if (e.nativeEvent.key === "Enter" && !e.nativeEvent.shiftKey) {
+                  e.preventDefault();
+                  if (fermiChatInput.trim()) {
+                    console.log(
+                      "[Fermi Chat] Enter pressed, sending:",
+                      fermiChatInput,
+                    );
+                    const userMsg = fermiChatInput.trim();
+                    setFermiChatInput("");
+                    handleFermiCoaching(userMsg);
+                  }
+                }
+              }}
               autoCapitalize="none"
               returnKeyType="send"
-              multiline
+              blurOnSubmit={false}
             />
+            <TouchableOpacity
+              style={styles.fermiSendButton}
+              onPress={async () => {
+                if (fermiChatInput.trim()) {
+                  console.log(
+                    "[Fermi Chat] Send button pressed:",
+                    fermiChatInput,
+                  );
+                  const userMsg = fermiChatInput.trim();
+                  setFermiChatInput("");
+                  await handleFermiCoaching(userMsg);
+                }
+              }}
+            >
+              <Text style={styles.fermiSendButtonText}>→</Text>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -5020,12 +5051,15 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   fermiChatInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: "#3c3836",
     padding: 12,
     backgroundColor: "#282828",
   },
   fermiChatInput: {
+    flex: 1,
     backgroundColor: "#1d2021",
     color: "#ebdbb2",
     padding: 12,
@@ -5034,6 +5068,20 @@ const styles = StyleSheet.create({
     borderColor: "#3c3836",
     fontSize: 14,
     maxHeight: 100,
+    marginRight: 8,
+  },
+  fermiSendButton: {
+    backgroundColor: "#fabd2f",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fermiSendButtonText: {
+    color: "#282828",
+    fontSize: 20,
+    fontWeight: "bold",
   },
   fermiCollapsedTab: {
     position: "absolute",
