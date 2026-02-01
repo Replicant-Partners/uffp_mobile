@@ -1948,6 +1948,27 @@ export default function ForecastWorkspaceScreen() {
         {activeQuestion && (
           <View style={styles.questionDisplay}>
             <Text style={styles.questionText}>{activeQuestion}</Text>
+
+            {/* External View - Always at top to ground the problem class */}
+            {activeForecast?.externalView && (
+              <View style={styles.externalViewCard}>
+                <Text style={styles.externalViewLabel}>
+                  📊 External View (Reference Class):
+                </Text>
+                <Text style={styles.externalViewText}>
+                  {activeForecast.externalView.referenceClass}
+                </Text>
+                {activeForecast.externalView.baseRate !== undefined && (
+                  <Text style={styles.baseRateText}>
+                    Base Rate:{" "}
+                    {Math.round(activeForecast.externalView.baseRate * 100)}%
+                    {activeForecast.externalView.source &&
+                      ` (${activeForecast.externalView.source})`}
+                  </Text>
+                )}
+              </View>
+            )}
+
             {parsedResult && (
               <View>
                 <Text style={styles.metadata}>
@@ -1959,25 +1980,6 @@ export default function ForecastWorkspaceScreen() {
                   {parsedResult.confidence &&
                     ` · ${Math.round(parsedResult.confidence * 100)}% confidence`}
                 </Text>
-                {activeForecast?.externalView && (
-                  <View style={styles.externalViewCard}>
-                    <Text style={styles.externalViewLabel}>
-                      📊 External View (Reference Class):
-                    </Text>
-                    <Text style={styles.externalViewText}>
-                      {activeForecast.externalView.referenceClass}
-                    </Text>
-                    {activeForecast.externalView.baseRate !== undefined && (
-                      <Text style={styles.baseRateText}>
-                        Base Rate:{" "}
-                        {Math.round(activeForecast.externalView.baseRate * 100)}
-                        %
-                        {activeForecast.externalView.source &&
-                          ` (${activeForecast.externalView.source})`}
-                      </Text>
-                    )}
-                  </View>
-                )}
                 {activeForecast?.premortem && (
                   <View style={styles.premortemCard}>
                     <Text style={styles.premortemLabel}>
@@ -2279,19 +2281,22 @@ export default function ForecastWorkspaceScreen() {
                     </Text>
                     <View style={styles.pValueGuidance}>
                       <Text style={styles.pValueLabel}>
-                        p5 = "Oh No Floor"{" "}
+                        p5 (Low):{" "}
                         <Text style={styles.pValueHint}>
-                          (95% sure it's higher)
+                          Only 5% of the "hill" is left of this. Conservative
+                          floor.
                         </Text>
                       </Text>
                       <Text style={styles.pValueLabel}>
-                        p50 = "Coin Flip Middle"{" "}
-                        <Text style={styles.pValueHint}>(50/50 chance)</Text>
+                        p50 (Median):{" "}
+                        <Text style={styles.pValueHint}>
+                          Half the "hill" on either side. Peak or center.
+                        </Text>
                       </Text>
                       <Text style={styles.pValueLabel}>
-                        p95 = "Moonshot Ceiling"{" "}
+                        p95 (High):{" "}
                         <Text style={styles.pValueHint}>
-                          (95% sure it's lower)
+                          95% of the "hill" is left of this. Realistic ceiling.
                         </Text>
                       </Text>
                     </View>
