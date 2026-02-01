@@ -129,6 +129,8 @@ export async function createForecastWithSync(data: {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       resolved: false,
+      version: { major: 1, minor: 0 },
+      versionHistory: [],
     };
     return { forecast: localForecast, fromBackend: false };
   }
@@ -178,6 +180,8 @@ export async function createForecastWithSync(data: {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       resolved: false,
+      version: { major: 1, minor: 0 },
+      versionHistory: [],
     };
     return { forecast: localForecast, fromBackend: false, error: errorMsg };
   }

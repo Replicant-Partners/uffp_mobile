@@ -1089,6 +1089,53 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
+      // /history - view version history for this driver
+      if (trimmed === "/history") {
+        const versionHistory = driverBeingConfigured.versionHistory || [];
+        const currentVersion = driverBeingConfigured.version || {
+          major: 1,
+          minor: 0,
+        };
+
+        if (versionHistory.length === 0) {
+          setError(
+            `${driverBeingConfigured.name} v${currentVersion.major}.${currentVersion.minor} — No version history yet`,
+          );
+        } else {
+          // Format version history as a readable message
+          let historyMsg = `\n📜 Version History for ${driverBeingConfigured.name}\n`;
+          historyMsg += `Current: v${currentVersion.major}.${currentVersion.minor}\n\n`;
+
+          // Show versions in reverse chronological order (newest first)
+          const sortedVersions = [...versionHistory].sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+          );
+
+          sortedVersions.forEach((version: any, idx: number) => {
+            const date = new Date(version.timestamp).toLocaleDateString();
+            const time = new Date(version.timestamp).toLocaleTimeString();
+            historyMsg += `v${version.majorVersion}.${version.minorVersion} (${version.changeType}) — ${date} ${time}\n`;
+            historyMsg += `  ${version.changeDescription}\n`;
+            if (version.changes && version.changes.length > 0) {
+              version.changes.forEach((change: any) => {
+                const percentStr = change.percentChange
+                  ? ` (${change.percentChange > 0 ? "+" : ""}${change.percentChange}%)`
+                  : "";
+                historyMsg += `  • ${change.field}: ${change.oldValue} → ${change.newValue}${percentStr}\n`;
+              });
+            }
+            if (idx < sortedVersions.length - 1) {
+              historyMsg += "\n";
+            }
+          });
+
+          setError(historyMsg);
+        }
+        setCommandInput("");
+        return;
+      }
+
       // /save - save the configured driver
       if (trimmed === "/save") {
         await saveConfiguredDriver();
@@ -1665,6 +1712,8 @@ export default function ForecastWorkspaceScreen() {
                   referenceClass: parsed.referenceClass,
                 }
               : undefined,
+            version: createResult.forecast.version || { major: 1, minor: 0 },
+            versionHistory: createResult.forecast.versionHistory || [],
           };
 
           setActiveForecast(newForecast);
@@ -2029,6 +2078,7 @@ export default function ForecastWorkspaceScreen() {
           desc: "Set direction (increases|decreases)",
         },
         { key: "evidence", label: "/evidence", desc: "Add manual evidence" },
+        { key: "history", label: "/history", desc: "View version history" },
         { key: "save", label: "/save", desc: "Save driver" },
         { key: "cancel", label: "/cancel", desc: "Cancel" },
       );
@@ -2194,7 +2244,17 @@ export default function ForecastWorkspaceScreen() {
         {/* Active Question Display */}
         {activeQuestion && (
           <View style={styles.questionDisplay}>
-            <Text style={styles.questionText}>{activeQuestion}</Text>
+            <View style={styles.questionHeader}>
+              <Text style={styles.questionText}>{activeQuestion}</Text>
+              {activeForecast?.version && (
+                <View style={styles.forecastVersionBadge}>
+                  <Text style={styles.forecastVersionText}>
+                    v{activeForecast.version.major}.
+                    {activeForecast.version.minor}
+                  </Text>
+                </View>
+              )}
+            </View>
 
             {/* External View - Always at top to ground the problem class */}
             {activeForecast?.externalView && (
@@ -2701,7 +2761,16 @@ export default function ForecastWorkspaceScreen() {
                   style={styles.driverCard}
                   onPress={() => editDriver(driver)}
                 >
-                  <Text style={styles.driverName}>{driver.name}</Text>
+                  <View style={styles.driverHeader}>
+                    <Text style={styles.driverName}>{driver.name}</Text>
+                    {driver.version && (
+                      <View style={styles.versionBadge}>
+                        <Text style={styles.versionText}>
+                          v{driver.version.major}.{driver.version.minor}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.driverDetails}>
                     {driver.type === "continuous"
                       ? `P(${driver.p5}-${driver.p50}-${driver.p95}) · ${driver.distribution}`
@@ -3238,12 +3307,33 @@ const styles = StyleSheet.create({
   questionDisplay: {
     marginBottom: 24,
   },
+  questionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
   questionText: {
     fontSize: 28,
     fontWeight: "400",
     color: "#ebdbb2",
     lineHeight: 38,
-    marginBottom: 8,
+    flex: 1,
+    marginRight: 12,
+  },
+  forecastVersionBadge: {
+    backgroundColor: "#3c3836",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#504945",
+    marginTop: 4,
+  },
+  forecastVersionText: {
+    fontSize: 12,
+    color: "#fabd2f",
+    fontWeight: "700",
   },
   metadata: {
     fontSize: 13,
@@ -3561,6 +3651,23 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderLeftWidth: 3,
     borderLeftColor: "#458588",
+  },
+  driverHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  versionBadge: {
+    backgroundColor: "#504945",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  versionText: {
+    fontSize: 10,
+    color: "#928374",
+    fontWeight: "600",
   },
   evidenceSection: {
     marginTop: 12,
