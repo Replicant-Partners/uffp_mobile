@@ -117,6 +117,7 @@ export default function ForecastWorkspaceScreen() {
   const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(
     new Set(),
   );
+  const [tabCycleIndex, setTabCycleIndex] = useState(0);
   const [processingAction, setProcessingAction] = useState<string>("");
   const [driverBeingConfigured, setDriverBeingConfigured] = useState<
     any | null
@@ -3261,53 +3262,60 @@ export default function ForecastWorkspaceScreen() {
             style={styles.hintsPanel}
             keyboardShouldPersistTaps="always"
           >
-            {getCommandHints().map((hint) => (
-              <TouchableOpacity
-                key={hint.key}
-                style={styles.hintItem}
-                onPress={() => {
-                  // Check if this is a complete command suggestion (like "/schedule daily")
-                  const isCompleteCommand =
-                    hint.label.includes(" ") && hint.label.startsWith("/");
+            {getCommandHints().map((hint, index) => {
+              const isTabSelected =
+                index === tabCycleIndex % getCommandHints().length;
+              return (
+                <TouchableOpacity
+                  key={hint.key}
+                  style={[
+                    styles.hintItem,
+                    isTabSelected && styles.hintItemTabSelected,
+                  ]}
+                  onPress={() => {
+                    // Check if this is a complete command suggestion (like "/schedule daily")
+                    const isCompleteCommand =
+                      hint.label.includes(" ") && hint.label.startsWith("/");
 
-                  if (hint.key === "question") {
-                    setCommandInput("/question ");
-                  } else if (hint.label.startsWith("@")) {
-                    // For agent autocomplete, check if we're in /run context
-                    if (commandInput.includes("/run")) {
-                      // Replace everything after /run with the selected agent
-                      setCommandInput("/run " + hint.label + " ");
-                    } else if (commandInput.includes("@")) {
-                      // Replace from @ onwards with the selected agent
-                      const atIndex = commandInput.lastIndexOf("@");
-                      setCommandInput(
-                        commandInput.substring(0, atIndex) + hint.label + " ",
-                      );
+                    if (hint.key === "question") {
+                      setCommandInput("/question ");
+                    } else if (hint.label.startsWith("@")) {
+                      // For agent autocomplete, check if we're in /run context
+                      if (commandInput.includes("/run")) {
+                        // Replace everything after /run with the selected agent
+                        setCommandInput("/run " + hint.label + " ");
+                      } else if (commandInput.includes("@")) {
+                        // Replace from @ onwards with the selected agent
+                        const atIndex = commandInput.lastIndexOf("@");
+                        setCommandInput(
+                          commandInput.substring(0, atIndex) + hint.label + " ",
+                        );
+                      } else {
+                        setCommandInput(hint.label + " ");
+                      }
+                    } else if (isCompleteCommand) {
+                      // Complete command like "/schedule daily" - just set it
+                      setCommandInput(hint.label);
+                    } else if (
+                      hint.key === "save" ||
+                      hint.key === "cancel" ||
+                      hint.key === "help" ||
+                      hint.key === "list"
+                    ) {
+                      // Commands that don't need a space after them
+                      setCommandInput(hint.label);
                     } else {
+                      // Commands that need space for arguments (like /query, /schedule, /p, etc.)
                       setCommandInput(hint.label + " ");
                     }
-                  } else if (isCompleteCommand) {
-                    // Complete command like "/schedule daily" - just set it
-                    setCommandInput(hint.label);
-                  } else if (
-                    hint.key === "save" ||
-                    hint.key === "cancel" ||
-                    hint.key === "help" ||
-                    hint.key === "list"
-                  ) {
-                    // Commands that don't need a space after them
-                    setCommandInput(hint.label);
-                  } else {
-                    // Commands that need space for arguments (like /query, /schedule, /p, etc.)
-                    setCommandInput(hint.label + " ");
-                  }
-                  inputRef.current?.focus();
-                }}
-              >
-                <Text style={styles.hintLabel}>{hint.label}</Text>
-                <Text style={styles.hintDesc}>{hint.desc}</Text>
-              </TouchableOpacity>
-            ))}
+                    inputRef.current?.focus();
+                  }}
+                >
+                  <Text style={styles.hintLabel}>{hint.label}</Text>
+                  <Text style={styles.hintDesc}>{hint.desc}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         )}
 
@@ -3328,6 +3336,8 @@ export default function ForecastWorkspaceScreen() {
                 setCommandInput(text);
                 // Clear error when typing
                 if (error) setError("");
+                // Reset tab cycle when user types
+                setTabCycleIndex(0);
               }}
               onFocus={() => setInputFocused(true)}
               onBlur={() => {
@@ -3344,13 +3354,44 @@ export default function ForecastWorkspaceScreen() {
                 }
               }}
               onKeyPress={(e) => {
-                // Tab key to accept suggestion
+                // Tab key to cycle through hints (classic CLI autocomplete)
                 if (e.nativeEvent.key === "Tab") {
                   e.preventDefault();
-                  const suggestion = getSuggestion();
-                  if (suggestion) {
-                    setCommandInput(suggestion);
+
+                  const hints = getCommandHints();
+                  if (hints.length === 0) return;
+
+                  // Get the next hint in cycle
+                  const hint = hints[tabCycleIndex % hints.length];
+
+                  // Apply the hint
+                  const isCompleteCommand =
+                    hint.label.includes(" ") && hint.label.startsWith("/");
+                  if (hint.label.startsWith("@")) {
+                    // Agent autocomplete
+                    if (commandInput.includes("@")) {
+                      const atIndex = commandInput.lastIndexOf("@");
+                      setCommandInput(
+                        commandInput.substring(0, atIndex) + hint.label + " ",
+                      );
+                    } else {
+                      setCommandInput(hint.label + " ");
+                    }
+                  } else if (isCompleteCommand) {
+                    setCommandInput(hint.label);
+                  } else if (
+                    hint.key === "save" ||
+                    hint.key === "cancel" ||
+                    hint.key === "help" ||
+                    hint.key === "list"
+                  ) {
+                    setCommandInput(hint.label);
+                  } else {
+                    setCommandInput(hint.label + " ");
                   }
+
+                  // Advance to next hint for next Tab press
+                  setTabCycleIndex((tabCycleIndex + 1) % hints.length);
                 }
               }}
               autoCapitalize="none"
@@ -3982,6 +4023,11 @@ const styles = StyleSheet.create({
     padding: 8, // Reduced from 12
     borderBottomWidth: 1,
     borderBottomColor: "#504945",
+  },
+  hintItemTabSelected: {
+    backgroundColor: "#504945",
+    borderLeftWidth: 3,
+    borderLeftColor: "#fabd2f",
   },
   hintLabel: {
     fontSize: 14,
