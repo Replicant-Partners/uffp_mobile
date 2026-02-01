@@ -4,7 +4,8 @@
  */
 
 // Use backend proxy to avoid CORS issues
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "https://uffp-backend.vercel.app";
+const BACKEND_URL =
+  process.env.EXPO_PUBLIC_BACKEND_URL || "https://uffp-backend.vercel.app";
 const API_URL = `${BACKEND_URL}/api/analyze-driver`;
 
 interface DriverRecommendation {
@@ -45,7 +46,7 @@ export async function analyzeDriver(
     return recommendation;
   } catch (error) {
     console.error("[DriverAnalyzer] Analysis failed:", error);
-    
+
     // Fallback to simple heuristics
     return fallbackAnalysis(driverName);
   }
@@ -53,97 +54,62 @@ export async function analyzeDriver(
 
 /**
  * Fallback heuristic analysis when API fails
+ * Philosophy: Triangular is the default for ~70% of drivers
  */
 function fallbackAnalysis(driverName: string): DriverRecommendation {
   const name = driverName.toLowerCase();
-  
-  // Binary patterns
+
+  // Binary patterns (yes/no events)
   if (
     name.includes("approval") ||
     name.includes("launch") ||
-    name.includes("success") ||
     name.includes("failure") ||
     name.includes("event") ||
     name.includes("happens")
   ) {
     return {
       type: "binary",
-      direction: name.includes("failure") || name.includes("risk") ? "decreases" : "increases",
-      reasoning: "Detected yes/no event pattern",
+      direction:
+        name.includes("failure") || name.includes("risk")
+          ? "decreases"
+          : "increases",
+      reasoning: "Yes/no event - binary outcome",
       examples: { probability: 50 },
     };
   }
-  
-  // Lognormal patterns
+
+  // Lognormal patterns (RARE - only explosive growth or emerging markets)
   if (
-    name.includes("tam") ||
-    name.includes("market") ||
-    name.includes("growth") ||
+    (name.includes("tam") &&
+      (name.includes("emerging") || name.includes("new"))) ||
     name.includes("viral") ||
-    name.includes("revenue") ||
-    name.includes("user")
+    (name.includes("growth") && name.includes("factor"))
   ) {
     return {
       type: "continuous",
       distribution: "lognormal",
       direction: "increases",
-      reasoning: "Growth/market patterns typically follow lognormal distribution",
+      reasoning: "Explosive growth potential - lognormal for fat tails",
       examples: { p5: 10, p50: 50, p95: 200 },
     };
   }
-  
-  // Cost patterns
-  if (
+
+  // Everything else defaults to TRIANGULAR
+  // Determine direction based on context
+  const decreasesOutcome =
     name.includes("cost") ||
     name.includes("expense") ||
-    name.includes("budget")
-  ) {
-    return {
-      type: "continuous",
-      distribution: name.includes("unexpected") ? "lognormal" : "triangular",
-      direction: "decreases",
-      reasoning: "Costs reduce probability of positive outcomes",
-      examples: { p5: 10, p50: 50, p95: 100 },
-    };
-  }
-  
-  // Time patterns
-  if (
+    name.includes("delay") ||
     name.includes("time") ||
-    name.includes("duration") ||
-    name.includes("delay")
-  ) {
-    return {
-      type: "continuous",
-      distribution: "triangular",
-      direction: "decreases",
-      reasoning: "Time delays typically have clear best/worst case bounds",
-      examples: { p5: 30, p50: 60, p95: 120 },
-    };
-  }
-  
-  // Rate/percentage patterns  
-  if (
-    name.includes("rate") ||
-    name.includes("percentage") ||
-    name.includes("%") ||
-    name.includes("conversion")
-  ) {
-    return {
-      type: "continuous",
-      distribution: "normal",
-      direction: "increases",
-      reasoning: "Rates and percentages typically vary normally around a mean",
-      examples: { p5: 2, p50: 5, p95: 10 },
-    };
-  }
-  
-  // Default: continuous triangular
+    name.includes("risk") ||
+    name.includes("competitor");
+
   return {
     type: "continuous",
     distribution: "triangular",
-    direction: "increases",
-    reasoning: "Default configuration for general continuous variables",
+    direction: decreasesOutcome ? "decreases" : "increases",
+    reasoning:
+      "Standard bounded range - triangular is most natural for expert estimates",
     examples: { p5: 20, p50: 50, p95: 80 },
   };
 }
