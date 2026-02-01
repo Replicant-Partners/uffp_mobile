@@ -858,16 +858,256 @@ WHERE app_id = 'uffp' AND user_id = 'user_123';
 - Billing/usage tracked per app
 - Easy to add new apps without migration
 
-## 🔍 Remaining Questions
+## ✅ Final Architecture Decisions
 
-1. **Database Choice**: PostgreSQL-only or PostgreSQL + LanceDB for vectors?
+### **Database: PostgreSQL + LanceDB (Option B)**
+**Rationale:** Clean separation of concerns, proven at scale, optimal for each use case
 
-2. **Agent Prompts**: What's the file path in UFFP backend? (e.g., `/api/agents/prompts.ts`?)
+```
+PostgreSQL:
+- User ontologies (structured data)
+- Collective patterns (relational queries)
+- Agent profiles and metadata
+- Multi-tenant isolation (app_id partitioning)
+- Transaction support for learning operations
 
-3. **Synthetic Data Scope**: Generate all 4 categories above, or start smaller?
+LanceDB:
+- Vector embeddings (optimized for similarity search)
+- Fast semantic matching (Agent-OM)
+- Scalable to billions of vectors
+- Columnar format for analytical queries
+```
 
-4. **Public API**: Should we design API for third-party apps from day one, or defer?
+**Migration Path:**
+1. Start with single Postgres + LanceDB instance
+2. Add read replicas as traffic grows
+3. Shard by app_id for multi-tenancy at scale
+4. Move hot data to Redis cache layer when needed
+5. Consider vector-specific hardware (GPUs) for massive scale
 
-5. **Custom Domains**: Should apps be able to register non-forecasting domains (medical, legal, etc.)?
+### **Agent Prompts Location**
+`/home/ilabra/uffp_mobile/uffp-backend` - Will extract and bootstrap
 
-Ready to start building once these are answered! Can proceed with UI issues in parallel.
+### **Synthetic Data**
+Deferred - Focus on real usage from UFFP first, add synthetic tests later
+
+### **Public API & Custom Domains**
+**YES** - Design for extensibility from day one
+
+## 🎓 Agent College & Knowledge Commons Vision
+
+### **"Agent College" Concept**
+Inspired by [MoltBook](https://www.moltbook.com/), AKP is a learning environment where:
+
+1. **Agents Learn from Each Other**
+   - Cross-domain knowledge transfer
+   - Successful collaboration patterns shared
+   - Query→Agent→Outcome mappings teach all agents
+
+2. **Knowledge Commons**
+   - Opt-in collective intelligence across all apps
+   - No single app owns the knowledge - it's shared
+   - Privacy-preserving aggregation (no PII leaks)
+
+3. **Multi-Domain Learning**
+   - UFFP agents learn forecasting
+   - BioConversion agents learn microbiology/wellness
+   - Medical agents learn diagnosis patterns
+   - Legal agents learn case analysis
+   - **Cross-pollination:** Forecasting techniques help medical prognosis, research methods transfer across domains
+
+### **Example: BioConversion Use Case**
+
+```typescript
+// BioConversion app registers its domain
+POST /api/akp/register-app
+{
+  "appId": "bioconversion",
+  "domain": "microbiology_wellness",
+  "ontologySeed": {
+    entities: [
+      "MICROBIOME", "METABOLITE", "INTERVENTION", 
+      "BIOMARKER", "PATIENT", "OUTCOME"
+    ],
+    relationships: [
+      "MICROBIOME produces METABOLITE",
+      "INTERVENTION affects MICROBIOME",
+      "BIOMARKER indicates OUTCOME"
+    ]
+  },
+  "agents": [
+    {
+      "id": "microbiome_analyst",
+      "capabilities": ["16S_analysis", "metabolomics", "diversity_metrics"],
+      "specialties": ["gut_health", "dysbiosis", "probiotics"]
+    },
+    {
+      "id": "intervention_designer",
+      "capabilities": ["diet_planning", "supplement_selection", "lifestyle_mods"],
+      "specialties": ["personalized_nutrition", "evidence_based_protocols"]
+    }
+  ]
+}
+
+// Later, UFFP forecaster asks about adoption rates
+// AKP discovers BioConversion's intervention_designer has relevant experience
+// Suggests: "intervention_designer has 87% success predicting adoption of health interventions"
+```
+
+### **Bring Your Own Domain Architecture**
+
+```typescript
+interface DomainRegistration {
+  appId: string;
+  domain: string;
+  ontologySeed: {
+    entities: EntityDefinition[];      // App-specific entities
+    relationships: RelationshipDefinition[];
+    conceptExplanations: Record<string, string>;
+  };
+  agents: AgentProfile[];              // App's agents to bootstrap
+  collaborationPatterns?: CollaborationPattern[];
+  privacy: {
+    shareToCommons: boolean;           // Opt-in to cross-app learning
+    allowCrossDomain: boolean;         // Let other domains learn from you
+  };
+}
+
+interface AgentProfile {
+  id: string;
+  type: "researcher" | "analyst" | "coach" | "predictor" | "synthesizer";
+  capabilities: string[];              // What it can do
+  specialties: string[];               // What it's good at
+  systemPrompt: string;                // For bootstrapping embeddings
+  queryPatterns: string[];             // Example queries it handles
+  collaboratesWith?: string[];         // Preferred collaborators
+}
+```
+
+### **Cross-Domain Learning Example**
+
+```
+Scenario: Medical diagnostic agent needs to predict treatment adoption
+
+1. Agent queries AKP: "What factors predict patient adoption of new treatments?"
+
+2. AKP searches across domains:
+   - Healthcare domain: 234 observations
+   - BioConversion domain: 156 observations (supplement adoption)
+   - UFFP domain: 89 observations (forecast adoption drivers)
+
+3. AKP finds patterns:
+   - "Cost" is negative driver across all domains (confidence: 0.94)
+   - "Peer recommendations" is positive driver (confidence: 0.88)
+   - "Complexity" is negative driver (confidence: 0.82)
+
+4. AKP suggests agents:
+   - sentiment_monitor (from UFFP) - track patient sentiment
+   - intervention_designer (from BioConversion) - assess complexity
+   - expert_synthesizer (from UFFP) - aggregate doctor opinions
+
+5. Medical agent learns collaboration pattern that worked in other domains
+```
+
+### **Economic Model for Agent College**
+
+**Free Tier:**
+- Single app, private learning only
+- Up to 3 agents per app
+- 1,000 queries/month
+- No collective intelligence access
+
+**Pro Tier ($49/mo):**
+- Unlimited agents
+- 50,000 queries/month
+- Opt-in to collective (learn from others)
+- Priority support
+
+**Enterprise Tier (Custom):**
+- Multi-app support
+- Unlimited queries
+- Custom domains and ontology seeds
+- Dedicated infrastructure
+- Cross-domain learning enabled
+- API access for third-party integration
+
+**Knowledge Commons Credits:**
+- Apps earn credits by contributing quality observations
+- Credits can be spent on accessing collective patterns
+- Incentivizes high-quality data sharing
+- Privacy-preserving: only anonymized patterns shared
+
+## 📋 Implementation Roadmap (Updated)
+
+### **Phase 1: AKP Foundation (Weeks 1-2)**
+- [ ] Create new repo: `agent-knowledge-protocol`
+- [ ] Set up Postgres + LanceDB infrastructure
+- [ ] Implement JWT auth with multi-tenancy
+- [ ] Build domain registration API
+- [ ] Port worldview graph + Agent-OM matching
+- [ ] Extract UFFP agent prompts and bootstrap
+
+### **Phase 2: UFFP Integration (Weeks 2-3)**
+- [ ] Create `/api/query` endpoint (concept lookup)
+- [ ] Create `/api/match` endpoint (Agent-OM)
+- [ ] Create `/api/learn` endpoint (observation recording)
+- [ ] Update UFFP mobile to call AKP endpoints
+- [ ] Migrate from client-side to hybrid (cache + server)
+- [ ] Test with UFFP's 7 agents
+
+### **Phase 3: Three-Tier Learning (Weeks 3-4)**
+- [ ] Implement per-user ontology storage
+- [ ] Build opt-in preference system
+- [ ] Create anonymization pipeline
+- [ ] Set up collective patterns database
+- [ ] Test learning across UFFP users
+
+### **Phase 4: Agent College (Weeks 4-6)**
+- [ ] Build cross-domain pattern matching
+- [ ] Implement agent collaboration suggestions
+- [ ] Create knowledge commons access layer
+- [ ] Add credit system for data contributions
+- [ ] Enable cross-app agent discovery
+
+### **Phase 5: BioConversion Pilot (Weeks 6-8)**
+- [ ] Onboard BioConversion app and agents
+- [ ] Register microbiology domain ontology
+- [ ] Test cross-domain learning (UFFP ↔ BioConversion)
+- [ ] Validate agent collaboration across apps
+- [ ] Measure knowledge transfer effectiveness
+
+### **Phase 6: Public API (Weeks 8-10)**
+- [ ] Design public API endpoints
+- [ ] Implement rate limiting and quotas
+- [ ] Build developer documentation
+- [ ] Create SDK for common languages
+- [ ] Launch beta program for third-party apps
+
+## 🎯 Success Metrics
+
+**Technical:**
+- Query latency < 200ms (p95)
+- Embedding generation < 500ms
+- Agent matching accuracy > 85%
+- 99.9% uptime
+
+**Product:**
+- 2+ apps using AKP by end of Phase 5
+- 10+ agents bootstrapped across domains
+- Opt-in rate > 30% for collective intelligence
+- Cross-domain suggestions used > 20% of time
+
+**Economic:**
+- Pricing model validated with beta users
+- Credit system drives quality contributions
+- Path to sustainability as standalone entity
+
+---
+
+## 🚀 Next Steps
+
+1. **Immediate:** Focus on UFFP mobile UI issues (current app improvements)
+2. **Next Week:** Extract agent prompts from uffp-backend and bootstrap
+3. **Week 2:** Start building AKP repo with Phase 1 tasks
+
+Ready to switch back to UI issues!
