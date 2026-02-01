@@ -345,6 +345,8 @@ export default function ForecastWorkspaceScreen() {
         agents: [] as any[],
         createdAt: new Date().toISOString(),
         aiRecommendation: recommendation, // Store for reference
+        version: { major: 1, minor: 0 },
+        versionHistory: [],
       };
 
       if (recommendation.type === "binary") {
@@ -376,6 +378,8 @@ export default function ForecastWorkspaceScreen() {
         direction: "increases",
         agents: [] as any[],
         createdAt: new Date().toISOString(),
+        version: { major: 1, minor: 0 },
+        versionHistory: [],
       };
 
       setDriverBeingConfigured(newDriver);
@@ -628,7 +632,30 @@ export default function ForecastWorkspaceScreen() {
 
     // Create version if there are changes
     let updatedDriver = { ...driverBeingConfigured };
-    if (majorChanges.length > 0) {
+    if (isNewDriver) {
+      // Initial version for new driver
+      const initialChanges = [
+        `Initial configuration: ${driverBeingConfigured.type} driver`,
+      ];
+      if (driverBeingConfigured.type === "binary") {
+        initialChanges.push(
+          `probability: ${driverBeingConfigured.probability}%`,
+        );
+      } else {
+        initialChanges.push(
+          `${driverBeingConfigured.distribution}: p5=${driverBeingConfigured.p5}, p50=${driverBeingConfigured.p50}, p95=${driverBeingConfigured.p95}`,
+        );
+      }
+
+      const version = createDriverVersion(
+        driverBeingConfigured,
+        initialChanges,
+        "major",
+      );
+
+      updatedDriver.version = { major: 1, minor: 0 };
+      updatedDriver.versionHistory = [version];
+    } else if (majorChanges.length > 0) {
       // Major version
       const version = createDriverVersion(
         driverBeingConfigured,
