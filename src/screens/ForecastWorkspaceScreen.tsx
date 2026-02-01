@@ -4029,135 +4029,134 @@ export default function ForecastWorkspaceScreen() {
       </ScrollView>
 
       {/* @fermi CLI - always visible, no collapse */}
-      {
-        <View
-          style={[
-            styles.fermiChatPane,
-            !isWideScreen && styles.fermiChatPaneMobile,
-          ]}
-        >
-          {/* Chat Header */}
-          <View style={styles.fermiChatHeader}>
-            <Text style={styles.fermiChatTitle}>🦊 fermi@uffp ~ $</Text>
-            <TouchableOpacity
-              style={styles.fermiMinimizeButton}
-              onPress={() => setFermiChatExpanded(false)}
-            >
-              <Text style={styles.fermiMinimizeText}>◀</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Chat History */}
-          <ScrollView
-            ref={chatScrollRef}
-            style={styles.fermiChatHistory}
-            contentContainerStyle={styles.fermiChatHistoryContent}
-            // @ts-ignore - web-only prop
-            className={Platform.OS === "web" ? "fermi-chat-scroll" : undefined}
-            onContentSizeChange={() =>
-              chatScrollRef.current?.scrollToEnd({ animated: true })
-            }
+      <View
+        style={[
+          styles.fermiChatPane,
+          !isWideScreen && styles.fermiChatPaneMobile,
+        ]}
+      >
+        {/* Chat Header */}
+        <View style={styles.fermiChatHeader}>
+          <Text style={styles.fermiChatTitle}>🦊 fermi@uffp ~ $</Text>
+          <TouchableOpacity
+            style={styles.fermiMinimizeButton}
+            onPress={() => setFermiChatExpanded(false)}
           >
-            {activeForecast?.fermiConversation &&
-            activeForecast.fermiConversation.length > 0 ? (
-              activeForecast.fermiConversation.map((msg, idx) => {
-                // Parse suggestions if present
-                let messageText = msg.message;
-                let suggestions: CommandSuggestion[] = [];
+            <Text style={styles.fermiMinimizeText}>◀</Text>
+          </TouchableOpacity>
+        </View>
 
-                if (
-                  msg.role === "fermi" &&
-                  msg.message.includes("__SUGGESTIONS__:")
-                ) {
-                  const parts = msg.message.split("__SUGGESTIONS__:");
-                  messageText = parts[0].trim();
-                  try {
-                    suggestions = JSON.parse(parts[1]);
-                  } catch (e) {
-                    console.error("Failed to parse suggestions:", e);
-                  }
+        {/* Chat History */}
+        <ScrollView
+          ref={chatScrollRef}
+          style={styles.fermiChatHistory}
+          contentContainerStyle={styles.fermiChatHistoryContent}
+          // @ts-ignore - web-only prop
+          className={Platform.OS === "web" ? "fermi-chat-scroll" : undefined}
+          onContentSizeChange={() =>
+            chatScrollRef.current?.scrollToEnd({ animated: true })
+          }
+        >
+          {activeForecast?.fermiConversation &&
+          activeForecast.fermiConversation.length > 0 ? (
+            activeForecast.fermiConversation.map((msg, idx) => {
+              // Parse suggestions if present
+              let messageText = msg.message;
+              let suggestions: CommandSuggestion[] = [];
+
+              if (
+                msg.role === "fermi" &&
+                msg.message.includes("__SUGGESTIONS__:")
+              ) {
+                const parts = msg.message.split("__SUGGESTIONS__:");
+                messageText = parts[0].trim();
+                try {
+                  suggestions = JSON.parse(parts[1]);
+                } catch (e) {
+                  console.error("Failed to parse suggestions:", e);
                 }
+              }
 
-                return (
-                  <View
-                    key={idx}
-                    style={[
-                      styles.fermiMessage,
-                      msg.role === "user"
-                        ? styles.fermiMessageUser
-                        : styles.fermiMessageFermi,
-                    ]}
-                  >
-                    <Text style={styles.fermiMessageRole}>
-                      {msg.role === "user" ? "$ " : "🦊 "}
-                    </Text>
-                    <Text style={styles.fermiMessageText}>{messageText}</Text>
+              return (
+                <View
+                  key={idx}
+                  style={[
+                    styles.fermiMessage,
+                    msg.role === "user"
+                      ? styles.fermiMessageUser
+                      : styles.fermiMessageFermi,
+                  ]}
+                >
+                  <Text style={styles.fermiMessageRole}>
+                    {msg.role === "user" ? "$ " : "🦊 "}
+                  </Text>
+                  <Text style={styles.fermiMessageText}>{messageText}</Text>
 
-                    {/* Render clickable suggestions */}
-                    {suggestions.length > 0 && (
-                      <View style={styles.suggestionChipsContainer}>
-                        {suggestions.map((suggestion, sidx) => (
-                          <TouchableOpacity
-                            key={sidx}
-                            style={styles.suggestionChip}
-                            onPress={async () => {
-                              if (suggestion.clickable) {
-                                // Execute the command
-                                setFermiChatInput(suggestion.command);
-                                await handleFermiCoaching(suggestion.command);
-                              } else {
-                                // Just populate input
-                                setFermiChatInput(suggestion.command);
-                              }
-                            }}
-                          >
-                            <Text style={styles.suggestionChipText}>
-                              {suggestion.command}
-                            </Text>
-                            <Text style={styles.suggestionChipDesc}>
-                              {suggestion.description}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    )}
+                  {/* Render clickable suggestions */}
+                  {suggestions.length > 0 && (
+                    <View style={styles.suggestionChipsContainer}>
+                      {suggestions.map((suggestion, sidx) => (
+                        <TouchableOpacity
+                          key={sidx}
+                          style={styles.suggestionChip}
+                          onPress={async () => {
+                            if (suggestion.clickable) {
+                              // Execute the command
+                              setFermiChatInput(suggestion.command);
+                              await handleFermiCoaching(suggestion.command);
+                            } else {
+                              // Just populate input
+                              setFermiChatInput(suggestion.command);
+                            }
+                          }}
+                        >
+                          <Text style={styles.suggestionChipText}>
+                            {suggestion.command}
+                          </Text>
+                          <Text style={styles.suggestionChipDesc}>
+                            {suggestion.description}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
 
-                    <Text style={styles.fermiMessageTime}>
-                      {new Date(msg.timestamp).toLocaleTimeString()}
-                    </Text>
-                  </View>
-                );
-              })
-            ) : (
-              <View style={styles.fermiWelcome}>
-                <Text style={styles.fermiWelcomeText}>🦊 fermi@uffp ~ $</Text>
-                <Text style={styles.fermiWelcomeSubtext}>
-                  Type /question to start a forecast{"\n"}
-                  Type /help to see all commands{"\n"}
-                  Type @fermi to get coaching
-                </Text>
-              </View>
-            )}
+                  <Text style={styles.fermiMessageTime}>
+                    {new Date(msg.timestamp).toLocaleTimeString()}
+                  </Text>
+                </View>
+              );
+            })
+          ) : (
+            <View style={styles.fermiWelcome}>
+              <Text style={styles.fermiWelcomeText}>🦊 fermi@uffp ~ $</Text>
+              <Text style={styles.fermiWelcomeSubtext}>
+                Type /question to start a forecast{"\n"}
+                Type /help to see all commands{"\n"}
+                Type @fermi to get coaching
+              </Text>
+            </View>
+          )}
 
-            {/* Thinking Indicator */}
-            {fermiThinking && (
-              <View style={styles.fermiThinkingContainer}>
-                <ActivityIndicator size="small" color="#fabd2f" />
-                <Text style={styles.fermiThinkingText}>
-                  Fermi is thinking...
-                </Text>
-              </View>
-            )}
-          </ScrollView>
+          {/* Thinking Indicator */}
+          {fermiThinking && (
+            <View style={styles.fermiThinkingContainer}>
+              <ActivityIndicator size="small" color="#fabd2f" />
+              <Text style={styles.fermiThinkingText}>Fermi is thinking...</Text>
+            </View>
+          )}
+        </ScrollView>
 
-          {/* Command Hints - Show above input when typing */}
-          {fermiChatInput.length > 0 && getCommandHints().length > 0 && (
-            <ScrollView
-              style={styles.fermiCommandHints}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-            >
-              {getCommandHints().slice(0, 5).map((hint) => (
+        {/* Command Hints - Show above input when typing */}
+        {fermiChatInput.length > 0 && getCommandHints().length > 0 && (
+          <ScrollView
+            style={styles.fermiCommandHints}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+          >
+            {getCommandHints()
+              .slice(0, 5)
+              .map((hint) => (
                 <TouchableOpacity
                   key={hint.key}
                   style={styles.fermiHintChip}
@@ -4167,7 +4166,9 @@ export default function ForecastWorkspaceScreen() {
                       if (fermiChatInput.includes("@")) {
                         const atIndex = fermiChatInput.lastIndexOf("@");
                         setFermiChatInput(
-                          fermiChatInput.substring(0, atIndex) + hint.label + " "
+                          fermiChatInput.substring(0, atIndex) +
+                            hint.label +
+                            " ",
                         );
                       } else {
                         setFermiChatInput(hint.label + " ");
@@ -4187,66 +4188,39 @@ export default function ForecastWorkspaceScreen() {
                   <Text style={styles.fermiHintChipLabel}>{hint.label}</Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
-          )}
+          </ScrollView>
+        )}
 
-          {/* Chat Input */}
-          <View style={styles.fermiChatInputContainer}>
-            <TextInput
-              style={styles.fermiChatInput}
-              placeholder="Type @fermi for help, / for commands, or @ for agents"
-              placeholderTextColor="#665c54"
-              value={fermiChatInput}
-              onChangeText={setFermiChatInput}
-              editable={!fermiThinking}
-              onSubmitEditing={async () => {
+        {/* Chat Input */}
+        <View style={styles.fermiChatInputContainer}>
+          <TextInput
+            style={styles.fermiChatInput}
+            placeholder="Type @fermi for help, / for commands, or @ for agents"
+            placeholderTextColor="#665c54"
+            value={fermiChatInput}
+            onChangeText={setFermiChatInput}
+            editable={!fermiThinking}
+            onSubmitEditing={async () => {
+              if (fermiChatInput.trim()) {
+                console.log("[Fermi Chat] Sending message:", fermiChatInput);
+                const userMsg = fermiChatInput.trim();
+                setFermiChatInput("");
+
+                // Commands go through main handler, coaching goes through fermi
+                if (userMsg.startsWith("/")) {
+                  await processSingleCommand(userMsg);
+                } else {
+                  await handleFermiCoaching(userMsg);
+                }
+              }
+            }}
+            onKeyPress={async (e) => {
+              // Handle Enter key explicitly for web
+              if (e.nativeEvent.key === "Enter" && !e.nativeEvent.shiftKey) {
+                e.preventDefault();
                 if (fermiChatInput.trim()) {
-                  console.log("[Fermi Chat] Sending message:", fermiChatInput);
-                  const userMsg = fermiChatInput.trim();
-                  setFermiChatInput("");
-
-                  // Commands go through main handler, coaching goes through fermi
-                  if (userMsg.startsWith("/")) {
-                    await processSingleCommand(userMsg);
-                  } else {
-                    await handleFermiCoaching(userMsg);
-                  }
-                }
-              }}
-              onKeyPress={async (e) => {
-                // Handle Enter key explicitly for web
-                if (e.nativeEvent.key === "Enter" && !e.nativeEvent.shiftKey) {
-                  e.preventDefault();
-                  if (fermiChatInput.trim()) {
-                    console.log(
-                      "[Fermi Chat] Enter pressed, sending:",
-                      fermiChatInput,
-                    );
-                    const userMsg = fermiChatInput.trim();
-                    setFermiChatInput("");
-
-                    // Commands go through main handler, coaching goes through fermi
-                    if (userMsg.startsWith("/")) {
-                      await processSingleCommand(userMsg);
-                    } else {
-                      await handleFermiCoaching(userMsg);
-                    }
-                  }
-                }
-              }}
-              autoCapitalize="none"
-              returnKeyType="send"
-              blurOnSubmit={false}
-            />
-            <TouchableOpacity
-              style={[
-                styles.fermiSendButton,
-                fermiThinking && styles.fermiSendButtonDisabled,
-              ]}
-              onPress={async () => {
-                if (fermiChatInput.trim() && !fermiThinking) {
                   console.log(
-                    "[Fermi Chat] Send button pressed:",
+                    "[Fermi Chat] Enter pressed, sending:",
                     fermiChatInput,
                   );
                   const userMsg = fermiChatInput.trim();
@@ -4259,14 +4233,40 @@ export default function ForecastWorkspaceScreen() {
                     await handleFermiCoaching(userMsg);
                   }
                 }
-              }}
-              disabled={fermiThinking}
-            >
-              <Text style={styles.fermiSendButtonText}>→</Text>
-            </TouchableOpacity>
-          </View>
+              }
+            }}
+            autoCapitalize="none"
+            returnKeyType="send"
+            blurOnSubmit={false}
+          />
+          <TouchableOpacity
+            style={[
+              styles.fermiSendButton,
+              fermiThinking && styles.fermiSendButtonDisabled,
+            ]}
+            onPress={async () => {
+              if (fermiChatInput.trim() && !fermiThinking) {
+                console.log(
+                  "[Fermi Chat] Send button pressed:",
+                  fermiChatInput,
+                );
+                const userMsg = fermiChatInput.trim();
+                setFermiChatInput("");
+
+                // Commands go through main handler, coaching goes through fermi
+                if (userMsg.startsWith("/")) {
+                  await processSingleCommand(userMsg);
+                } else {
+                  await handleFermiCoaching(userMsg);
+                }
+              }
+            }}
+            disabled={fermiThinking}
+          >
+            <Text style={styles.fermiSendButtonText}>→</Text>
+          </TouchableOpacity>
         </View>
-      )}
+      </View>
 
       {/* Collapsed CLI button - small and minimal */}
       {!fermiChatExpanded && (
@@ -5304,7 +5304,12 @@ const styles = StyleSheet.create({
   fermiHintChipLabel: {
     color: "#d5c4a1",
     fontSize: 12,
-    fontFamily: Platform.OS === "ios" ? "Menlo" : Platform.OS === "android" ? "monospace" : "Courier New, monospace",
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
   },
   fermiChatInputContainer: {
     flexDirection: "row",
