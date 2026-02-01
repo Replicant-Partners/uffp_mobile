@@ -41,7 +41,16 @@ interface SavedForecast {
   question: string;
   domain?: string;
   timeframe?: string;
-  grounding?: "external" | "premortem" | "analysis";
+  grounding?: "external" | "premortem" | "inside view / analysis";
+  externalView?: {
+    referenceClass: string; // AI-suggested, user can change via /external
+    baseRate?: number; // Historical probability from reference class
+    source?: string; // Where the base rate came from
+  };
+  premortem?: {
+    status: "pending" | "completed";
+    failureScenarios?: string[]; // Identified failure modes
+  };
   probability?: number;
   drivers: any[];
   createdAt: string;
@@ -144,25 +153,36 @@ export default function ForecastWorkspaceScreen() {
     setShowForecastList(false);
     setCommandInput("");
 
-    // Re-parse the question to get suggested drivers
-    setLoading(true);
-    setProcessingAction("Loading forecast...");
-    try {
-      const result = await researchService.parseQuestion(forecast.question);
-      const parsed = result.parsed || result;
-      setParsedResult(parsed);
-    } catch (err) {
-      console.error("Failed to re-parse question:", err);
-      // Set minimal parsedResult even if parsing fails
+    // Don't re-parse if forecast already has drivers - just show minimal parsedResult
+    // This prevents duplicate driver suggestions
+    if (forecast.drivers && forecast.drivers.length > 0) {
       setParsedResult({
         question: forecast.question,
         domain: forecast.domain,
         timeframe: forecast.timeframe,
-        suggestedDrivers: [],
+        suggestedDrivers: [], // Empty - user already has drivers
       });
-    } finally {
-      setLoading(false);
-      setProcessingAction("");
+    } else {
+      // Re-parse only for forecasts without drivers
+      setLoading(true);
+      setProcessingAction("Loading forecast...");
+      try {
+        const result = await researchService.parseQuestion(forecast.question);
+        const parsed = result.parsed || result;
+        setParsedResult(parsed);
+      } catch (err) {
+        console.error("Failed to re-parse question:", err);
+        // Set minimal parsedResult even if parsing fails
+        setParsedResult({
+          question: forecast.question,
+          domain: forecast.domain,
+          timeframe: forecast.timeframe,
+          suggestedDrivers: [],
+        });
+      } finally {
+        setLoading(false);
+        setProcessingAction("");
+      }
     }
   };
 
@@ -509,34 +529,44 @@ export default function ForecastWorkspaceScreen() {
 
       // /save - save agent to driver and optionally execute
       if (trimmed === "/save") {
-        if (driverBeingConfigured) {
-          const currentAgents = driverBeingConfigured.agents || [];
-          const agentConfig = {
-            name: agentBeingConfigured.name,
-            query: agentBeingConfigured.query,
-            schedule: agentBeingConfigured.schedule || "on-demand",
-            threshold: agentBeingConfigured.threshold || 10,
-          };
-          // Check for duplicates
-          const isDuplicate = currentAgents.some(
-            (a: any) => (a.name || a) === agentConfig.name,
-          );
-          if (isDuplicate) {
-            setError(`Agent @${agentConfig.name} already added to this driver`);
-            return;
-          }
-          setDriverBeingConfigured({
-            ...driverBeingConfigured,
-            agents: [...currentAgents, agentConfig],
-          });
-
-          // Prompt to run the agent now
-          setError(
-            `Agent saved! Type /run @${agentConfig.name} to execute research`,
-          );
+        if (!driverBeingConfigured) {
+          setError("No driver being configured. Start driver config first.");
+          return;
         }
+
+        if (!agentBeingConfigured.query) {
+          setError("Agent needs a query! Use /query <search query> first.");
+          return;
+        }
+
+        const currentAgents = driverBeingConfigured.agents || [];
+        const agentConfig = {
+          name: agentBeingConfigured.name,
+          query: agentBeingConfigured.query,
+          schedule: agentBeingConfigured.schedule || "on-demand",
+          threshold: agentBeingConfigured.threshold || 10,
+        };
+
+        // Check for duplicates
+        const isDuplicate = currentAgents.some(
+          (a: any) => (a.name || a) === agentConfig.name,
+        );
+        if (isDuplicate) {
+          setError(`Agent @${agentConfig.name} already added to this driver`);
+          return;
+        }
+
+        setDriverBeingConfigured({
+          ...driverBeingConfigured,
+          agents: [...currentAgents, agentConfig],
+        });
+
+        // Clear agent config and show success
         setAgentBeingConfigured(null);
         setCommandInput("");
+        setError(
+          `✓ Agent @${agentConfig.name} added! You can add more agents with @ or /save the driver.`,
+        );
         return;
       }
 
@@ -784,6 +814,24 @@ export default function ForecastWorkspaceScreen() {
         if (values.length === 3) {
           const [p5, p50, p95] = values.map(Number);
           if (!isNaN(p5) && !isNaN(p50) && !isNaN(p95)) {
+            // Validate constraints immediately
+            if (p5 >= p50) {
+              setError(
+                `p5 (${p5}) must be less than p50 (${p50}). Remember: p5 is your "Oh No Floor" - the pessimistic case.`,
+              );
+              return;
+            }
+            if (p50 >= p95) {
+              setError(
+                `p50 (${p50}) must be less than p95 (${p95}). Remember: p95 is your "Moonshot Ceiling" - the optimistic case.`,
+              );
+              return;
+            }
+            if (p5 < 0 || p95 < 0 || p50 < 0) {
+              setError("Values cannot be negative");
+              return;
+            }
+
             setDriverBeingConfigured({
               ...driverBeingConfigured,
               p5,
@@ -796,7 +844,7 @@ export default function ForecastWorkspaceScreen() {
             setError("Values must be numbers");
           }
         } else {
-          setError("Format: /p <p5> <p50> <p95>");
+          setError("Format: /p <p5> <p50> <p95> — Example: /p 10 50 200");
         }
         return;
       }
@@ -1004,6 +1052,16 @@ export default function ForecastWorkspaceScreen() {
         setForecastFilter(filter);
         setShowForecastList(!showForecastList || forecastFilter !== filter);
         setShowLeaderboard(false);
+
+        // Clear active state when opening list
+        if (!showForecastList || forecastFilter !== filter) {
+          setActiveForecast(null);
+          setActiveQuestion("");
+          setParsedResult(null);
+          setDriverBeingConfigured(null);
+          setAgentBeingConfigured(null);
+          setError("");
+        }
       } else {
         setError("Use /list, /list active, /list expired, or /list all");
       }
@@ -1019,6 +1077,63 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
+    // Handle /external command - set reference class for external view
+    if (trimmed.startsWith("/external ")) {
+      if (!activeForecast) {
+        setError("No active forecast. Type /question first.");
+        setCommandInput("");
+        return;
+      }
+
+      const referenceClass = trimmed.replace("/external ", "").trim();
+      if (!referenceClass) {
+        setError(
+          "Please provide a reference class (e.g., /external SaaS startups in Series A)",
+        );
+        return;
+      }
+
+      const updatedForecast = {
+        ...activeForecast,
+        externalView: {
+          referenceClass,
+          baseRate: activeForecast.externalView?.baseRate,
+          source: activeForecast.externalView?.source,
+        },
+        grounding: "external" as const,
+        updatedAt: new Date().toISOString(),
+      };
+      setActiveForecast(updatedForecast);
+      await saveForecast(updatedForecast);
+      setCommandInput("");
+      setError("");
+      return;
+    }
+
+    // Handle /premortem command - mark premortem as pending
+    if (trimmed === "/premortem") {
+      if (!activeForecast) {
+        setError("No active forecast. Type /question first.");
+        setCommandInput("");
+        return;
+      }
+
+      const updatedForecast = {
+        ...activeForecast,
+        premortem: {
+          status: "pending" as const,
+          failureScenarios: activeForecast.premortem?.failureScenarios,
+        },
+        grounding: "premortem" as const,
+        updatedAt: new Date().toISOString(),
+      };
+      setActiveForecast(updatedForecast);
+      await saveForecast(updatedForecast);
+      setCommandInput("");
+      setError("Premortem mode enabled (full workflow coming soon)");
+      return;
+    }
+
     // Handle /grounding command (only if forecast is active)
     if (trimmed.startsWith("/grounding ")) {
       if (!activeForecast) {
@@ -1028,10 +1143,15 @@ export default function ForecastWorkspaceScreen() {
       }
 
       const grounding = trimmed.replace("/grounding ", "").trim();
-      if (["external", "premortem", "analysis"].includes(grounding)) {
+      if (
+        ["external", "premortem", "inside view / analysis"].includes(grounding)
+      ) {
         const updatedForecast = {
           ...activeForecast,
-          grounding: grounding as "external" | "premortem" | "analysis",
+          grounding: grounding as
+            | "external"
+            | "premortem"
+            | "inside view / analysis",
           updatedAt: new Date().toISOString(),
         };
         setActiveForecast(updatedForecast);
@@ -1039,7 +1159,9 @@ export default function ForecastWorkspaceScreen() {
         setCommandInput("");
         setError("");
       } else {
-        setError("Grounding must be 'external', 'premortem', or 'analysis'");
+        setError(
+          "Grounding must be 'external', 'premortem', or 'inside view / analysis'",
+        );
       }
       return;
     }
@@ -1289,7 +1411,14 @@ export default function ForecastWorkspaceScreen() {
         if (createResult.forecast) {
           const newForecast: SavedForecast = {
             ...createResult.forecast,
-            grounding: "analysis",
+            grounding: parsed.referenceClass
+              ? "external"
+              : "inside view / analysis",
+            externalView: parsed.referenceClass
+              ? {
+                  referenceClass: parsed.referenceClass,
+                }
+              : undefined,
           };
 
           setActiveForecast(newForecast);
@@ -1729,17 +1858,17 @@ export default function ForecastWorkspaceScreen() {
         {
           key: "external",
           label: "/grounding external",
-          desc: "External data grounding",
+          desc: "External view (base rate)",
         },
         {
           key: "premortem",
           label: "/grounding premortem",
-          desc: "Premortem analysis",
+          desc: "Pre-mortem analysis",
         },
         {
-          key: "analysis",
-          label: "/grounding analysis",
-          desc: "Analytical reasoning",
+          key: "inside",
+          label: "/grounding inside view / analysis",
+          desc: "Inside view / analysis",
         },
       ].filter((h) => h.label.includes(query));
     }
@@ -1758,6 +1887,16 @@ export default function ForecastWorkspaceScreen() {
     if (activeForecast) {
       hints.push(
         { key: "driver", label: "/driver", desc: "Add a driver" },
+        {
+          key: "external",
+          label: "/external",
+          desc: "Set reference class (external view)",
+        },
+        {
+          key: "premortem",
+          label: "/premortem",
+          desc: "Enable pre-mortem mode",
+        },
         { key: "grounding", label: "/grounding", desc: "Set grounding type" },
         { key: "setprob", label: "/setprob", desc: "Set probability (0-100)" },
         { key: "simulate", label: "/simulate", desc: "Run simulation" },
@@ -1820,6 +1959,32 @@ export default function ForecastWorkspaceScreen() {
                   {parsedResult.confidence &&
                     ` · ${Math.round(parsedResult.confidence * 100)}% confidence`}
                 </Text>
+                {activeForecast?.externalView && (
+                  <View style={styles.externalViewCard}>
+                    <Text style={styles.externalViewLabel}>
+                      📊 External View (Reference Class):
+                    </Text>
+                    <Text style={styles.externalViewText}>
+                      {activeForecast.externalView.referenceClass}
+                    </Text>
+                    {activeForecast.externalView.baseRate !== undefined && (
+                      <Text style={styles.baseRateText}>
+                        Base Rate:{" "}
+                        {Math.round(activeForecast.externalView.baseRate * 100)}
+                        %
+                        {activeForecast.externalView.source &&
+                          ` (${activeForecast.externalView.source})`}
+                      </Text>
+                    )}
+                  </View>
+                )}
+                {activeForecast?.premortem && (
+                  <View style={styles.premortemCard}>
+                    <Text style={styles.premortemLabel}>
+                      🔍 Pre-mortem: {activeForecast.premortem.status}
+                    </Text>
+                  </View>
+                )}
                 {activeForecast?.probability != null && (
                   <Text style={styles.probabilityResult}>
                     Forecast: {Math.round(activeForecast.probability * 100)}%
@@ -2112,6 +2277,24 @@ export default function ForecastWorkspaceScreen() {
                         / {driverBeingConfigured.p95}
                       </Text>
                     </Text>
+                    <View style={styles.pValueGuidance}>
+                      <Text style={styles.pValueLabel}>
+                        p5 = "Oh No Floor"{" "}
+                        <Text style={styles.pValueHint}>
+                          (95% sure it's higher)
+                        </Text>
+                      </Text>
+                      <Text style={styles.pValueLabel}>
+                        p50 = "Coin Flip Middle"{" "}
+                        <Text style={styles.pValueHint}>(50/50 chance)</Text>
+                      </Text>
+                      <Text style={styles.pValueLabel}>
+                        p95 = "Moonshot Ceiling"{" "}
+                        <Text style={styles.pValueHint}>
+                          (95% sure it's lower)
+                        </Text>
+                      </Text>
+                    </View>
                     <Text style={styles.driverFieldLabel}>
                       Impact:{" "}
                       <Text style={styles.driverFieldValue}>
@@ -2747,6 +2930,46 @@ const styles = StyleSheet.create({
     color: "#928374",
     marginBottom: 4,
   },
+  externalViewCard: {
+    backgroundColor: "#3c3836",
+    padding: 12,
+    borderRadius: 6,
+    marginTop: 8,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#83a598",
+  },
+  externalViewLabel: {
+    fontSize: 12,
+    color: "#83a598",
+    fontWeight: "600",
+    marginBottom: 6,
+  },
+  externalViewText: {
+    fontSize: 14,
+    color: "#ebdbb2",
+    fontWeight: "500",
+    marginBottom: 4,
+  },
+  baseRateText: {
+    fontSize: 12,
+    color: "#b8bb26",
+    marginTop: 4,
+  },
+  premortemCard: {
+    backgroundColor: "#3c3836",
+    padding: 10,
+    borderRadius: 6,
+    marginTop: 8,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#fabd2f",
+  },
+  premortemLabel: {
+    fontSize: 12,
+    color: "#fabd2f",
+    fontWeight: "600",
+  },
   lastUpdated: {
     fontSize: 11,
     color: "#665c54",
@@ -3036,6 +3259,27 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     borderTopWidth: 1,
     borderTopColor: "#504945",
+  },
+  pValueGuidance: {
+    backgroundColor: "#32302f",
+    padding: 10,
+    borderRadius: 6,
+    marginTop: 8,
+    marginBottom: 8,
+    borderLeftWidth: 2,
+    borderLeftColor: "#b8bb26",
+  },
+  pValueLabel: {
+    fontSize: 12,
+    color: "#ebdbb2",
+    marginBottom: 4,
+    fontWeight: "500",
+  },
+  pValueHint: {
+    fontSize: 11,
+    color: "#928374",
+    fontWeight: "normal",
+    fontStyle: "italic",
   },
   hintCard: {
     backgroundColor: "#3c3836",

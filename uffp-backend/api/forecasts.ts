@@ -356,7 +356,10 @@ function runMonteCarloSimulation(drivers: any[], iterations: number) {
   }
 
   outcomes.sort((a, b) => a - b);
-  const successCount = outcomes.filter((o) => o > 0).length;
+
+  // Calculate probability as the median of outcomes (since each outcome is already a probability)
+  const medianOutcome = outcomes[Math.floor(iterations * 0.5)];
+  const probability = Math.round(medianOutcome * 100) / 100; // Convert to 0-1 range
 
   // Create histogram for visualization (20 bins)
   const bins = 20;
@@ -372,7 +375,7 @@ function runMonteCarloSimulation(drivers: any[], iterations: number) {
   const histogramPercent = histogram.map((count) => (count / iterations) * 100);
 
   return {
-    probability: Math.round((successCount / iterations) * 100) / 100,
+    probability,
     distribution: {
       p10: outcomes[Math.floor(iterations * 0.1)],
       p25: outcomes[Math.floor(iterations * 0.25)],

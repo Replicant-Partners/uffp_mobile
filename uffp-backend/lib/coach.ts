@@ -39,6 +39,7 @@ export async function parseQuestion(userInput: string): Promise<{
   question: string;
   domain?: string;
   timeframe?: string;
+  referenceClass?: string;
   suggestedDrivers?: string[];
   suggestedResearch?: string[];
   confidence: number;
@@ -51,14 +52,16 @@ Extract:
 1. The core question (as a clear yes/no question)
 2. The domain (finance, technology, weather, politics, sports, general)
 3. The timeframe (if mentioned)
-4. Suggest 3-5 key drivers to decompose this forecast
-5. Suggest relevant research agents to run
+4. A reference class for the External View (a group of similar past events for base rate analysis)
+5. Suggest 3-5 key drivers to decompose this forecast
+6. Suggest relevant research agents to run
 
 Respond in this exact JSON format:
 {
   "question": "Will [clear yes/no question]?",
   "domain": "domain_name",
   "timeframe": "timeframe or null",
+  "referenceClass": "description of similar past events",
   "suggestedDrivers": ["driver1", "driver2", "driver3"],
   "suggestedResearch": ["agent_id1", "agent_id2"],
   "confidence": 0.95
@@ -71,6 +74,7 @@ Output: {
   "question": "Will ASTS reach $20 by end of 2026?",
   "domain": "finance",
   "timeframe": "by end of 2026",
+  "referenceClass": "Small-cap space technology stocks reaching price targets within 2 years",
   "suggestedDrivers": ["Technical execution", "Market demand", "Regulatory approval", "Competitive landscape"],
   "suggestedResearch": ["financial_analyst", "market_researcher", "competitive_intel"],
   "confidence": 0.9
@@ -81,8 +85,20 @@ Output: {
   "question": "Will it rain in Seattle tomorrow?",
   "domain": "weather",
   "timeframe": "tomorrow",
+  "referenceClass": "Days in Seattle during this season",
   "suggestedDrivers": ["Atmospheric pressure", "Cloud coverage", "Historical patterns"],
   "suggestedResearch": ["research_analyst"],
+  "confidence": 0.85
+}
+
+Input: "will our SaaS startup reach Series A"
+Output: {
+  "question": "Will our SaaS startup successfully raise a Series A round?",
+  "domain": "technology",
+  "timeframe": null,
+  "referenceClass": "B2B SaaS startups attempting Series A fundraising",
+  "suggestedDrivers": ["Revenue growth rate", "Customer retention", "Market size", "Competitive positioning"],
+  "suggestedResearch": ["financial_analyst", "market_researcher"],
   "confidence": 0.85
 }
 
