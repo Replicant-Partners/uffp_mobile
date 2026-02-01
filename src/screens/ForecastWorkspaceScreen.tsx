@@ -86,6 +86,10 @@ export default function ForecastWorkspaceScreen() {
   const [driverBeingConfigured, setDriverBeingConfigured] = useState<
     any | null
   >(null);
+  const [majorChangesWarning, setMajorChangesWarning] = useState<{
+    changes: string[];
+    originalDriver?: any;
+  } | null>(null);
   const [agentBeingConfigured, setAgentBeingConfigured] = useState<{
     name: string;
     query?: string;
@@ -351,7 +355,76 @@ export default function ForecastWorkspaceScreen() {
     return warnings.length > 0 ? warnings.join(" ") : null;
   };
 
-  const saveConfiguredDriver = async () => {
+  const detectMajorChanges = (
+    newDriver: any,
+    originalDriver?: any,
+  ): string[] => {
+    if (!originalDriver) return []; // New driver, no comparison needed
+
+    const changes: string[] = [];
+
+    // P-value changes (any change is major)
+    if (
+      newDriver.type === "continuous" &&
+      originalDriver.type === "continuous"
+    ) {
+      if (newDriver.p5 !== originalDriver.p5) {
+        const percentChange = Math.round(
+          ((newDriver.p5 - originalDriver.p5) / originalDriver.p5) * 100,
+        );
+        changes.push(
+          `p5: ${originalDriver.p5} → ${newDriver.p5} (${percentChange > 0 ? "+" : ""}${percentChange}%)`,
+        );
+      }
+      if (newDriver.p50 !== originalDriver.p50) {
+        const percentChange = Math.round(
+          ((newDriver.p50 - originalDriver.p50) / originalDriver.p50) * 100,
+        );
+        changes.push(
+          `p50: ${originalDriver.p50} → ${newDriver.p50} (${percentChange > 0 ? "+" : ""}${percentChange}%)`,
+        );
+      }
+      if (newDriver.p95 !== originalDriver.p95) {
+        const percentChange = Math.round(
+          ((newDriver.p95 - originalDriver.p95) / originalDriver.p95) * 100,
+        );
+        changes.push(
+          `p95: ${originalDriver.p95} → ${newDriver.p95} (${percentChange > 0 ? "+" : ""}${percentChange}%)`,
+        );
+      }
+      if (newDriver.distribution !== originalDriver.distribution) {
+        changes.push(
+          `Distribution: ${originalDriver.distribution} → ${newDriver.distribution}`,
+        );
+      }
+    }
+
+    // Binary probability changes
+    if (newDriver.type === "binary" && originalDriver.type === "binary") {
+      if (newDriver.probability !== originalDriver.probability) {
+        const diff = newDriver.probability - originalDriver.probability;
+        changes.push(
+          `Probability: ${originalDriver.probability}% → ${newDriver.probability}% (${diff > 0 ? "+" : ""}${diff}%)`,
+        );
+      }
+    }
+
+    // Type change
+    if (newDriver.type !== originalDriver.type) {
+      changes.push(`Type: ${originalDriver.type} → ${newDriver.type}`);
+    }
+
+    // Direction change
+    if (newDriver.direction !== originalDriver.direction) {
+      changes.push(
+        `Direction: ${originalDriver.direction} → ${newDriver.direction}`,
+      );
+    }
+
+    return changes;
+  };
+
+  const saveConfiguredDriver = async (force: boolean = false) => {
     if (!driverBeingConfigured || !activeForecast) return;
 
     // Validate configuration
@@ -361,6 +434,31 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
+    // Check if we're editing an existing driver
+    const existingIndex = activeForecast.drivers.findIndex(
+      (d: any) => d.id === driverBeingConfigured.id,
+    );
+
+    const isNewDriver = existingIndex < 0;
+    const originalDriver = isNewDriver
+      ? null
+      : activeForecast.drivers[existingIndex];
+
+    // Detect major changes
+    const majorChanges = detectMajorChanges(
+      driverBeingConfigured,
+      originalDriver,
+    );
+
+    // If major changes detected and not forcing, show warning
+    if (majorChanges.length > 0 && !force) {
+      setMajorChangesWarning({
+        changes: majorChanges,
+        originalDriver,
+      });
+      return; // Don't save yet, wait for user confirmation
+    }
+
     // Check for overrides (soft warning)
     const overrideWarning = checkConfigOverride(driverBeingConfigured);
     if (overrideWarning) {
@@ -368,15 +466,9 @@ export default function ForecastWorkspaceScreen() {
     }
 
     setProcessingAction("Saving driver...");
+    setMajorChangesWarning(null); // Clear warning
 
     try {
-      // Check if we're editing an existing driver
-      const existingIndex = activeForecast.drivers.findIndex(
-        (d: any) => d.id === driverBeingConfigured.id,
-      );
-
-      const isNewDriver = existingIndex < 0;
-
       if (
         isNewDriver &&
         activeForecast.id &&
@@ -2259,6 +2351,42 @@ export default function ForecastWorkspaceScreen() {
         {driverBeingConfigured && !agentBeingConfigured && (
           <View style={styles.configSection}>
             <Text style={styles.sectionLabel}>Configuring Driver</Text>
+
+            {/* Major Changes Warning Banner */}
+            {majorChangesWarning && majorChangesWarning.changes.length > 0 && (
+              <View style={styles.majorChangesWarning}>
+                <Text style={styles.warningTitle}>
+                  ⚠️ Major Revision Pending
+                </Text>
+                <Text style={styles.warningSubtitle}>
+                  Changes will trigger new simulation:
+                </Text>
+                {majorChangesWarning.changes.map((change, idx) => (
+                  <Text key={idx} style={styles.warningChange}>
+                    • {change}
+                  </Text>
+                ))}
+                <View style={styles.warningActions}>
+                  <TouchableOpacity
+                    style={styles.warningButtonSecondary}
+                    onPress={() => setMajorChangesWarning(null)}
+                  >
+                    <Text style={styles.warningButtonSecondaryText}>
+                      Continue Editing
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.warningButtonPrimary}
+                    onPress={() => saveConfiguredDriver(true)}
+                  >
+                    <Text style={styles.warningButtonPrimaryText}>
+                      Save Changes
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
             <View style={styles.configCard}>
               <Text style={styles.driverName}>
                 {driverBeingConfigured.name}
@@ -3136,6 +3264,62 @@ const styles = StyleSheet.create({
   },
   configSection: {
     marginTop: 24,
+  },
+  majorChangesWarning: {
+    backgroundColor: "#3c3836",
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: "#fabd2f",
+  },
+  warningTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#fabd2f",
+    marginBottom: 8,
+  },
+  warningSubtitle: {
+    fontSize: 13,
+    color: "#ebdbb2",
+    marginBottom: 8,
+  },
+  warningChange: {
+    fontSize: 12,
+    color: "#d79921",
+    marginBottom: 4,
+    paddingLeft: 8,
+  },
+  warningActions: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+  },
+  warningButtonSecondary: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#665c54",
+    backgroundColor: "transparent",
+    alignItems: "center",
+  },
+  warningButtonSecondaryText: {
+    fontSize: 12,
+    color: "#ebdbb2",
+    fontWeight: "500",
+  },
+  warningButtonPrimary: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 6,
+    backgroundColor: "#d79921",
+    alignItems: "center",
+  },
+  warningButtonPrimaryText: {
+    fontSize: 12,
+    color: "#282828",
+    fontWeight: "600",
   },
   configCard: {
     backgroundColor: "#3c3836",
