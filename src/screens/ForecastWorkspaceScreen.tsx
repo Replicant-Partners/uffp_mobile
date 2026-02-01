@@ -4028,169 +4028,8 @@ export default function ForecastWorkspaceScreen() {
           })()}
       </ScrollView>
 
-      {/* Command Input - Fixed at bottom */}
-      <View
-        style={[
-          styles.commandSection,
-          fermiChatExpanded && isWideScreen && styles.commandSectionWithChat,
-        ]}
-      >
-        {/* Version indicator */}
-        <View style={styles.versionIndicator}>
-          <Text style={styles.versionIndicatorText}>v{VERSION}</Text>
-        </View>
-        {/* Command Hints - Show when hints are available and fermi chat is NOT open */}
-        {!fermiChatExpanded &&
-          showCommandHints &&
-          getCommandHints().length > 0 && (
-            <ScrollView
-              style={styles.hintsPanel}
-              keyboardShouldPersistTaps="always"
-              nestedScrollEnabled={true}
-            >
-              {getCommandHints().map((hint, index) => {
-                const isTabSelected =
-                  index === tabCycleIndex % getCommandHints().length;
-                return (
-                  <TouchableOpacity
-                    key={hint.key}
-                    style={[
-                      styles.hintItem,
-                      isTabSelected && styles.hintItemTabSelected,
-                    ]}
-                    onPress={() => {
-                      // Check if this is a complete command suggestion (like "/schedule daily")
-                      const isCompleteCommand =
-                        hint.label.includes(" ") && hint.label.startsWith("/");
-
-                      if (hint.key === "question") {
-                        setCommandInput("/question ");
-                      } else if (hint.label.startsWith("@")) {
-                        // For agent autocomplete, check if we're in /run context
-                        if (commandInput.includes("/run")) {
-                          // Replace everything after /run with the selected agent
-                          setCommandInput("/run " + hint.label + " ");
-                        } else if (commandInput.includes("@")) {
-                          // Replace from @ onwards with the selected agent
-                          const atIndex = commandInput.lastIndexOf("@");
-                          setCommandInput(
-                            commandInput.substring(0, atIndex) +
-                              hint.label +
-                              " ",
-                          );
-                        } else {
-                          setCommandInput(hint.label + " ");
-                        }
-                      } else if (isCompleteCommand) {
-                        // Complete command like "/schedule daily" - just set it
-                        setCommandInput(hint.label);
-                      } else if (
-                        hint.key === "save" ||
-                        hint.key === "cancel" ||
-                        hint.key === "help" ||
-                        hint.key === "list"
-                      ) {
-                        // Commands that don't need a space after them
-                        setCommandInput(hint.label);
-                      } else {
-                        // Commands that need space for arguments (like /query, /schedule, /p, etc.)
-                        setCommandInput(hint.label + " ");
-                      }
-                      inputRef.current?.focus();
-                    }}
-                  >
-                    <Text style={styles.hintLabel}>{hint.label}</Text>
-                    <Text style={styles.hintDesc}>{hint.desc}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          )}
-
-        {/* Command Input Field - hidden when fermi chat is open */}
-        {!fermiChatExpanded && (
-          <View style={styles.inputContainer}>
-            <View style={styles.inputWrapper}>
-              {/* Ghost suggestion text */}
-              {getSuggestion() && (
-                <Text style={styles.suggestionText}>{getSuggestion()}</Text>
-              )}
-              <TextInput
-                ref={inputRef}
-                style={styles.commandInput}
-                placeholder="Type @fermi for help, / for commands, or @ for agents"
-                placeholderTextColor="#665c54"
-                value={commandInput}
-                onChangeText={(text) => {
-                  setCommandInput(text);
-                  // Clear error when typing
-                  if (error) setError("");
-                  // Reset tab cycle when user types
-                  setTabCycleIndex(0);
-                }}
-                onFocus={() => setInputFocused(true)}
-                onBlur={() => setInputFocused(false)}
-                onSubmitEditing={() => {
-                  // Accept suggestion on enter if it exists
-                  const suggestion = getSuggestion();
-                  if (suggestion && commandInput !== suggestion) {
-                    setCommandInput(suggestion);
-                  } else {
-                    handleCommandSubmit();
-                  }
-                }}
-                onKeyPress={(e) => {
-                  // Tab key to cycle through hints (classic CLI autocomplete)
-                  if (e.nativeEvent.key === "Tab") {
-                    e.preventDefault();
-
-                    const hints = getCommandHints();
-                    if (hints.length === 0) return;
-
-                    // Get the next hint in cycle
-                    const hint = hints[tabCycleIndex % hints.length];
-
-                    // Apply the hint
-                    const isCompleteCommand =
-                      hint.label.includes(" ") && hint.label.startsWith("/");
-                    if (hint.label.startsWith("@")) {
-                      // Agent autocomplete
-                      if (commandInput.includes("@")) {
-                        const atIndex = commandInput.lastIndexOf("@");
-                        setCommandInput(
-                          commandInput.substring(0, atIndex) + hint.label + " ",
-                        );
-                      } else {
-                        setCommandInput(hint.label + " ");
-                      }
-                    } else if (isCompleteCommand) {
-                      setCommandInput(hint.label);
-                    } else if (
-                      hint.key === "save" ||
-                      hint.key === "cancel" ||
-                      hint.key === "help" ||
-                      hint.key === "list"
-                    ) {
-                      setCommandInput(hint.label);
-                    } else {
-                      setCommandInput(hint.label + " ");
-                    }
-
-                    // Advance to next hint for next Tab press
-                    setTabCycleIndex((tabCycleIndex + 1) % hints.length);
-                  }
-                }}
-                autoCapitalize="none"
-                returnKeyType="done"
-                blurOnSubmit={false}
-              />
-            </View>
-          </View>
-        )}
-      </View>
-
-      {/* @fermi Chat Pane */}
-      {fermiChatExpanded && (
+      {/* @fermi CLI - always visible, no collapse */}
+      {
         <View
           style={[
             styles.fermiChatPane,
@@ -4199,22 +4038,7 @@ export default function ForecastWorkspaceScreen() {
         >
           {/* Chat Header */}
           <View style={styles.fermiChatHeader}>
-            <Text style={styles.fermiChatTitle}>🦊 @fermi Coach</Text>
-            <TouchableOpacity
-              style={styles.fermiMinimizeButton}
-              onPress={() => {
-                if (isWideScreen) {
-                  // On desktop, collapse to left edge
-                  setFermiChatCollapsed(true);
-                  setFermiChatExpanded(false);
-                } else {
-                  // On mobile, hide completely
-                  setFermiChatExpanded(false);
-                }
-              }}
-            >
-              <Text style={styles.fermiMinimizeText}>◀ collapse</Text>
-            </TouchableOpacity>
+            <Text style={styles.fermiChatTitle}>🦊 fermi@uffp ~ $</Text>
           </View>
 
           {/* Chat History */}
@@ -4378,29 +4202,6 @@ export default function ForecastWorkspaceScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      )}
-
-      {/* Collapsed @fermi Tab */}
-      {!fermiChatExpanded && (
-        <TouchableOpacity
-          style={[
-            styles.fermiCollapsedTab,
-            !isWideScreen && styles.fermiCollapsedTabMobile,
-          ]}
-          onPress={() => {
-            setFermiChatExpanded(true);
-            setFermiChatCollapsed(false);
-          }}
-        >
-          <Text
-            style={[
-              styles.fermiCollapsedText,
-              !isWideScreen && styles.fermiCollapsedTextMobile,
-            ]}
-          >
-            {isWideScreen ? "▶ @fermi" : "▲ @fermi coach"}
-          </Text>
-        </TouchableOpacity>
       )}
     </KeyboardAvoidingView>
   );
