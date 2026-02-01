@@ -36,6 +36,33 @@ interface SimulationData {
   reasonForRun?: string;
 }
 
+interface DriverVersion {
+  versionId: string;
+  majorVersion: number;
+  minorVersion: number;
+  timestamp: string;
+  changeType: "major" | "minor";
+  changeDescription: string;
+  changes: {
+    field: string;
+    oldValue: any;
+    newValue: any;
+    percentChange?: number;
+  }[];
+  snapshot: any; // Full driver state at this version
+}
+
+interface ForecastVersion {
+  versionId: string;
+  majorVersion: number;
+  minorVersion: number;
+  timestamp: string;
+  changeType: "major" | "minor";
+  changeDescription: string;
+  snapshot: SavedForecast; // Full forecast state at this version
+  triggeredSimulation?: boolean;
+}
+
 interface SavedForecast {
   id: string;
   question: string;
@@ -60,6 +87,11 @@ interface SavedForecast {
   resolvedAt?: string;
   brierScore?: number;
   simulations?: SimulationData[]; // Array of simulation history
+  version?: {
+    major: number;
+    minor: number;
+  };
+  versionHistory?: ForecastVersion[];
 }
 
 const STORAGE_KEY = "@uffp_forecasts";
@@ -355,6 +387,33 @@ export default function ForecastWorkspaceScreen() {
     return warnings.length > 0 ? warnings.join(" ") : null;
   };
 
+  const createDriverVersion = (
+    driver: any,
+    changes: string[],
+    changeType: "major" | "minor",
+  ): DriverVersion => {
+    const currentVersion = driver.version || { major: 1, minor: 0 };
+    const newVersion =
+      changeType === "major"
+        ? { major: currentVersion.major + 1, minor: 0 }
+        : { major: currentVersion.major, minor: currentVersion.minor + 1 };
+
+    return {
+      versionId: `${driver.id}-v${newVersion.major}.${newVersion.minor}`,
+      majorVersion: newVersion.major,
+      minorVersion: newVersion.minor,
+      timestamp: new Date().toISOString(),
+      changeType,
+      changeDescription: changes.join(", "),
+      changes: changes.map((c) => ({
+        field: c.split(":")[0].trim(),
+        oldValue: null,
+        newValue: null,
+      })),
+      snapshot: { ...driver },
+    };
+  };
+
   const detectMajorChanges = (
     newDriver: any,
     originalDriver?: any,
@@ -459,14 +518,38 @@ export default function ForecastWorkspaceScreen() {
       return; // Don't save yet, wait for user confirmation
     }
 
+    // Create version if there are changes
+    let updatedDriver = { ...driverBeingConfigured };
+    if (majorChanges.length > 0) {
+      // Major version
+      const version = createDriverVersion(
+        driverBeingConfigured,
+        majorChanges,
+        "major",
+      );
+      const currentVersion = driverBeingConfigured.version || {
+        major: 1,
+        minor: 0,
+      };
+      updatedDriver.version = {
+        major: currentVersion.major + 1,
+        minor: 0,
+      };
+      updatedDriver.versionHistory = [
+        ...(driverBeingConfigured.versionHistory || []),
+        version,
+      ];
+    }
+
     // Check for overrides (soft warning)
-    const overrideWarning = checkConfigOverride(driverBeingConfigured);
+    const overrideWarning = checkConfigOverride(updatedDriver);
     if (overrideWarning) {
       console.log("[Driver Config]", overrideWarning);
     }
 
     setProcessingAction("Saving driver...");
     setMajorChangesWarning(null); // Clear warning
+    setDriverBeingConfigured(updatedDriver); // Update with version info
 
     try {
       if (
@@ -502,9 +585,9 @@ export default function ForecastWorkspaceScreen() {
         let updatedDrivers;
         if (existingIndex >= 0) {
           updatedDrivers = [...activeForecast.drivers];
-          updatedDrivers[existingIndex] = driverBeingConfigured;
+          updatedDrivers[existingIndex] = updatedDriver;
         } else {
-          updatedDrivers = [...activeForecast.drivers, driverBeingConfigured];
+          updatedDrivers = [...activeForecast.drivers, updatedDriver];
         }
 
         const updatedForecast = {
@@ -529,9 +612,9 @@ export default function ForecastWorkspaceScreen() {
 
       if (existingIndex >= 0) {
         updatedDrivers = [...activeForecast.drivers];
-        updatedDrivers[existingIndex] = driverBeingConfigured;
+        updatedDrivers[existingIndex] = updatedDriver;
       } else {
-        updatedDrivers = [...activeForecast.drivers, driverBeingConfigured];
+        updatedDrivers = [...activeForecast.drivers, updatedDriver];
       }
 
       const updatedForecast = {
