@@ -360,9 +360,18 @@ export default function ForecastWorkspaceScreen() {
 
       setDriverBeingConfigured(newDriver);
       setCommandInput("");
-      setError(
-        `✓ AI configured as ${recommendation.type} ${recommendation.distribution || ""}. ${recommendation.reasoning}`,
-      );
+
+      // Show AI recommendation + Fermi hint
+      const { getFermiHints } = await import("../services/fermiHints");
+      const fermiHint = getFermiHints(suggestedDriver);
+
+      let message = `✓ AI configured as ${recommendation.type} ${recommendation.distribution || ""}. ${recommendation.reasoning}`;
+
+      if (fermiHint) {
+        message += `\n\n💡 Fermi Tip: Type /fermi for decomposition hints and calibration anchors`;
+      }
+
+      setError(message);
     } catch (err) {
       console.error("[Driver Config] Analysis failed, using defaults:", err);
 
@@ -1308,6 +1317,19 @@ export default function ForecastWorkspaceScreen() {
 
           setError(historyMsg);
         }
+        setCommandInput("");
+        return;
+      }
+
+      // /fermi - show Fermi estimation hints
+      if (trimmed === "/fermi") {
+        const { generateFermiGuidance } =
+          await import("../services/fermiHints");
+        const guidance = generateFermiGuidance(
+          driverBeingConfigured.name,
+          driverBeingConfigured.type,
+        );
+        setError(guidance);
         setCommandInput("");
         return;
       }
@@ -2282,6 +2304,7 @@ export default function ForecastWorkspaceScreen() {
         },
         { key: "evidence", label: "/evidence", desc: "Add manual evidence" },
         { key: "history", label: "/history", desc: "View version history" },
+        { key: "fermi", label: "/fermi", desc: "Show Fermi estimation hints" },
         { key: "save", label: "/save", desc: "Save driver" },
         { key: "cancel", label: "/cancel", desc: "Cancel" },
       );
