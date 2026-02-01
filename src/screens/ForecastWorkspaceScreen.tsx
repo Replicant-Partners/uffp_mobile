@@ -2016,7 +2016,13 @@ export default function ForecastWorkspaceScreen() {
     // Agent configuration mode hints
     if (agentBeingConfigured) {
       const agentHints = [
-        { key: "query", label: "/query", desc: "Set research query" },
+        {
+          key: "query",
+          label: "/query",
+          desc: agentBeingConfigured.query
+            ? `Current: ${agentBeingConfigured.query.substring(0, 30)}...`
+            : "⚠️ REQUIRED - Set research query",
+        },
         {
           key: "schedule",
           label: "/schedule",
@@ -2027,7 +2033,13 @@ export default function ForecastWorkspaceScreen() {
           label: "/threshold",
           desc: "Set update threshold (0-100)",
         },
-        { key: "save", label: "/save", desc: "Save agent to driver" },
+        {
+          key: "save",
+          label: "/save",
+          desc: agentBeingConfigured.query
+            ? "Save agent to driver"
+            : "⚠️ Set query first!",
+        },
         { key: "run", label: "/run @agent", desc: "Execute agent research" },
         { key: "cancel", label: "/cancel", desc: "Cancel agent config" },
       ];
@@ -2564,7 +2576,9 @@ export default function ForecastWorkspaceScreen() {
                 {agentBeingConfigured.threshold || 10}%
               </Text>
               <Text style={styles.configHint}>
-                Use /query, /schedule, /threshold to configure, then /save
+                {!agentBeingConfigured.query
+                  ? "⚠️ Set query first: /query <your research question>"
+                  : "Use /schedule, /threshold to configure, then /save"}
               </Text>
             </View>
           </View>
