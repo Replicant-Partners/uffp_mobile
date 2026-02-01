@@ -407,13 +407,49 @@ export default function ForecastWorkspaceScreen() {
 
   const handleFermiCoaching = async (userQuery?: string) => {
     const { generateFermiGuidance } = await import("../services/fermiHints");
+    const { getOntologyService } = await import("../services/ontology");
 
     // Open chat pane
     setFermiChatExpanded(true);
 
+    // Get ontology service
+    const ontology = getOntologyService();
+
+    // Observe this interaction for pattern learning
+    ontology.observe({
+      type: "invoke",
+      entity: "USER",
+      target: "FERMI",
+      context: userQuery || "general_help",
+    });
+
     // Determine context and provide appropriate coaching
     let guidance = "";
     const queryText = userQuery || "help";
+
+    // Check if user is asking about a specific concept
+    if (userQuery && userQuery.length > 0) {
+      const conceptMatch = ontology.explainConcept(userQuery);
+      if (conceptMatch) {
+        guidance = `💡 @fermi — Concept Explanation\n\n`;
+        guidance += `📖 ${userQuery}:\n\n`;
+        guidance += conceptMatch;
+        guidance += `\n\n💬 Ask me about other concepts or type /help for commands!`;
+        await addFermiMessage(queryText, guidance);
+        return;
+      }
+
+      // Search for related concepts
+      const searchResults = ontology.searchConcepts(userQuery);
+      if (searchResults.length > 0 && searchResults.length <= 3) {
+        guidance = `💡 @fermi — Found ${searchResults.length} related concept(s)\n\n`;
+        for (const result of searchResults) {
+          guidance += `📖 ${result.concept}:\n${result.explanation}\n\n`;
+        }
+        await addFermiMessage(queryText, guidance);
+        return;
+      }
+    }
 
     if (driverBeingConfigured) {
       // Context: Configuring a driver
@@ -866,6 +902,22 @@ export default function ForecastWorkspaceScreen() {
 
         setActiveForecast(updatedForecast);
         await saveForecast(updatedForecast);
+      }
+
+      // Observe this action for ontology learning
+      try {
+        const { getOntologyService } = await import("../services/ontology");
+        const ontology = getOntologyService();
+        ontology.observe({
+          type: isNewDriver ? "create" : "modify",
+          entity: "USER",
+          entityType: "USER" as any,
+          target: "DRIVER",
+          targetType: "DRIVER" as any,
+          context: `${isNewDriver ? "created" : "modified"} driver: ${updatedDriver.name} (${updatedDriver.type})`,
+        });
+      } catch (obsErr) {
+        console.log("[Ontology] Observation skipped:", obsErr);
       }
 
       setDriverBeingConfigured(null);
