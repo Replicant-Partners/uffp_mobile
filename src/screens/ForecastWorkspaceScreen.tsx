@@ -1952,7 +1952,16 @@ export default function ForecastWorkspaceScreen() {
 
             {/* External View - Always at top to ground the problem class */}
             {activeForecast?.externalView && (
-              <View style={styles.externalViewCard}>
+              <TouchableOpacity
+                style={styles.externalViewCard}
+                onPress={() => {
+                  // Click to edit reference class
+                  setCommandInput(
+                    `/external ${activeForecast.externalView.referenceClass}`,
+                  );
+                  inputRef.current?.focus();
+                }}
+              >
                 <Text style={styles.externalViewLabel}>
                   📊 External View (Reference Class):
                 </Text>
@@ -1967,7 +1976,8 @@ export default function ForecastWorkspaceScreen() {
                       ` (${activeForecast.externalView.source})`}
                   </Text>
                 )}
-              </View>
+                <Text style={styles.externalViewHint}>Click to edit</Text>
+              </TouchableOpacity>
             )}
 
             {parsedResult && (
@@ -2978,6 +2988,12 @@ const styles = StyleSheet.create({
     color: "#ebdbb2",
     fontWeight: "500",
     marginBottom: 4,
+  },
+  externalViewHint: {
+    fontSize: 10,
+    color: "#928374",
+    fontStyle: "italic",
+    marginTop: 6,
   },
   baseRateText: {
     fontSize: 12,
