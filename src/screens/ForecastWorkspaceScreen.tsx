@@ -5158,7 +5158,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: "35%",
     minWidth: 400,
-    height: "100vh",
     backgroundColor: "#1d2021",
     borderRightWidth: 2,
     borderRightColor: "#fabd2f",
@@ -5169,6 +5168,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 10,
     zIndex: 1000,
+    ...(Platform.OS === "web" && {
+      height: "100vh",
+    }),
   },
   fermiChatPaneMobile: {
     position: "absolute",
