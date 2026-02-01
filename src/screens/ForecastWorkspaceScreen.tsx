@@ -141,6 +141,38 @@ export default function ForecastWorkspaceScreen() {
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
 
+  // Migrate old evidence format to new format
+  const migrateEvidenceFormat = (forecasts: any[]) => {
+    return forecasts.map((forecast) => {
+      if (!forecast.drivers) return forecast;
+
+      const updatedDrivers = forecast.drivers.map((driver: any) => {
+        if (!driver.evidence || !Array.isArray(driver.evidence)) return driver;
+
+        const migratedEvidence = driver.evidence.map((ev: any) => {
+          // Check if fullResult has the old wrapper structure
+          if (
+            ev.fullResult &&
+            ev.fullResult.result &&
+            !ev.fullResult.response
+          ) {
+            console.log("[Migration] Fixing evidence format for", driver.name);
+            return {
+              ...ev,
+              fullResult: ev.fullResult.result, // Unwrap to get actual ResearchResult
+              summary: ev.fullResult.result?.summary || ev.summary,
+            };
+          }
+          return ev;
+        });
+
+        return { ...driver, evidence: migratedEvidence };
+      });
+
+      return { ...forecast, drivers: updatedDrivers };
+    });
+  };
+
   const loadForecasts = async () => {
     try {
       // Try loading from backend first
@@ -149,7 +181,8 @@ export default function ForecastWorkspaceScreen() {
 
       if (result.fromBackend && result.forecasts.length > 0) {
         console.log(`Loaded ${result.forecasts.length} forecasts from backend`);
-        setSavedForecasts(result.forecasts);
+        const migrated = migrateEvidenceFormat(result.forecasts);
+        setSavedForecasts(migrated);
         return;
       }
 
@@ -161,7 +194,15 @@ export default function ForecastWorkspaceScreen() {
       if (stored) {
         const forecasts = JSON.parse(stored);
         console.log(`Loaded ${forecasts.length} forecasts from local storage`);
-        setSavedForecasts(forecasts);
+        const migrated = migrateEvidenceFormat(forecasts);
+        setSavedForecasts(migrated);
+
+        // Save migrated data back
+        if (Platform.OS === "web") {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+        } else {
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+        }
       } else {
         setSavedForecasts([]);
       }
