@@ -6,12 +6,12 @@
  */
 
 export type CommandContext =
-  | "forecast_list"     // No active forecast
-  | "forecast_active"   // Forecast open, no driver config
-  | "driver_config"     // Configuring a driver
-  | "agent_config"      // Configuring an agent
+  | "forecast_list" // No active forecast
+  | "forecast_active" // Forecast open, no driver config
+  | "driver_config" // Configuring a driver
+  | "agent_config" // Configuring an agent
   | "simulation_results" // After running simulation
-  | "any";              // Works in any context
+  | "any"; // Works in any context
 
 export interface Command {
   name: string;
@@ -41,7 +41,7 @@ export interface CommandSuggestion {
  */
 export const COMMANDS: Record<string, Command> = {
   // Help system
-  "help": {
+  help: {
     name: "help",
     syntax: "/-h or /help [command]",
     description: "Show all commands or help for specific command",
@@ -56,7 +56,7 @@ export const COMMANDS: Record<string, Command> = {
         if (cmd) {
           return {
             success: true,
-            message: `📖 ${cmd.syntax}\n\n${cmd.description}\n\n✨ Examples:\n${cmd.examples.map(e => `  ${e}`).join("\n")}\n\n📍 Valid in: ${cmd.contexts.join(", ")}`,
+            message: `📖 ${cmd.syntax}\n\n${cmd.description}\n\n✨ Examples:\n${cmd.examples.map((e) => `  ${e}`).join("\n")}\n\n📍 Valid in: ${cmd.contexts.join(", ")}`,
           };
         } else {
           return {
@@ -68,12 +68,12 @@ export const COMMANDS: Record<string, Command> = {
 
       // Show all commands grouped by category
       const { context } = state;
-      const available = Object.values(COMMANDS).filter(cmd =>
-        cmd.contexts.includes("any") || cmd.contexts.includes(context)
+      const available = Object.values(COMMANDS).filter(
+        (cmd) => cmd.contexts.includes("any") || cmd.contexts.includes(context),
       );
 
       const byCategory: Record<string, Command[]> = {};
-      available.forEach(cmd => {
+      available.forEach((cmd) => {
         if (!byCategory[cmd.category]) byCategory[cmd.category] = [];
         byCategory[cmd.category].push(cmd);
       });
@@ -82,7 +82,7 @@ export const COMMANDS: Record<string, Command> = {
 
       for (const [category, cmds] of Object.entries(byCategory)) {
         message += `**${category.toUpperCase()}**\n`;
-        cmds.forEach(cmd => {
+        cmds.forEach((cmd) => {
           message += `  ${cmd.syntax} - ${cmd.description}\n`;
         });
         message += "\n";
@@ -95,7 +95,7 @@ export const COMMANDS: Record<string, Command> = {
   },
 
   // Forecast commands
-  "question": {
+  question: {
     name: "question",
     syntax: "/question <your forecast question>",
     description: "Start a new forecast",
@@ -109,23 +109,31 @@ export const COMMANDS: Record<string, Command> = {
           success: false,
           message: "Please provide a forecast question",
           suggestions: [
-            { command: "/question Will X happen by Y?", description: "Template for time-bound forecast", clickable: false },
+            {
+              command: "/question Will X happen by Y?",
+              description: "Template for time-bound forecast",
+              clickable: false,
+            },
           ],
         };
       }
 
       return {
         success: true,
-        message: `✓ Created forecast: "${question}"\n\nNext steps:\n• Add drivers with natural language or /driver\n• Configure with /p, /dist, /direction\n• Run /simulate when ready`,
+        message: `Great question! I created your forecast.\n\nLet's break this down into drivers - what key factors will influence this outcome?`,
         updateState: { question },
         suggestions: [
-          { command: "/driver Market size", description: "Add first driver", clickable: true },
+          {
+            command: "/driver Market size",
+            description: "Add first driver",
+            clickable: true,
+          },
         ],
       };
     },
   },
 
-  "list": {
+  list: {
     name: "list",
     syntax: "/list [all|active|expired]",
     description: "Show your forecasts",
@@ -142,7 +150,7 @@ export const COMMANDS: Record<string, Command> = {
     },
   },
 
-  "simulate": {
+  simulate: {
     name: "simulate",
     syntax: "/simulate",
     description: "Run Monte Carlo simulation",
@@ -156,21 +164,25 @@ export const COMMANDS: Record<string, Command> = {
           success: false,
           message: "❌ No drivers configured. Add drivers first.",
           suggestions: [
-            { command: "/driver <name>", description: "Add a driver", clickable: false },
+            {
+              command: "/driver <name>",
+              description: "Add a driver",
+              clickable: false,
+            },
           ],
         };
       }
 
       return {
         success: true,
-        message: `🎲 Running simulation with ${drivers.length} driver(s)...`,
+        message: `Excellent! Running Monte Carlo simulation with your ${drivers.length} driver(s). This might take a moment...`,
         updateState: { runSimulation: true },
       };
     },
   },
 
   // Driver configuration commands
-  "driver": {
+  driver: {
     name: "driver",
     syntax: "/driver <name>",
     description: "Add or configure a driver",
@@ -188,17 +200,25 @@ export const COMMANDS: Record<string, Command> = {
 
       return {
         success: true,
-        message: `✓ Configuring driver: "${name}"\n\nNext:\n• Set parameters: /p <p5> <p50> <p95>\n• Set distribution: /dist <triangular|normal|lognormal>\n• Set direction: /direction <increases|decreases>`,
+        message: `Nice! Let's configure "${name}".\n\nFirst, give me your best guess for the range - what are your pessimistic (p5), likely (p50), and optimistic (p95) estimates?`,
         updateState: { configureDriver: name },
         suggestions: [
-          { command: "/p 10 50 90", description: "Set parameter values", clickable: true },
-          { command: "/dist triangular", description: "Set distribution", clickable: true },
+          {
+            command: "/p 10 50 90",
+            description: "Set parameter values",
+            clickable: true,
+          },
+          {
+            command: "/dist triangular",
+            description: "Set distribution",
+            clickable: true,
+          },
         ],
       };
     },
   },
 
-  "p": {
+  p: {
     name: "p",
     syntax: "/p <p5> <p50> <p95>",
     description: "Set driver parameters (percentiles)",
@@ -224,22 +244,33 @@ export const COMMANDS: Record<string, Command> = {
       }
 
       if (p50 >= p95) {
-        return { success: false, message: `p50 (${p50}) must be < p95 (${p95})` };
+        return {
+          success: false,
+          message: `p50 (${p50}) must be < p95 (${p95})`,
+        };
       }
 
       return {
         success: true,
-        message: `✓ Set parameters: p5=${p5}, p50=${p50}, p95=${p95}\n\n📊 This means:\n• 5% chance below ${p5}\n• Most likely ${p50}\n• 5% chance above ${p95}`,
+        message: `Got it! I set your estimates:\n• ${p5} (pessimistic)\n• ${p50} (most likely)\n• ${p95} (optimistic)\n\nThese look good - nice range of uncertainty!`,
         updateState: { p5, p50, p95 },
         suggestions: [
-          { command: "/dist triangular", description: "Set distribution type", clickable: true },
-          { command: "/direction increases", description: "Set how this affects outcome", clickable: true },
+          {
+            command: "/dist triangular",
+            description: "Set distribution type",
+            clickable: true,
+          },
+          {
+            command: "/direction increases",
+            description: "Set how this affects outcome",
+            clickable: true,
+          },
         ],
       };
     },
   },
 
-  "dist": {
+  dist: {
     name: "dist",
     syntax: "/dist <triangular|normal|lognormal>",
     description: "Set probability distribution type",
@@ -254,11 +285,14 @@ export const COMMANDS: Record<string, Command> = {
         return {
           success: false,
           message: `Distribution must be one of: ${valid.join(", ")}`,
-          suggestions: valid.map(d => ({
+          suggestions: valid.map((d) => ({
             command: `/dist ${d}`,
-            description: d === "triangular" ? "Most common (min, mode, max)" :
-                        d === "normal" ? "Bell curve (symmetric)" :
-                        "Can't be negative, long tail",
+            description:
+              d === "triangular"
+                ? "Most common (min, mode, max)"
+                : d === "normal"
+                  ? "Bell curve (symmetric)"
+                  : "Can't be negative, long tail",
             clickable: true,
           })),
         };
@@ -272,17 +306,25 @@ export const COMMANDS: Record<string, Command> = {
 
       return {
         success: true,
-        message: `✓ Set distribution: ${dist}\n\n📊 ${explanations[dist as keyof typeof explanations]}`,
+        message: `Perfect! Using ${dist} distribution. ${explanations[dist as keyof typeof explanations]}`,
         updateState: { distribution: dist },
         suggestions: [
-          { command: "/direction increases", description: "Set effect on outcome", clickable: true },
-          { command: "/save", description: "Save this driver", clickable: true },
+          {
+            command: "/direction increases",
+            description: "Set effect on outcome",
+            clickable: true,
+          },
+          {
+            command: "/save",
+            description: "Save this driver",
+            clickable: true,
+          },
         ],
       };
     },
   },
 
-  "direction": {
+  direction: {
     name: "direction",
     syntax: "/direction <increases|decreases>",
     description: "Set how driver affects outcome probability",
@@ -297,28 +339,41 @@ export const COMMANDS: Record<string, Command> = {
           success: false,
           message: "Direction must be 'increases' or 'decreases'",
           suggestions: [
-            { command: "/direction increases", description: "Higher value → MORE likely", clickable: true },
-            { command: "/direction decreases", description: "Higher value → LESS likely", clickable: true },
+            {
+              command: "/direction increases",
+              description: "Higher value → MORE likely",
+              clickable: true,
+            },
+            {
+              command: "/direction decreases",
+              description: "Higher value → LESS likely",
+              clickable: true,
+            },
           ],
         };
       }
 
-      const explanation = dir === "increases"
-        ? "Higher values of this driver make the outcome MORE likely"
-        : "Higher values of this driver make the outcome LESS likely";
+      const explanation =
+        dir === "increases"
+          ? "Higher values of this driver make the outcome MORE likely"
+          : "Higher values of this driver make the outcome LESS likely";
 
       return {
         success: true,
-        message: `✓ Direction: ${dir}\n\n📈 ${explanation}`,
+        message: `Great! This driver ${dir} the outcome probability. ${explanation}`,
         updateState: { direction: dir },
         suggestions: [
-          { command: "/save", description: "Save this driver", clickable: true },
+          {
+            command: "/save",
+            description: "Save this driver",
+            clickable: true,
+          },
         ],
       };
     },
   },
 
-  "save": {
+  save: {
     name: "save",
     syntax: "/save",
     description: "Save current configuration",
@@ -328,17 +383,25 @@ export const COMMANDS: Record<string, Command> = {
     execute: async (args, state) => {
       return {
         success: true,
-        message: `✓ Saved!\n\nWhat's next?`,
+        message: `All set! Driver saved successfully.\n\nReady to add more drivers or run your simulation?`,
         updateState: { save: true },
         suggestions: [
-          { command: "/driver <name>", description: "Add another driver", clickable: false },
-          { command: "/simulate", description: "Run simulation", clickable: true },
+          {
+            command: "/driver <name>",
+            description: "Add another driver",
+            clickable: false,
+          },
+          {
+            command: "/simulate",
+            description: "Run simulation",
+            clickable: true,
+          },
         ],
       };
     },
   },
 
-  "cancel": {
+  cancel: {
     name: "cancel",
     syntax: "/cancel",
     description: "Cancel current configuration",
@@ -359,8 +422,8 @@ export const COMMANDS: Record<string, Command> = {
  * Get commands valid in current context
  */
 export function getAvailableCommands(context: CommandContext): Command[] {
-  return Object.values(COMMANDS).filter(cmd =>
-    cmd.contexts.includes("any") || cmd.contexts.includes(context)
+  return Object.values(COMMANDS).filter(
+    (cmd) => cmd.contexts.includes("any") || cmd.contexts.includes(context),
   );
 }
 
@@ -370,7 +433,7 @@ export function getAvailableCommands(context: CommandContext): Command[] {
 export async function executeCommand(
   input: string,
   context: CommandContext,
-  state: any
+  state: any,
 ): Promise<CommandResult> {
   const trimmed = input.trim();
 
@@ -378,7 +441,8 @@ export async function executeCommand(
   if (!trimmed.startsWith("/")) {
     return {
       success: false,
-      message: "Commands start with /. Try /-h for help, or ask me anything in natural language!",
+      message:
+        "Commands start with /. Try /-h for help, or ask me anything in natural language!",
     };
   }
 
