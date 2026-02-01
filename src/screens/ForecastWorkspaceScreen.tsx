@@ -3906,84 +3906,86 @@ export default function ForecastWorkspaceScreen() {
           </ScrollView>
         )}
 
-        {/* Command Input Field */}
-        <View style={styles.inputContainer}>
-          <View style={styles.inputWrapper}>
-            {/* Ghost suggestion text */}
-            {getSuggestion() && (
-              <Text style={styles.suggestionText}>{getSuggestion()}</Text>
-            )}
-            <TextInput
-              ref={inputRef}
-              style={styles.commandInput}
-              placeholder="Type @fermi for help, / for commands, or @ for agents"
-              placeholderTextColor="#665c54"
-              value={commandInput}
-              onChangeText={(text) => {
-                setCommandInput(text);
-                // Clear error when typing
-                if (error) setError("");
-                // Reset tab cycle when user types
-                setTabCycleIndex(0);
-              }}
-              onFocus={() => setInputFocused(true)}
-              onBlur={() => setInputFocused(false)}
-              onSubmitEditing={() => {
-                // Accept suggestion on enter if it exists
-                const suggestion = getSuggestion();
-                if (suggestion && commandInput !== suggestion) {
-                  setCommandInput(suggestion);
-                } else {
-                  handleCommandSubmit();
-                }
-              }}
-              onKeyPress={(e) => {
-                // Tab key to cycle through hints (classic CLI autocomplete)
-                if (e.nativeEvent.key === "Tab") {
-                  e.preventDefault();
+        {/* Command Input Field - hidden when fermi chat is open */}
+        {!fermiChatExpanded && (
+          <View style={styles.inputContainer}>
+            <View style={styles.inputWrapper}>
+              {/* Ghost suggestion text */}
+              {getSuggestion() && (
+                <Text style={styles.suggestionText}>{getSuggestion()}</Text>
+              )}
+              <TextInput
+                ref={inputRef}
+                style={styles.commandInput}
+                placeholder="Type @fermi for help, / for commands, or @ for agents"
+                placeholderTextColor="#665c54"
+                value={commandInput}
+                onChangeText={(text) => {
+                  setCommandInput(text);
+                  // Clear error when typing
+                  if (error) setError("");
+                  // Reset tab cycle when user types
+                  setTabCycleIndex(0);
+                }}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
+                onSubmitEditing={() => {
+                  // Accept suggestion on enter if it exists
+                  const suggestion = getSuggestion();
+                  if (suggestion && commandInput !== suggestion) {
+                    setCommandInput(suggestion);
+                  } else {
+                    handleCommandSubmit();
+                  }
+                }}
+                onKeyPress={(e) => {
+                  // Tab key to cycle through hints (classic CLI autocomplete)
+                  if (e.nativeEvent.key === "Tab") {
+                    e.preventDefault();
 
-                  const hints = getCommandHints();
-                  if (hints.length === 0) return;
+                    const hints = getCommandHints();
+                    if (hints.length === 0) return;
 
-                  // Get the next hint in cycle
-                  const hint = hints[tabCycleIndex % hints.length];
+                    // Get the next hint in cycle
+                    const hint = hints[tabCycleIndex % hints.length];
 
-                  // Apply the hint
-                  const isCompleteCommand =
-                    hint.label.includes(" ") && hint.label.startsWith("/");
-                  if (hint.label.startsWith("@")) {
-                    // Agent autocomplete
-                    if (commandInput.includes("@")) {
-                      const atIndex = commandInput.lastIndexOf("@");
-                      setCommandInput(
-                        commandInput.substring(0, atIndex) + hint.label + " ",
-                      );
+                    // Apply the hint
+                    const isCompleteCommand =
+                      hint.label.includes(" ") && hint.label.startsWith("/");
+                    if (hint.label.startsWith("@")) {
+                      // Agent autocomplete
+                      if (commandInput.includes("@")) {
+                        const atIndex = commandInput.lastIndexOf("@");
+                        setCommandInput(
+                          commandInput.substring(0, atIndex) + hint.label + " ",
+                        );
+                      } else {
+                        setCommandInput(hint.label + " ");
+                      }
+                    } else if (isCompleteCommand) {
+                      setCommandInput(hint.label);
+                    } else if (
+                      hint.key === "save" ||
+                      hint.key === "cancel" ||
+                      hint.key === "help" ||
+                      hint.key === "list"
+                    ) {
+                      setCommandInput(hint.label);
                     } else {
                       setCommandInput(hint.label + " ");
                     }
-                  } else if (isCompleteCommand) {
-                    setCommandInput(hint.label);
-                  } else if (
-                    hint.key === "save" ||
-                    hint.key === "cancel" ||
-                    hint.key === "help" ||
-                    hint.key === "list"
-                  ) {
-                    setCommandInput(hint.label);
-                  } else {
-                    setCommandInput(hint.label + " ");
-                  }
 
-                  // Advance to next hint for next Tab press
-                  setTabCycleIndex((tabCycleIndex + 1) % hints.length);
-                }
-              }}
-              autoCapitalize="none"
-              returnKeyType="done"
-              blurOnSubmit={false}
-            />
+                    // Advance to next hint for next Tab press
+                    setTabCycleIndex((tabCycleIndex + 1) % hints.length);
+                  }
+                }}
+                autoCapitalize="none"
+                returnKeyType="done"
+                blurOnSubmit={false}
+              />
+            </View>
           </View>
-        </View>
+        )}
       </View>
 
       {/* @fermi Chat Pane */}
@@ -4969,11 +4971,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: "40%",
+    height: "50%",
     backgroundColor: "#1d2021",
     borderTopWidth: 2,
     borderTopColor: "#fabd2f",
     flexDirection: "column",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 10,
   },
   fermiChatHeader: {
     flexDirection: "row",
@@ -5000,6 +5007,7 @@ const styles = StyleSheet.create({
   fermiChatHistory: {
     flex: 1,
     padding: 12,
+    maxHeight: "70%",
   },
   fermiMessage: {
     marginBottom: 16,
