@@ -93,6 +93,11 @@ interface SavedForecast {
     minor: number;
   };
   versionHistory?: ForecastVersion[];
+  fermiConversation?: {
+    timestamp: string;
+    role: "user" | "fermi";
+    message: string;
+  }[];
 }
 
 const STORAGE_KEY = "@uffp_forecasts";
@@ -133,6 +138,8 @@ export default function ForecastWorkspaceScreen() {
     schedule?: string;
     threshold?: number;
   } | null>(null);
+  const [fermiChatExpanded, setFermiChatExpanded] = useState(false);
+  const [fermiChatInput, setFermiChatInput] = useState("");
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
