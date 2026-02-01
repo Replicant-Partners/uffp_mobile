@@ -4039,6 +4039,12 @@ export default function ForecastWorkspaceScreen() {
           {/* Chat Header */}
           <View style={styles.fermiChatHeader}>
             <Text style={styles.fermiChatTitle}>🦊 fermi@uffp ~ $</Text>
+            <TouchableOpacity
+              style={styles.fermiMinimizeButton}
+              onPress={() => setFermiChatExpanded(false)}
+            >
+              <Text style={styles.fermiMinimizeText}>◀</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Chat History */}
@@ -4242,6 +4248,16 @@ export default function ForecastWorkspaceScreen() {
             </TouchableOpacity>
           </View>
         </View>
+      )}
+
+      {/* Collapsed CLI button - small and minimal */}
+      {!fermiChatExpanded && (
+        <TouchableOpacity
+          style={styles.fermiCollapsedTab}
+          onPress={() => setFermiChatExpanded(true)}
+        >
+          <Text style={styles.fermiCollapsedText}>▶</Text>
+        </TouchableOpacity>
       )}
     </KeyboardAvoidingView>
   );
@@ -5169,12 +5185,12 @@ const styles = StyleSheet.create({
           : "Courier New, monospace",
   },
   fermiMinimizeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   fermiMinimizeText: {
-    color: "#ebdbb2",
-    fontSize: 12,
+    color: "#928374",
+    fontSize: 14,
   },
   fermiChatHistory: {
     flex: 1,
@@ -5359,22 +5375,22 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     top: "50%",
-    marginTop: -30,
-    backgroundColor: "#fabd2f",
-    paddingVertical: 16,
-    paddingHorizontal: 8,
+    marginTop: -20,
+    backgroundColor: "#3c3836",
+    paddingVertical: 8,
+    paddingHorizontal: 6,
     alignItems: "center",
     justifyContent: "center",
-    borderTopRightRadius: 8,
-    borderBottomRightRadius: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 2, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
+    borderRightWidth: 1,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#665c54",
+    elevation: 2,
     zIndex: 999,
-    minWidth: 40,
-    height: 60,
+    minWidth: 24,
+    height: 40,
   },
   fermiCollapsedTabMobile: {
     position: "absolute",
@@ -5392,11 +5408,9 @@ const styles = StyleSheet.create({
     height: "auto",
   },
   fermiCollapsedText: {
-    color: "#282828",
-    fontSize: 14,
-    fontWeight: "bold",
-    letterSpacing: 0.5,
-    transform: [{ rotate: "90deg" }],
+    color: "#d5c4a1",
+    fontSize: 12,
+    fontWeight: "normal",
   },
   fermiCollapsedTextMobile: {
     transform: [],
