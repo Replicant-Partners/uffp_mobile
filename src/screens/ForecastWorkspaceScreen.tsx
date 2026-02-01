@@ -114,6 +114,9 @@ export default function ForecastWorkspaceScreen() {
   const [error, setError] = useState<string>("");
   const [showCommandHints, setShowCommandHints] = useState(true);
   const [inputFocused, setInputFocused] = useState(false);
+  const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(
+    new Set(),
+  );
   const [processingAction, setProcessingAction] = useState<string>("");
   const [driverBeingConfigured, setDriverBeingConfigured] = useState<
     any | null
@@ -2786,17 +2789,53 @@ export default function ForecastWorkspaceScreen() {
                       <Text style={styles.evidenceLabel}>
                         📚 Evidence ({driver.evidence.length}):
                       </Text>
-                      {driver.evidence.map((ev: any, idx: number) => (
-                        <View key={idx} style={styles.evidenceItem}>
-                          <Text style={styles.evidenceSource}>
-                            @{ev.source} ·{" "}
-                            {new Date(ev.timestamp).toLocaleDateString()}
-                          </Text>
-                          <Text style={styles.evidenceSummary}>
-                            {ev.summary}
-                          </Text>
-                        </View>
-                      ))}
+                      {driver.evidence.map((ev: any, idx: number) => {
+                        const evidenceKey = `${driver.id}-${idx}`;
+                        const isExpanded = expandedEvidence.has(evidenceKey);
+
+                        return (
+                          <TouchableOpacity
+                            key={idx}
+                            style={styles.evidenceItem}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              const newExpanded = new Set(expandedEvidence);
+                              if (isExpanded) {
+                                newExpanded.delete(evidenceKey);
+                              } else {
+                                newExpanded.add(evidenceKey);
+                              }
+                              setExpandedEvidence(newExpanded);
+                            }}
+                          >
+                            <View style={styles.evidenceHeader}>
+                              <Text style={styles.evidenceSource}>
+                                @{ev.source} ·{" "}
+                                {new Date(ev.timestamp).toLocaleDateString()}
+                              </Text>
+                              <Text style={styles.expandIndicator}>
+                                {isExpanded ? "▼" : "▶"}
+                              </Text>
+                            </View>
+                            <Text
+                              style={styles.evidenceSummary}
+                              numberOfLines={isExpanded ? undefined : 2}
+                            >
+                              {ev.summary}
+                            </Text>
+                            {isExpanded && ev.fullResult && (
+                              <View style={styles.fullResultSection}>
+                                <Text style={styles.fullResultLabel}>
+                                  Full Research:
+                                </Text>
+                                <Text style={styles.fullResultText}>
+                                  {JSON.stringify(ev.fullResult, null, 2)}
+                                </Text>
+                              </View>
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
                   )}
                 </TouchableOpacity>
@@ -3700,16 +3739,46 @@ const styles = StyleSheet.create({
   },
   evidenceItem: {
     marginBottom: 8,
+    backgroundColor: "#32302f",
+    padding: 10,
+    borderRadius: 6,
+  },
+  evidenceHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
   },
   evidenceSource: {
     fontSize: 10,
     color: "#928374",
-    marginBottom: 2,
+  },
+  expandIndicator: {
+    fontSize: 10,
+    color: "#fabd2f",
   },
   evidenceSummary: {
     fontSize: 12,
     color: "#ebdbb2",
     lineHeight: 16,
+  },
+  fullResultSection: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#504945",
+  },
+  fullResultLabel: {
+    fontSize: 11,
+    color: "#83a598",
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  fullResultText: {
+    fontSize: 11,
+    color: "#d5c4a1",
+    fontFamily: "monospace",
+    lineHeight: 14,
   },
   suggestedDriverCard: {
     backgroundColor: "#3c3836",
