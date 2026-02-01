@@ -2054,7 +2054,7 @@ export default function ForecastWorkspaceScreen() {
                             ],
                           }}
                           width={Dimensions.get("window").width - 40}
-                          height={200}
+                          height={140}
                           yAxisLabel=""
                           yAxisSuffix="%"
                           chartConfig={{
@@ -2135,7 +2135,7 @@ export default function ForecastWorkspaceScreen() {
                                 ],
                               }}
                               width={Dimensions.get("window").width - 64}
-                              height={180}
+                              height={120}
                               yAxisSuffix="%"
                               chartConfig={{
                                 backgroundColor: "#3c3836",
