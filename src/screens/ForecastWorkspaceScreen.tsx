@@ -2020,7 +2020,7 @@ export default function ForecastWorkspaceScreen() {
           key: "query",
           label: "/query",
           desc: agentBeingConfigured.query
-            ? `Current: ${agentBeingConfigured.query.substring(0, 30)}...`
+            ? `✓ Query set: ${agentBeingConfigured.query.length > 25 ? agentBeingConfigured.query.substring(0, 25) + "..." : agentBeingConfigured.query}`
             : "⚠️ REQUIRED - Set research query",
         },
         {
@@ -2037,7 +2037,7 @@ export default function ForecastWorkspaceScreen() {
           key: "save",
           label: "/save",
           desc: agentBeingConfigured.query
-            ? "Save agent to driver"
+            ? "✓ Ready to save agent to driver"
             : "⚠️ Set query first!",
         },
         { key: "run", label: "/run @agent", desc: "Execute agent research" },
@@ -2571,9 +2571,14 @@ export default function ForecastWorkspaceScreen() {
             <View style={styles.agentConfigCard}>
               <Text style={styles.agentName}>@{agentBeingConfigured.name}</Text>
               <Text style={styles.agentDetails}>
-                Query: {agentBeingConfigured.query || "not set"} · Schedule:{" "}
-                {agentBeingConfigured.schedule || "on-demand"} · Threshold:{" "}
-                {agentBeingConfigured.threshold || 10}%
+                Query:{" "}
+                {agentBeingConfigured.query
+                  ? agentBeingConfigured.query.length > 50
+                    ? agentBeingConfigured.query.substring(0, 50) + "..."
+                    : agentBeingConfigured.query
+                  : "not set"}{" "}
+                · Schedule: {agentBeingConfigured.schedule || "on-demand"} ·
+                Threshold: {agentBeingConfigured.threshold || 10}%
               </Text>
               <Text style={styles.configHint}>
                 {!agentBeingConfigured.query
