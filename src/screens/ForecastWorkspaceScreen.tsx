@@ -2413,6 +2413,24 @@ export default function ForecastWorkspaceScreen() {
                       : `P(${driver.probability}%)`}{" "}
                     · {driver.direction}
                   </Text>
+                  {driver.evidence && driver.evidence.length > 0 && (
+                    <View style={styles.evidenceSection}>
+                      <Text style={styles.evidenceLabel}>
+                        📚 Evidence ({driver.evidence.length}):
+                      </Text>
+                      {driver.evidence.map((ev: any, idx: number) => (
+                        <View key={idx} style={styles.evidenceItem}>
+                          <Text style={styles.evidenceSource}>
+                            @{ev.source} ·{" "}
+                            {new Date(ev.timestamp).toLocaleDateString()}
+                          </Text>
+                          <Text style={styles.evidenceSummary}>
+                            {ev.summary}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </TouchableOpacity>
               ))}
             </View>
@@ -2833,30 +2851,32 @@ export default function ForecastWorkspaceScreen() {
         {/* Command Hints */}
         {showCommandHints && getCommandHints().length > 0 && (
           <View style={styles.hintsPanel}>
-            {getCommandHints().map((hint) => (
-              <TouchableOpacity
-                key={hint.key}
-                style={styles.hintItem}
-                onPress={() => {
-                  if (hint.key === "question") {
-                    setCommandInput("/question ");
-                  } else if (hint.label.startsWith("@")) {
-                    // For agent autocomplete, check if we're in /run context
-                    if (commandInput.includes("/run")) {
-                      setCommandInput("/run " + hint.label + " ");
+            {getCommandHints()
+              .slice(0, 4)
+              .map((hint) => (
+                <TouchableOpacity
+                  key={hint.key}
+                  style={styles.hintItem}
+                  onPress={() => {
+                    if (hint.key === "question") {
+                      setCommandInput("/question ");
+                    } else if (hint.label.startsWith("@")) {
+                      // For agent autocomplete, check if we're in /run context
+                      if (commandInput.includes("/run")) {
+                        setCommandInput("/run " + hint.label + " ");
+                      } else {
+                        setCommandInput(hint.label + " ");
+                      }
                     } else {
                       setCommandInput(hint.label + " ");
                     }
-                  } else {
-                    setCommandInput(hint.label + " ");
-                  }
-                  inputRef.current?.focus();
-                }}
-              >
-                <Text style={styles.hintLabel}>{hint.label}</Text>
-                <Text style={styles.hintDesc}>{hint.desc}</Text>
-              </TouchableOpacity>
-            ))}
+                    inputRef.current?.focus();
+                  }}
+                >
+                  <Text style={styles.hintLabel}>{hint.label}</Text>
+                  <Text style={styles.hintDesc}>{hint.desc}</Text>
+                </TouchableOpacity>
+              ))}
           </View>
         )}
 
@@ -3185,6 +3205,31 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: "#458588",
   },
+  evidenceSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#504945",
+  },
+  evidenceLabel: {
+    fontSize: 11,
+    color: "#83a598",
+    fontWeight: "600",
+    marginBottom: 6,
+  },
+  evidenceItem: {
+    marginBottom: 8,
+  },
+  evidenceSource: {
+    fontSize: 10,
+    color: "#928374",
+    marginBottom: 2,
+  },
+  evidenceSummary: {
+    fontSize: 12,
+    color: "#ebdbb2",
+    lineHeight: 16,
+  },
   suggestedDriverCard: {
     backgroundColor: "#3c3836",
     padding: 16,
@@ -3365,9 +3410,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#3c3836",
     borderTopWidth: 1,
     borderTopColor: "#504945",
+    maxHeight: 150, // Limit height to ~3-4 hints
+    overflow: "hidden",
   },
   hintItem: {
-    padding: 12,
+    padding: 8, // Reduced from 12
     borderBottomWidth: 1,
     borderBottomColor: "#504945",
   },
