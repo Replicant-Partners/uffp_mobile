@@ -2874,45 +2874,82 @@ export default function ForecastWorkspaceScreen() {
                                 <Text style={styles.fullResultText}>
                                   {(() => {
                                     // Format as readable text instead of raw JSON
-                                    const result = ev.fullResult;
-                                    if (typeof result === "string")
-                                      return result;
+                                    const data = ev.fullResult;
+                                    if (typeof data === "string") return data;
 
                                     let formatted = "";
-                                    if (result.summary)
-                                      formatted += `Summary:\n${result.summary}\n\n`;
-                                    if (result.findings) {
-                                      formatted += `Findings:\n`;
-                                      if (Array.isArray(result.findings)) {
-                                        result.findings.forEach(
-                                          (f: any, i: number) => {
-                                            formatted += `${i + 1}. ${typeof f === "string" ? f : JSON.stringify(f)}\n`;
-                                          },
-                                        );
-                                      } else {
-                                        formatted += `${result.findings}\n`;
-                                      }
+
+                                    // Handle backend research result structure
+                                    const result =
+                                      data.result || data.response || data;
+
+                                    // Agent info
+                                    if (data.agentId) {
+                                      formatted += `Agent: ${data.agentId}\n`;
+                                      if (data.promptId)
+                                        formatted += `Prompt: ${data.promptId}\n`;
                                       formatted += "\n";
-                                    }
-                                    if (result.sources) {
-                                      formatted += `Sources:\n`;
-                                      if (Array.isArray(result.sources)) {
-                                        result.sources.forEach((s: any) => {
-                                          formatted += `• ${typeof s === "string" ? s : s.title || s.url || JSON.stringify(s)}\n`;
-                                        });
-                                      } else {
-                                        formatted += `${result.sources}\n`;
-                                      }
-                                      formatted += "\n";
-                                    }
-                                    if (result.confidence !== undefined) {
-                                      formatted += `Confidence: ${result.confidence}\n`;
                                     }
 
-                                    // Fallback to JSON if no recognized structure
+                                    // Research response (main content)
+                                    if (typeof result === "string") {
+                                      formatted += `Research:\n${result}\n\n`;
+                                    } else if (result) {
+                                      // Try various field names for summary
+                                      if (result.summary || result.result) {
+                                        formatted += `Summary:\n${result.summary || result.result}\n\n`;
+                                      }
+
+                                      if (result.findings) {
+                                        formatted += `Findings:\n`;
+                                        if (Array.isArray(result.findings)) {
+                                          result.findings.forEach(
+                                            (f: any, i: number) => {
+                                              formatted += `${i + 1}. ${typeof f === "string" ? f : JSON.stringify(f)}\n`;
+                                            },
+                                          );
+                                        } else {
+                                          formatted += `${result.findings}\n`;
+                                        }
+                                        formatted += "\n";
+                                      }
+
+                                      if (result.sources) {
+                                        formatted += `Sources:\n`;
+                                        if (Array.isArray(result.sources)) {
+                                          result.sources.forEach((s: any) => {
+                                            formatted += `• ${typeof s === "string" ? s : s.title || s.url || JSON.stringify(s)}\n`;
+                                          });
+                                        } else {
+                                          formatted += `${result.sources}\n`;
+                                        }
+                                        formatted += "\n";
+                                      }
+
+                                      if (result.confidence !== undefined) {
+                                        formatted += `Confidence: ${result.confidence}\n`;
+                                      }
+                                    }
+
+                                    // Variables used in query
+                                    if (data.variables) {
+                                      formatted += `Query Variables:\n`;
+                                      Object.entries(data.variables).forEach(
+                                        ([key, value]) => {
+                                          formatted += `• ${key}: ${value}\n`;
+                                        },
+                                      );
+                                      formatted += "\n";
+                                    }
+
+                                    // Timestamp
+                                    if (data.timestamp) {
+                                      formatted += `Timestamp: ${new Date(data.timestamp).toLocaleString()}\n`;
+                                    }
+
+                                    // Fallback to JSON if nothing formatted
                                     return (
-                                      formatted ||
-                                      JSON.stringify(result, null, 2)
+                                      formatted || JSON.stringify(data, null, 2)
                                     );
                                   })()}
                                 </Text>
