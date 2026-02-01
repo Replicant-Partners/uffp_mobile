@@ -1,4 +1,24 @@
-# UFFP Ontology Service - Architecture & Implementation Plan
+# Agent Knowledge Protocol (AKP) - Architecture & Implementation Plan
+
+## 🌟 Vision
+
+**Agent Knowledge Protocol (AKP)** is a general-purpose ontology and knowledge service that enables agents to:
+- Learn from user interactions across multiple applications
+- Discover and collaborate with other agents via semantic matching
+- Build collective intelligence through opt-in shared learning
+- Provide context-aware coaching and suggestions
+
+**AKP as Discrete Economic Entity:**
+- Standalone service with its own infrastructure
+- Multi-tenant architecture (UFFP is first client, many apps to come)
+- Potential pricing model (free tier + paid plans)
+- Public API for any agent/app to integrate
+
+**First Use Case:** UFFP forecasting app with 7 agents (fermi, research_analyst, etc.)
+
+---
+
+# UFFP Ontology Service - Architecture & Implementation Plan (Original Title - Now AKP)
 
 ## 🎯 Goals
 
@@ -710,18 +730,144 @@ class CollectiveIntelligence {
 - [ ] Re-embed all entities
 - [ ] A/B test improvements
 
-## 🔍 Key Questions Before Starting
+## ✅ Architecture Decisions
 
-1. **Backend Location**: Should this live in your existing Vercel backend repo, or new microservice?
+### **1. New Repository: Agent Knowledge Protocol**
+- Standalone service, not part of UFFP backend
+- Multi-tenant from day one
+- Own infrastructure and deployment
+- May become separate economic entity
 
-2. **User Auth**: How do we get userId from mobile app? JWT in headers?
+### **2. Authentication Strategy**
+**Approach:** JWT Bearer Token (Industry Standard)
 
-3. **Embedding Budget**: OpenAI embeddings cost ~$0.0001 per 1K tokens. Expected query volume?
+```typescript
+// Request headers
+Authorization: Bearer <jwt_token>
 
-4. **Opt-In Flow**: Should users opt-in during onboarding, or discover it later?
+// JWT payload
+{
+  "sub": "user_123",           // User ID
+  "app": "uffp",               // Application ID (for multi-tenancy)
+  "iat": 1234567890,
+  "exp": 1234567890,
+  "scopes": ["query", "learn", "match"]
+}
+```
 
-5. **Agent Prompts**: Do you have the system prompts for your 7 agents? Needed for bootstrapping their capabilities.
+**Migration Path to Hyper-Secure:**
+- Phase 1: Simple JWT validation
+- Phase 2: Add refresh tokens
+- Phase 3: API key + JWT combo for apps
+- Phase 4: OAuth 2.0 for third-party apps
+- Phase 5: mTLS for enterprise customers
 
-6. **Postgres Schema**: Can I extend your existing Postgres DB, or should ontology use separate DB?
+### **3. Database Architecture**
+**Separate Database (Not shared with UFFP)**
 
-Ready to start building? I recommend starting with Phase 1 (backend foundation) while keeping current client-side ontology working.
+**Option A: PostgreSQL + pgvector** (Recommended)
+```
+- User ontologies (JSONB)
+- Collective patterns (relational)
+- Vector embeddings (pgvector extension)
+- Agent profiles
+- Multi-tenant with app_id partitioning
+```
+
+**Option B: PostgreSQL + LanceDB**
+```
+- PostgreSQL: Structured data (ontologies, patterns, users)
+- LanceDB: Vector embeddings (high-performance similarity search)
+```
+
+**No Redis/Vercel KV needed initially** - Postgres can handle everything with good indexing.
+
+### **4. Agent Prompts**
+**Location:** UFFP backend agents (need file path from user)
+**Bootstrap Strategy:**
+1. Extract system prompts from UFFP backend
+2. Parse capabilities, specialties, query patterns
+3. Generate 3-level embeddings (syntactic, lexical, semantic)
+4. Store in AKP agent registry
+
+### **5. Synthetic Data for Testing**
+**Test Data Generation Strategy:**
+
+```typescript
+// Generate realistic test scenarios
+const SYNTHETIC_TEST_SUITE = {
+  // 1. User observation patterns
+  userObservations: [
+    generateDriverConfigurations(100),  // 100 fake driver configs
+    generateAgentQueries(200),          // 200 fake queries
+    generateSimulations(50),            // 50 fake sim runs
+  ],
+  
+  // 2. Multi-agent conversations
+  agentCollaborations: [
+    simulateMarketSizingFlow(),         // fermi → market_researcher
+    simulateEvidenceGathering(),        // research_analyst → evidence
+    simulateConflictResolution(),       // expert_synthesizer flow
+  ],
+  
+  // 3. Forecast scenarios
+  forecastScenarios: [
+    { domain: "tech_market", agents: ["market_researcher", "financial_analyst"] },
+    { domain: "sentiment", agents: ["sentiment_monitor", "competitive_intel"] },
+    { domain: "expert_consensus", agents: ["expert_synthesizer", "research_analyst"] },
+  ],
+  
+  // 4. Load testing
+  loadTests: {
+    simultaneousUsers: 1000,
+    queriesPerSecond: 100,
+    embeddingOperations: 500,
+  }
+};
+```
+
+**Synthetic Data Benefits:**
+- Test three-tier learning without real users
+- Validate Agent-OM matching accuracy
+- Benchmark performance under load
+- Train collective intelligence before launch
+
+### **6. Multi-Tenancy Design**
+Every request includes `app_id` (from JWT):
+
+```typescript
+// Database partitioning
+user_ontologies
+  - user_id (PK)
+  - app_id (partition key)
+  - ontology_data
+
+collective_patterns
+  - pattern_id (PK)
+  - app_id (partition key)
+  - pattern_data
+
+// Query isolation
+SELECT * FROM user_ontologies 
+WHERE app_id = 'uffp' AND user_id = 'user_123';
+```
+
+**Benefits:**
+- UFFP data isolated from future apps
+- Each app can have custom ontology seeds
+- Billing/usage tracked per app
+- Easy to add new apps without migration
+
+## 🔍 Remaining Questions
+
+1. **Database Choice**: PostgreSQL-only or PostgreSQL + LanceDB for vectors?
+
+2. **Agent Prompts**: What's the file path in UFFP backend? (e.g., `/api/agents/prompts.ts`?)
+
+3. **Synthetic Data Scope**: Generate all 4 categories above, or start smaller?
+
+4. **Public API**: Should we design API for third-party apps from day one, or defer?
+
+5. **Custom Domains**: Should apps be able to register non-forecasting domains (medical, legal, etc.)?
+
+Ready to start building once these are answered! Can proceed with UI issues in parallel.
