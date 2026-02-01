@@ -149,6 +149,10 @@ export default function ForecastWorkspaceScreen() {
   const inputRef = useRef<TextInput>(null);
   const chatScrollRef = useRef<ScrollView>(null);
 
+  // Check if screen is wide enough for side-by-side layout
+  const screenWidth = Dimensions.get("window").width;
+  const isWideScreen = screenWidth >= 768;
+
   useEffect(() => {
     // Load saved forecasts
     loadForecasts();
@@ -2769,7 +2773,10 @@ export default function ForecastWorkspaceScreen() {
       keyboardVerticalOffset={0}
     >
       <ScrollView
-        style={styles.scrollView}
+        style={[
+          styles.scrollView,
+          fermiChatExpanded && isWideScreen && styles.scrollViewWithChat,
+        ]}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
@@ -3981,7 +3988,12 @@ export default function ForecastWorkspaceScreen() {
       </ScrollView>
 
       {/* Command Input - Fixed at bottom */}
-      <View style={styles.commandSection}>
+      <View
+        style={[
+          styles.commandSection,
+          fermiChatExpanded && isWideScreen && styles.commandSectionWithChat,
+        ]}
+      >
         {/* Version indicator */}
         <View style={styles.versionIndicator}>
           <Text style={styles.versionIndicatorText}>v{VERSION}</Text>
@@ -4138,7 +4150,12 @@ export default function ForecastWorkspaceScreen() {
 
       {/* @fermi Chat Pane */}
       {fermiChatExpanded && (
-        <View style={styles.fermiChatPane}>
+        <View
+          style={[
+            styles.fermiChatPane,
+            !isWideScreen && styles.fermiChatPaneMobile,
+          ]}
+        >
           {/* Chat Header */}
           <View style={styles.fermiChatHeader}>
             <Text style={styles.fermiChatTitle}>💡 @fermi Coach</Text>
@@ -4313,10 +4330,20 @@ export default function ForecastWorkspaceScreen() {
       {/* Collapsed @fermi Tab */}
       {!fermiChatExpanded && (
         <TouchableOpacity
-          style={styles.fermiCollapsedTab}
+          style={[
+            styles.fermiCollapsedTab,
+            !isWideScreen && styles.fermiCollapsedTabMobile,
+          ]}
           onPress={() => setFermiChatExpanded(true)}
         >
-          <Text style={styles.fermiCollapsedText}>▲ @fermi coach</Text>
+          <Text
+            style={[
+              styles.fermiCollapsedText,
+              !isWideScreen && styles.fermiCollapsedTextMobile,
+            ]}
+          >
+            {isWideScreen ? "▶ @fermi coach" : "▲ @fermi coach"}
+          </Text>
         </TouchableOpacity>
       )}
     </KeyboardAvoidingView>
@@ -4330,6 +4357,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollViewWithChat: {
+    marginRight: "35%",
+    minWidth: 400,
   },
   scrollContent: {
     padding: 20,
@@ -4931,6 +4962,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#3c3836",
   },
+  commandSectionWithChat: {
+    marginRight: "35%",
+    minWidth: 400,
+  },
   versionIndicator: {
     position: "absolute",
     top: 8,
@@ -5186,19 +5221,35 @@ const styles = StyleSheet.create({
   // @fermi Chat Pane Styles
   fermiChatPane: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
     right: 0,
-    height: "50%",
+    top: 0,
+    bottom: 0,
+    width: "35%",
+    minWidth: 400,
     backgroundColor: "#1d2021",
-    borderTopWidth: 2,
-    borderTopColor: "#fabd2f",
+    borderLeftWidth: 2,
+    borderLeftColor: "#fabd2f",
     flexDirection: "column",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
+    shadowOffset: { width: -4, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 8,
     elevation: 10,
+    zIndex: 1000,
+  },
+  fermiChatPaneMobile: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: "auto",
+    bottom: 0,
+    width: "100%",
+    height: "50%",
+    minWidth: "auto",
+    borderLeftWidth: 0,
+    borderTopWidth: 2,
+    borderTopColor: "#fabd2f",
+    shadowOffset: { width: 0, height: -4 },
   },
   fermiChatHeader: {
     flexDirection: "row",
@@ -5360,25 +5411,50 @@ const styles = StyleSheet.create({
   },
   fermiCollapsedTab: {
     position: "absolute",
-    bottom: 80,
-    left: 0,
     right: 0,
+    top: "50%",
+    marginTop: -30,
     backgroundColor: "#fabd2f",
-    paddingVertical: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
     alignItems: "center",
+    justifyContent: "center",
     borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
+    borderBottomLeftRadius: 8,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
+    shadowOffset: { width: -2, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
     zIndex: 1000,
+    minWidth: 40,
+    height: 60,
+  },
+  fermiCollapsedTabMobile: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 80,
+    marginTop: 0,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderBottomLeftRadius: 0,
+    shadowOffset: { width: 0, height: -2 },
+    minWidth: 0,
+    height: "auto",
   },
   fermiCollapsedText: {
     color: "#282828",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "bold",
     letterSpacing: 0.5,
+    transform: [{ rotate: "-90deg" }],
+  },
+  fermiCollapsedTextMobile: {
+    transform: [],
+    fontSize: 16,
+    textAlign: "center",
   },
 });
