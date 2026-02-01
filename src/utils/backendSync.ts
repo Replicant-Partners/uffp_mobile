@@ -57,6 +57,7 @@ export function mapBackendToLocal(backendForecast: any): any {
     grounding: backendForecast.grounding,
     probability: backendForecast.probability,
     drivers: backendForecast.drivers || [],
+    simulations: backendForecast.simulations || [], // IMPORTANT: Map simulations array for charts
     createdAt: backendForecast.createdAt,
     updatedAt: backendForecast.updatedAt,
     resolved: backendForecast.resolved || false,
