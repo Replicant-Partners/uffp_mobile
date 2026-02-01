@@ -3218,7 +3218,10 @@ export default function ForecastWorkspaceScreen() {
         </View>
         {/* Command Hints - Only show when input is focused */}
         {inputFocused && showCommandHints && getCommandHints().length > 0 && (
-          <View style={styles.hintsPanel}>
+          <ScrollView
+            style={styles.hintsPanel}
+            keyboardShouldPersistTaps="always"
+          >
             {getCommandHints().map((hint) => (
               <TouchableOpacity
                 key={hint.key}
@@ -3250,7 +3253,7 @@ export default function ForecastWorkspaceScreen() {
                 <Text style={styles.hintDesc}>{hint.desc}</Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         )}
 
         {/* Command Input Field */}
@@ -3272,7 +3275,10 @@ export default function ForecastWorkspaceScreen() {
                 if (error) setError("");
               }}
               onFocus={() => setInputFocused(true)}
-              onBlur={() => setInputFocused(false)}
+              onBlur={() => {
+                // Delay hiding hints to allow click events to fire
+                setTimeout(() => setInputFocused(false), 200);
+              }}
               onSubmitEditing={() => {
                 // Accept suggestion on enter if it exists
                 const suggestion = getSuggestion();
@@ -3885,6 +3891,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#3c3836",
     borderTopWidth: 1,
     borderTopColor: "#504945",
+    maxHeight: 300,
   },
   hintItem: {
     padding: 8, // Reduced from 12
