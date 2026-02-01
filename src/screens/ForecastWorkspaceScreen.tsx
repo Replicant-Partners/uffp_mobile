@@ -4204,7 +4204,13 @@ export default function ForecastWorkspaceScreen() {
                   console.log("[Fermi Chat] Sending message:", fermiChatInput);
                   const userMsg = fermiChatInput.trim();
                   setFermiChatInput("");
-                  await handleFermiCoaching(userMsg);
+
+                  // Commands go through main handler, coaching goes through fermi
+                  if (userMsg.startsWith("/")) {
+                    await processSingleCommand(userMsg);
+                  } else {
+                    await handleFermiCoaching(userMsg);
+                  }
                 }
               }}
               onKeyPress={(e) => {
@@ -4218,7 +4224,13 @@ export default function ForecastWorkspaceScreen() {
                     );
                     const userMsg = fermiChatInput.trim();
                     setFermiChatInput("");
-                    handleFermiCoaching(userMsg);
+
+                    // Commands go through main handler, coaching goes through fermi
+                    if (userMsg.startsWith("/")) {
+                      await processSingleCommand(userMsg);
+                    } else {
+                      await handleFermiCoaching(userMsg);
+                    }
                   }
                 }
               }}
@@ -4239,7 +4251,13 @@ export default function ForecastWorkspaceScreen() {
                   );
                   const userMsg = fermiChatInput.trim();
                   setFermiChatInput("");
-                  await handleFermiCoaching(userMsg);
+
+                  // Commands go through main handler, coaching goes through fermi
+                  if (userMsg.startsWith("/")) {
+                    await processSingleCommand(userMsg);
+                  } else {
+                    await handleFermiCoaching(userMsg);
+                  }
                 }
               }}
               disabled={fermiThinking}
