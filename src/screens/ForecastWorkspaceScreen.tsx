@@ -4213,7 +4213,7 @@ export default function ForecastWorkspaceScreen() {
                   }
                 }
               }}
-              onKeyPress={(e) => {
+              onKeyPress={async (e) => {
                 // Handle Enter key explicitly for web
                 if (e.nativeEvent.key === "Enter" && !e.nativeEvent.shiftKey) {
                   e.preventDefault();
