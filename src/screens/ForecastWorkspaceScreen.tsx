@@ -81,6 +81,7 @@ export default function ForecastWorkspaceScreen() {
   const [parsedResult, setParsedResult] = useState<any>(null);
   const [error, setError] = useState<string>("");
   const [showCommandHints, setShowCommandHints] = useState(true);
+  const [inputFocused, setInputFocused] = useState(false);
   const [processingAction, setProcessingAction] = useState<string>("");
   const [driverBeingConfigured, setDriverBeingConfigured] = useState<
     any | null
@@ -2848,8 +2849,8 @@ export default function ForecastWorkspaceScreen() {
         <View style={styles.versionIndicator}>
           <Text style={styles.versionIndicatorText}>v{VERSION}</Text>
         </View>
-        {/* Command Hints */}
-        {showCommandHints && getCommandHints().length > 0 && (
+        {/* Command Hints - Only show when input is focused */}
+        {inputFocused && showCommandHints && getCommandHints().length > 0 && (
           <View style={styles.hintsPanel}>
             {getCommandHints()
               .slice(0, 4)
@@ -2898,6 +2899,8 @@ export default function ForecastWorkspaceScreen() {
                 // Clear error when typing
                 if (error) setError("");
               }}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
               onSubmitEditing={() => {
                 // Accept suggestion on enter if it exists
                 const suggestion = getSuggestion();
