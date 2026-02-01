@@ -598,6 +598,34 @@ export default function ForecastWorkspaceScreen() {
       return; // Don't save yet, wait for user confirmation
     }
 
+    // Detect minor changes (any other parameter changes)
+    const minorChanges: string[] = [];
+    if (originalDriver) {
+      if (driverBeingConfigured.p5 !== originalDriver.p5) {
+        minorChanges.push(
+          `p5: ${originalDriver.p5} → ${driverBeingConfigured.p5}`,
+        );
+      }
+      if (driverBeingConfigured.p50 !== originalDriver.p50) {
+        minorChanges.push(
+          `p50: ${originalDriver.p50} → ${driverBeingConfigured.p50}`,
+        );
+      }
+      if (driverBeingConfigured.p95 !== originalDriver.p95) {
+        minorChanges.push(
+          `p95: ${originalDriver.p95} → ${driverBeingConfigured.p95}`,
+        );
+      }
+      if (driverBeingConfigured.probability !== originalDriver.probability) {
+        minorChanges.push(
+          `probability: ${originalDriver.probability} → ${driverBeingConfigured.probability}`,
+        );
+      }
+      if (driverBeingConfigured.reasoning !== originalDriver.reasoning) {
+        minorChanges.push(`reasoning updated`);
+      }
+    }
+
     // Create version if there are changes
     let updatedDriver = { ...driverBeingConfigured };
     if (majorChanges.length > 0) {
@@ -614,6 +642,25 @@ export default function ForecastWorkspaceScreen() {
       updatedDriver.version = {
         major: currentVersion.major + 1,
         minor: 0,
+      };
+      updatedDriver.versionHistory = [
+        ...(driverBeingConfigured.versionHistory || []),
+        version,
+      ];
+    } else if (minorChanges.length > 0) {
+      // Minor version for non-breaking changes
+      const version = createDriverVersion(
+        driverBeingConfigured,
+        minorChanges,
+        "minor",
+      );
+      const currentVersion = driverBeingConfigured.version || {
+        major: 1,
+        minor: 0,
+      };
+      updatedDriver.version = {
+        major: currentVersion.major,
+        minor: currentVersion.minor + 1,
       };
       updatedDriver.versionHistory = [
         ...(driverBeingConfigured.versionHistory || []),
@@ -976,7 +1023,7 @@ export default function ForecastWorkspaceScreen() {
                       major: currentVersion.major,
                       minor: currentVersion.minor + 1,
                     },
-                    history: [...(d.history || []), version],
+                    versionHistory: [...(d.versionHistory || []), version],
                   };
 
                   return updatedDriver;
@@ -1366,7 +1413,7 @@ export default function ForecastWorkspaceScreen() {
                   major: currentVersion.major,
                   minor: currentVersion.minor + 1,
                 },
-                history: [...(d.history || []), version],
+                versionHistory: [...(d.versionHistory || []), version],
               };
 
               return updatedDriver;
