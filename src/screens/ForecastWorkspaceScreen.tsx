@@ -405,11 +405,15 @@ export default function ForecastWorkspaceScreen() {
     }
   };
 
-  const handleFermiCoaching = async () => {
+  const handleFermiCoaching = async (userQuery?: string) => {
     const { generateFermiGuidance } = await import("../services/fermiHints");
+
+    // Open chat pane
+    setFermiChatExpanded(true);
 
     // Determine context and provide appropriate coaching
     let guidance = "";
+    const queryText = userQuery || "help";
 
     if (driverBeingConfigured) {
       // Context: Configuring a driver
@@ -491,7 +495,8 @@ export default function ForecastWorkspaceScreen() {
       guidance += `• Mention me (@fermi) anytime for help!\n`;
     }
 
-    setError(guidance);
+    // Add to conversation
+    await addFermiMessage(queryText, guidance);
   };
 
   const validateDriverConfig = (
@@ -3927,6 +3932,89 @@ export default function ForecastWorkspaceScreen() {
           </View>
         </View>
       </View>
+
+      {/* @fermi Chat Pane */}
+      {fermiChatExpanded && (
+        <View style={styles.fermiChatPane}>
+          {/* Chat Header */}
+          <View style={styles.fermiChatHeader}>
+            <Text style={styles.fermiChatTitle}>💡 @fermi Coach</Text>
+            <TouchableOpacity
+              style={styles.fermiMinimizeButton}
+              onPress={() => setFermiChatExpanded(false)}
+            >
+              <Text style={styles.fermiMinimizeText}>▼ minimize</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Chat History */}
+          <ScrollView style={styles.fermiChatHistory}>
+            {activeForecast?.fermiConversation &&
+            activeForecast.fermiConversation.length > 0 ? (
+              activeForecast.fermiConversation.map((msg, idx) => (
+                <View
+                  key={idx}
+                  style={[
+                    styles.fermiMessage,
+                    msg.role === "user"
+                      ? styles.fermiMessageUser
+                      : styles.fermiMessageFermi,
+                  ]}
+                >
+                  <Text style={styles.fermiMessageRole}>
+                    {msg.role === "user" ? "You" : "💡 Fermi"}
+                  </Text>
+                  <Text style={styles.fermiMessageText}>{msg.message}</Text>
+                  <Text style={styles.fermiMessageTime}>
+                    {new Date(msg.timestamp).toLocaleTimeString()}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.fermiWelcome}>
+                <Text style={styles.fermiWelcomeText}>
+                  👋 Hi! I'm Fermi, your forecasting coach.
+                </Text>
+                <Text style={styles.fermiWelcomeSubtext}>
+                  Ask me anything about your forecast, drivers, or results!
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Chat Input */}
+          <View style={styles.fermiChatInputContainer}>
+            <TextInput
+              style={styles.fermiChatInput}
+              placeholder="Ask @fermi anything..."
+              placeholderTextColor="#665c54"
+              value={fermiChatInput}
+              onChangeText={setFermiChatInput}
+              onSubmitEditing={async () => {
+                if (fermiChatInput.trim()) {
+                  // Handle user message
+                  const userMsg = fermiChatInput.trim();
+                  setFermiChatInput("");
+                  await handleFermiCoaching(userMsg);
+                }
+              }}
+              autoCapitalize="none"
+              returnKeyType="send"
+              multiline
+            />
+          </View>
+        </View>
+      )}
+
+      {/* Collapsed @fermi Tab */}
+      {!fermiChatExpanded && (
+        <TouchableOpacity
+          style={styles.fermiCollapsedTab}
+          onPress={() => setFermiChatExpanded(true)}
+        >
+          <Text style={styles.fermiCollapsedText}>▲ @fermi coach</Text>
+        </TouchableOpacity>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -4790,5 +4878,124 @@ const styles = StyleSheet.create({
   },
   brierPoor: {
     color: "#fb4934",
+  },
+  // @fermi Chat Pane Styles
+  fermiChatPane: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: "40%",
+    backgroundColor: "#1d2021",
+    borderTopWidth: 2,
+    borderTopColor: "#fabd2f",
+    flexDirection: "column",
+  },
+  fermiChatHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "#282828",
+    borderBottomWidth: 1,
+    borderBottomColor: "#3c3836",
+  },
+  fermiChatTitle: {
+    color: "#fabd2f",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  fermiMinimizeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  fermiMinimizeText: {
+    color: "#ebdbb2",
+    fontSize: 12,
+  },
+  fermiChatHistory: {
+    flex: 1,
+    padding: 12,
+  },
+  fermiMessage: {
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 8,
+  },
+  fermiMessageUser: {
+    backgroundColor: "#3c3836",
+    alignSelf: "flex-end",
+    maxWidth: "80%",
+  },
+  fermiMessageFermi: {
+    backgroundColor: "#282828",
+    borderLeftWidth: 3,
+    borderLeftColor: "#fabd2f",
+    alignSelf: "flex-start",
+    maxWidth: "80%",
+  },
+  fermiMessageRole: {
+    color: "#fabd2f",
+    fontSize: 12,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  fermiMessageText: {
+    color: "#ebdbb2",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  fermiMessageTime: {
+    color: "#665c54",
+    fontSize: 10,
+    marginTop: 4,
+  },
+  fermiWelcome: {
+    padding: 20,
+    alignItems: "center",
+  },
+  fermiWelcomeText: {
+    color: "#fabd2f",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  fermiWelcomeSubtext: {
+    color: "#ebdbb2",
+    fontSize: 14,
+    textAlign: "center",
+  },
+  fermiChatInputContainer: {
+    borderTopWidth: 1,
+    borderTopColor: "#3c3836",
+    padding: 12,
+    backgroundColor: "#282828",
+  },
+  fermiChatInput: {
+    backgroundColor: "#1d2021",
+    color: "#ebdbb2",
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#3c3836",
+    fontSize: 14,
+    maxHeight: 100,
+  },
+  fermiCollapsedTab: {
+    position: "absolute",
+    bottom: 80,
+    left: 0,
+    right: 0,
+    backgroundColor: "#fabd2f",
+    paddingVertical: 8,
+    alignItems: "center",
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+  },
+  fermiCollapsedText: {
+    color: "#282828",
+    fontSize: 14,
+    fontWeight: "bold",
   },
 });
