@@ -128,7 +128,8 @@ export const FERMI_HINTS: FermiHint[] = [
 
   // Quantity / volume of physical items
   {
-    driverPattern: /how many|quantity|volume|amount|number of|count/i,
+    driverPattern:
+      /\bhow many\b|\bquantity of\b|\bvolume of\b|\bamount of\b|\bnumber of (items|objects|things|units)\b|\bcount of\b/i,
     decomposition: [
       "Define the unit clearly (items, people, events, etc.)",
       "Identify the containing system or population",
@@ -208,7 +209,8 @@ export const FERMI_HINTS: FermiHint[] = [
 
   // Information / data volume
   {
-    driverPattern: /data|information|storage|bytes|gigabytes|files|documents/i,
+    driverPattern:
+      /\bdata (volume|size|storage)\b|information storage|bytes|gigabytes|terabytes|files stored|documents stored|database size/i,
     decomposition: [
       "Number of items (files, photos, records)",
       "× Average size per item",
@@ -523,24 +525,45 @@ export function getFermiHints(driverName: string): FermiHint | null {
 export function generateFermiGuidance(
   driverName: string,
   driverType: string,
+  currentConfig?: any,
 ): string {
   const hint = getFermiHints(driverName);
 
   if (!hint) {
-    return `Think through: What are the key factors? What historical data exists? What's a reasonable range?`;
+    return `💡 Quick Guide:\n\n📊 Distribution Types:\n• Triangular: Best for most cases (min/likely/max)\n• Normal: Symmetric variation around average\n• Lognormal: Asymmetric, can't be negative, long tail\n\n📈 Direction:\n• increases: Higher values = better outcome\n• decreases: Lower values = better outcome\n\n💭 Think through: What factors matter? What's the realistic range?`;
   }
 
-  let guidance = `💡 Fermi Decomposition:\n\n`;
+  let guidance = `💡 Coaching for: ${driverName}\n\n`;
+
+  // Explain current configuration if provided
+  if (currentConfig) {
+    guidance += `📋 Current Setup:\n`;
+    if (currentConfig.type === "continuous") {
+      guidance += `• Type: Continuous (uses ${currentConfig.distribution || "triangular"} distribution)\n`;
+      guidance += `• Values: p5=${currentConfig.p5}, p50=${currentConfig.p50}, p95=${currentConfig.p95}\n`;
+      guidance += `  → Meaning: 5% chance below ${currentConfig.p5}, most likely ${currentConfig.p50}, 5% chance above ${currentConfig.p95}\n`;
+    } else {
+      guidance += `• Type: Binary (yes/no outcome)\n`;
+      guidance += `• Probability: ${currentConfig.probability}%\n`;
+    }
+    guidance += `• Direction: ${currentConfig.direction || "not set"} (${currentConfig.direction === "increases" ? "higher = better" : "lower = better"})\n\n`;
+  }
+
+  // Distribution recommendation
+  guidance += `📊 Which Distribution?\n`;
+  guidance += `• TRIANGULAR (default): Best for estimates with clear min/max\n`;
+  guidance += `• NORMAL: Symmetric clustering (rare in forecasting)\n`;
+  guidance += `• LOGNORMAL: Can't be negative, has long tail\n\n`;
 
   // Show decomposition
-  guidance += `Break it down:\n`;
+  guidance += `🔍 Break It Down:\n`;
   hint.decomposition.forEach((step, i) => {
     guidance += `${i + 1}. ${step}\n`;
   });
 
-  // Show anchors
+  // Show anchors with context
   if (hint.anchors.length > 0) {
-    guidance += `\n📊 Calibration Anchors:\n`;
+    guidance += `\n📊 Reference Points (use to calibrate!):\n`;
     hint.anchors.forEach((anchor) => {
       guidance += `• ${anchor.metric}: ${anchor.value}\n`;
     });
@@ -548,13 +571,21 @@ export function generateFermiGuidance(
 
   // Show sanity bounds
   guidance += `\n✓ Sanity Check:\n`;
-  guidance += `Realistic range: ${hint.sanityBounds.min} to ${hint.sanityBounds.max}\n`;
-  guidance += `Why: ${hint.sanityBounds.reasoning}\n`;
+  guidance += `• Range: ${hint.sanityBounds.min} to ${hint.sanityBounds.max}\n`;
+  guidance += `• Why: ${hint.sanityBounds.reasoning}\n`;
 
   // Show example if available
   if (hint.exampleCalculation) {
     guidance += `\n📝 Example:\n${hint.exampleCalculation}\n`;
   }
+
+  // Direction guidance
+  guidance += `\n📈 Direction:\n`;
+  guidance += `• "increases": Higher → MORE likely outcome\n`;
+  guidance += `• "decreases": Higher → LESS likely outcome\n`;
+
+  // Commands reminder
+  guidance += `\n⌨️ Commands: /p 10 50 90 | /dist triangular | /direction increases | /save\n`;
 
   return guidance;
 }

@@ -1328,6 +1328,7 @@ export default function ForecastWorkspaceScreen() {
         const guidance = generateFermiGuidance(
           driverBeingConfigured.name,
           driverBeingConfigured.type,
+          driverBeingConfigured, // Pass current config for context
         );
         setError(guidance);
         setCommandInput("");
