@@ -3266,6 +3266,10 @@ export default function ForecastWorkspaceScreen() {
                 key={hint.key}
                 style={styles.hintItem}
                 onPress={() => {
+                  // Check if this is a complete command suggestion (like "/schedule daily")
+                  const isCompleteCommand =
+                    hint.label.includes(" ") && hint.label.startsWith("/");
+
                   if (hint.key === "question") {
                     setCommandInput("/question ");
                   } else if (hint.label.startsWith("@")) {
@@ -3282,7 +3286,19 @@ export default function ForecastWorkspaceScreen() {
                     } else {
                       setCommandInput(hint.label + " ");
                     }
+                  } else if (isCompleteCommand) {
+                    // Complete command like "/schedule daily" - just set it
+                    setCommandInput(hint.label);
+                  } else if (
+                    hint.key === "save" ||
+                    hint.key === "cancel" ||
+                    hint.key === "help" ||
+                    hint.key === "list"
+                  ) {
+                    // Commands that don't need a space after them
+                    setCommandInput(hint.label);
                   } else {
+                    // Commands that need space for arguments (like /query, /schedule, /p, etc.)
                     setCommandInput(hint.label + " ");
                   }
                   inputRef.current?.focus();
