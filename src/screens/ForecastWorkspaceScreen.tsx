@@ -3378,11 +3378,12 @@ export default function ForecastWorkspaceScreen() {
         <View style={styles.versionIndicator}>
           <Text style={styles.versionIndicatorText}>v{VERSION}</Text>
         </View>
-        {/* Command Hints - Only show when input is focused */}
-        {inputFocused && showCommandHints && getCommandHints().length > 0 && (
+        {/* Command Hints - Show when hints are available */}
+        {showCommandHints && getCommandHints().length > 0 && (
           <ScrollView
             style={styles.hintsPanel}
             keyboardShouldPersistTaps="always"
+            nestedScrollEnabled={true}
           >
             {getCommandHints().map((hint, index) => {
               const isTabSelected =
@@ -3462,10 +3463,7 @@ export default function ForecastWorkspaceScreen() {
                 setTabCycleIndex(0);
               }}
               onFocus={() => setInputFocused(true)}
-              onBlur={() => {
-                // Delay hiding hints to allow click events to fire
-                setTimeout(() => setInputFocused(false), 200);
-              }}
+              onBlur={() => setInputFocused(false)}
               onSubmitEditing={() => {
                 // Accept suggestion on enter if it exists
                 const suggestion = getSuggestion();
