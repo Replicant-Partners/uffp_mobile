@@ -150,19 +150,52 @@ export default function ForecastWorkspaceScreen() {
         if (!driver.evidence || !Array.isArray(driver.evidence)) return driver;
 
         const migratedEvidence = driver.evidence.map((ev: any) => {
-          // Check if fullResult has the old wrapper structure
-          if (
-            ev.fullResult &&
-            ev.fullResult.result &&
-            !ev.fullResult.response
-          ) {
-            console.log("[Migration] Fixing evidence format for", driver.name);
+          if (!ev.fullResult) return ev;
+
+          console.log(
+            "[Migration] Checking evidence for",
+            driver.name,
+            "fullResult keys:",
+            Object.keys(ev.fullResult),
+          );
+
+          // Check if fullResult has the old wrapper structure with nested .result
+          if (ev.fullResult.result && !ev.fullResult.response) {
+            console.log(
+              "[Migration] Unwrapping nested .result for",
+              driver.name,
+            );
             return {
               ...ev,
-              fullResult: ev.fullResult.result, // Unwrap to get actual ResearchResult
+              fullResult: ev.fullResult.result,
               summary: ev.fullResult.result?.summary || ev.summary,
             };
           }
+
+          // Check if fullResult is missing .response but has other ResearchResult fields
+          // This means it's actually the wrapper object { result: ResearchResult } stored flat
+          if (
+            !ev.fullResult.response &&
+            ev.fullResult.summary &&
+            ev.fullResult.agentId
+          ) {
+            console.log(
+              "[Migration] Already unwrapped but missing response, keeping as-is",
+            );
+            return ev;
+          }
+
+          // If it has .response, it's the correct format
+          if (ev.fullResult.response) {
+            console.log("[Migration] Correct format detected for", driver.name);
+            return ev;
+          }
+
+          console.log(
+            "[Migration] Unknown format for",
+            driver.name,
+            "- not migrating",
+          );
           return ev;
         });
 
