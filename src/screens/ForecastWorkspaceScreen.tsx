@@ -535,6 +535,34 @@ export default function ForecastWorkspaceScreen() {
     await addFermiMessage(queryText, guidance);
   };
 
+  const addFermiMessage = async (userQuery: string, fermiResponse: string) => {
+    if (!activeForecast) return;
+
+    const conversation = activeForecast.fermiConversation || [];
+
+    // Add user message
+    conversation.push({
+      timestamp: new Date().toISOString(),
+      role: "user",
+      message: userQuery,
+    });
+
+    // Add fermi response
+    conversation.push({
+      timestamp: new Date().toISOString(),
+      role: "fermi",
+      message: fermiResponse,
+    });
+
+    const updatedForecast = {
+      ...activeForecast,
+      fermiConversation: conversation,
+    };
+
+    setActiveForecast(updatedForecast);
+    await saveForecast(updatedForecast);
+  };
+
   const validateDriverConfig = (
     driver: any,
   ): { valid: boolean; errors: string[] } => {
