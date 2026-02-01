@@ -13,6 +13,7 @@ import {
   Dimensions,
 } from "react-native";
 import { BarChart, LineChart } from "react-native-chart-kit";
+import Markdown from "react-native-markdown-display";
 import { researchService } from "../services/researchService";
 
 interface SimulationData {
@@ -2951,28 +2952,26 @@ export default function ForecastWorkspaceScreen() {
                                     </Text>
                                   </TouchableOpacity>
                                 </View>
-                                <Text style={styles.fullResultText}>
-                                  {(() => {
-                                    // Format as readable text instead of raw JSON
-                                    const data = ev.fullResult;
-                                    if (typeof data === "string") return data;
+                                {(() => {
+                                  // Extract markdown content from fullResult
+                                  const data = ev.fullResult;
+                                  let markdownContent = "";
 
-                                    // PRIORITIZE: If this is a ResearchResult, show response directly
-                                    if (
-                                      data.response &&
-                                      typeof data.response === "string"
-                                    ) {
-                                      return data.response;
-                                    }
-
-                                    // Handle API wrapper: { success: true, result: ResearchResult }
-                                    if (
-                                      data.result &&
-                                      data.result.response &&
-                                      typeof data.result.response === "string"
-                                    ) {
-                                      return data.result.response;
-                                    }
+                                  if (typeof data === "string") {
+                                    markdownContent = data;
+                                  } else if (
+                                    data.response &&
+                                    typeof data.response === "string"
+                                  ) {
+                                    markdownContent = data.response;
+                                  } else if (
+                                    data.result &&
+                                    data.result.response &&
+                                    typeof data.result.response === "string"
+                                  ) {
+                                    markdownContent = data.result.response;
+                                  } else {
+                                    // Fallback to formatted text for non-markdown content
 
                                     let formatted = "";
 
@@ -3045,11 +3044,94 @@ export default function ForecastWorkspaceScreen() {
                                     }
 
                                     // Fallback to JSON if nothing formatted
-                                    return (
-                                      formatted || JSON.stringify(data, null, 2)
-                                    );
-                                  })()}
-                                </Text>
+                                    markdownContent =
+                                      formatted ||
+                                      JSON.stringify(data, null, 2);
+                                  }
+
+                                  // Render with Markdown component
+                                  return (
+                                    <Markdown
+                                      style={{
+                                        body: {
+                                          color: "#ebdbb2",
+                                          fontSize: 14,
+                                          lineHeight: 20,
+                                        },
+                                        heading1: {
+                                          color: "#fabd2f",
+                                          fontSize: 20,
+                                          fontWeight: "bold",
+                                          marginTop: 16,
+                                          marginBottom: 8,
+                                        },
+                                        heading2: {
+                                          color: "#fabd2f",
+                                          fontSize: 18,
+                                          fontWeight: "bold",
+                                          marginTop: 12,
+                                          marginBottom: 6,
+                                        },
+                                        heading3: {
+                                          color: "#fabd2f",
+                                          fontSize: 16,
+                                          fontWeight: "bold",
+                                          marginTop: 10,
+                                          marginBottom: 4,
+                                        },
+                                        strong: {
+                                          color: "#fabd2f",
+                                          fontWeight: "bold",
+                                        },
+                                        em: {
+                                          color: "#b8bb26",
+                                          fontStyle: "italic",
+                                        },
+                                        bullet_list: {
+                                          marginTop: 4,
+                                          marginBottom: 4,
+                                        },
+                                        ordered_list: {
+                                          marginTop: 4,
+                                          marginBottom: 4,
+                                        },
+                                        list_item: {
+                                          color: "#ebdbb2",
+                                          marginBottom: 2,
+                                        },
+                                        code_inline: {
+                                          color: "#b8bb26",
+                                          backgroundColor: "#3c3836",
+                                          paddingHorizontal: 4,
+                                          paddingVertical: 2,
+                                          borderRadius: 3,
+                                        },
+                                        code_block: {
+                                          color: "#b8bb26",
+                                          backgroundColor: "#3c3836",
+                                          padding: 8,
+                                          borderRadius: 4,
+                                          marginTop: 8,
+                                          marginBottom: 8,
+                                        },
+                                        fence: {
+                                          color: "#b8bb26",
+                                          backgroundColor: "#3c3836",
+                                          padding: 8,
+                                          borderRadius: 4,
+                                          marginTop: 8,
+                                          marginBottom: 8,
+                                        },
+                                        link: {
+                                          color: "#83a598",
+                                          textDecorationLine: "underline",
+                                        },
+                                      }}
+                                    >
+                                      {markdownContent}
+                                    </Markdown>
+                                  );
+                                })()}
                               </View>
                             )}
                           </TouchableOpacity>
