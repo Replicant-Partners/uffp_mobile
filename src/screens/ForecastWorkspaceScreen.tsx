@@ -2229,6 +2229,23 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
+    // Handle /help command
+    if (trimmed === "/help") {
+      setError(`Available commands:
+
+/question <text> - Start a new forecast
+/list [all|active|expired] - Show forecasts
+/driver <name> - Add a driver
+/simulate - Run simulation
+/external <reference class> - Set external view
+/premortem - Enable premortem mode
+@fermi - Get coaching help
+
+Type a command to get started!`);
+      setCommandInput("");
+      return;
+    }
+
     // Handle /question command
     if (trimmed.startsWith("/question ")) {
       const question = trimmed.replace("/question ", "").trim();
@@ -5157,6 +5174,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: "35%",
     minWidth: 400,
+    height: "100vh",
     backgroundColor: "#1d2021",
     borderRightWidth: 2,
     borderRightColor: "#fabd2f",
