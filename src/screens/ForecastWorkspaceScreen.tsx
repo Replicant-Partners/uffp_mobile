@@ -424,7 +424,7 @@ export default function ForecastWorkspaceScreen() {
       let message = `✓ AI configured as ${recommendation.type} ${recommendation.distribution || ""}. ${recommendation.reasoning}`;
 
       if (fermiHint) {
-        message += `\n\n💡 Fermi Tip: Type /fermi for decomposition hints and calibration anchors`;
+        message += `\n\n🦊 Fermi Tip: Type /fermi for decomposition hints and calibration anchors`;
       }
 
       setError(message);
@@ -604,7 +604,7 @@ export default function ForecastWorkspaceScreen() {
     if (userQuery && userQuery.length > 0) {
       const conceptMatch = ontology.explainConcept(userQuery);
       if (conceptMatch) {
-        guidance = `💡 @fermi — Concept Explanation\n\n`;
+        guidance = `🦊 @fermi — Concept Explanation\n\n`;
         guidance += `📖 ${userQuery}:\n\n`;
         guidance += conceptMatch;
         guidance += `\n\n💬 Ask me about other concepts or type /help for commands!`;
@@ -615,7 +615,7 @@ export default function ForecastWorkspaceScreen() {
       // Search for related concepts
       const searchResults = ontology.searchConcepts(userQuery);
       if (searchResults.length > 0 && searchResults.length <= 3) {
-        guidance = `💡 @fermi — Found ${searchResults.length} related concept(s)\n\n`;
+        guidance = `🦊 @fermi — Found ${searchResults.length} related concept(s)\n\n`;
         for (const result of searchResults) {
           guidance += `📖 ${result.concept}:\n${result.explanation}\n\n`;
         }
@@ -633,7 +633,7 @@ export default function ForecastWorkspaceScreen() {
       );
     } else if (activeForecast && activeForecast.probability !== undefined) {
       // Context: Looking at forecast results
-      guidance = `💡 @fermi — Simulation Results Coach\n\n`;
+      guidance = `🦊 @fermi — Simulation Results Coach\n\n`;
       guidance += `📊 Your Forecast: ${activeForecast.probability}%\n\n`;
       guidance += `🎯 What This Means:\n`;
       guidance += `• This is the probability the outcome happens\n`;
@@ -652,7 +652,7 @@ export default function ForecastWorkspaceScreen() {
         guidance += `📈 Very Likely (>90%): Consider if you're overconfident or missing negative drivers\n`;
       }
 
-      guidance += `\n💡 Next Steps:\n`;
+      guidance += `\n🦊 Next Steps:\n`;
       guidance += `• Review your drivers - any missing?\n`;
       guidance += `• Check uncertainty ranges - are they realistic?\n`;
       guidance += `• Consider running research agents for more evidence\n`;
@@ -673,7 +673,7 @@ export default function ForecastWorkspaceScreen() {
       }
     } else if (activeForecast) {
       // Context: Have a forecast but no results yet
-      guidance = `💡 @fermi — Getting Started\n\n`;
+      guidance = `🦊 @fermi — Getting Started\n\n`;
       guidance += `📋 Your Question: ${activeForecast.question}\n\n`;
       guidance += `🎯 Next Steps:\n`;
       if (!activeForecast.drivers || activeForecast.drivers.length === 0) {
@@ -681,7 +681,7 @@ export default function ForecastWorkspaceScreen() {
         guidance += `2. Configure each driver with realistic ranges\n`;
         guidance += `3. Set direction (increases/decreases likelihood)\n`;
         guidance += `4. Run simulation to see probability\n\n`;
-        guidance += `💡 Tip: Start with 2-4 key drivers. You can always add more!\n`;
+        guidance += `🦊 Tip: Start with 2-4 key drivers. You can always add more!\n`;
       } else {
         guidance += `1. You have ${activeForecast.drivers.length} driver(s) - need more?\n`;
         guidance += `2. Review driver configurations - are ranges realistic?\n`;
@@ -690,7 +690,7 @@ export default function ForecastWorkspaceScreen() {
       }
     } else {
       // Context: No active forecast
-      guidance = `💡 @fermi — Universal Coach\n\n`;
+      guidance = `🦊 @fermi — Universal Coach\n\n`;
       guidance += `👋 I'm Fermi, your forecasting coach!\n\n`;
       guidance += `I can help you:\n`;
       guidance += `• Understand driver types and distributions\n`;
@@ -2520,7 +2520,7 @@ export default function ForecastWorkspaceScreen() {
     // GLOBAL: Show agent autocomplete whenever @ is typed in ANY context
     if (commandInput.includes("@")) {
       const agentDescriptions: Record<string, string> = {
-        fermi: "🎓 Your forecasting coach - helps with everything!",
+        fermi: "🦊 Your forecasting coach - helps with everything!",
         research_analyst: "Deep research with citations, quantitative focus",
         sentiment_monitor: "Social listening and sentiment scoring",
         competitive_intel: "Competitor tracking and benchmarking",
@@ -2638,7 +2638,7 @@ export default function ForecastWorkspaceScreen() {
         {
           key: "fermi",
           label: "@fermi",
-          desc: "🎓 Ask your forecasting coach",
+          desc: "🦊 Ask your forecasting coach",
         },
         { key: "save", label: "/save", desc: "Save driver" },
         { key: "cancel", label: "/cancel", desc: "Cancel" },
@@ -4183,7 +4183,7 @@ export default function ForecastWorkspaceScreen() {
         >
           {/* Chat Header */}
           <View style={styles.fermiChatHeader}>
-            <Text style={styles.fermiChatTitle}>💡 @fermi Coach</Text>
+            <Text style={styles.fermiChatTitle}>🦊 @fermi Coach</Text>
             <TouchableOpacity
               style={styles.fermiMinimizeButton}
               onPress={() => {
@@ -4243,7 +4243,7 @@ export default function ForecastWorkspaceScreen() {
                     ]}
                   >
                     <Text style={styles.fermiMessageRole}>
-                      {msg.role === "user" ? "You" : "💡 Fermi"}
+                      {msg.role === "user" ? "You" : "🦊 Fermi"}
                     </Text>
                     <Text style={styles.fermiMessageText}>{messageText}</Text>
 
