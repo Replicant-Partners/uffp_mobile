@@ -167,7 +167,7 @@ export default function ForecastWorkspaceScreen() {
     schedule?: string;
     threshold?: number;
   } | null>(null);
-  const [fermiChatExpanded, setFermiChatExpanded] = useState(false);
+  const [fermiChatExpanded, setFermiChatExpanded] = useState(true); // Always start expanded
   const [fermiChatCollapsed, setFermiChatCollapsed] = useState(false);
   const [fermiChatInput, setFermiChatInput] = useState("");
   const [fermiThinking, setFermiThinking] = useState(false);
@@ -4259,7 +4259,7 @@ export default function ForecastWorkspaceScreen() {
                     ]}
                   >
                     <Text style={styles.fermiMessageRole}>
-                      {msg.role === "user" ? "You" : "🦊 Fermi"}
+                      {msg.role === "user" ? "$ " : "🦊 "}
                     </Text>
                     <Text style={styles.fermiMessageText}>{messageText}</Text>
 
@@ -4300,11 +4300,11 @@ export default function ForecastWorkspaceScreen() {
               })
             ) : (
               <View style={styles.fermiWelcome}>
-                <Text style={styles.fermiWelcomeText}>
-                  👋 Hi! I'm Fermi, your forecasting coach.
-                </Text>
+                <Text style={styles.fermiWelcomeText}>🦊 fermi@uffp ~ $</Text>
                 <Text style={styles.fermiWelcomeSubtext}>
-                  Ask me anything about your forecast, drivers, or results!
+                  Type /question to start a forecast{"\n"}
+                  Type /help to see all commands{"\n"}
+                  Type @fermi to get coaching
                 </Text>
               </View>
             )}
@@ -4324,8 +4324,8 @@ export default function ForecastWorkspaceScreen() {
           <View style={styles.fermiChatInputContainer}>
             <TextInput
               style={styles.fermiChatInput}
-              placeholder="Ask @fermi anything..."
-              placeholderTextColor="#928374"
+              placeholder="Type @fermi for help, / for commands, or @ for agents"
+              placeholderTextColor="#665c54"
               value={fermiChatInput}
               onChangeText={setFermiChatInput}
               editable={!fermiThinking}
@@ -5317,9 +5317,15 @@ const styles = StyleSheet.create({
     borderBottomColor: "#3c3836",
   },
   fermiChatTitle: {
-    color: "#fabd2f",
-    fontSize: 16,
-    fontWeight: "bold",
+    color: "#ebdbb2",
+    fontSize: 14,
+    fontWeight: "normal",
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
   },
   fermiMinimizeButton: {
     paddingHorizontal: 12,
@@ -5335,7 +5341,7 @@ const styles = StyleSheet.create({
     maxHeight: "70%",
   },
   fermiChatHistoryContent: {
-    paddingBottom: 8,
+    paddingBottom: 4,
   },
   fermiMessage: {
     marginBottom: 12,
@@ -5377,30 +5383,41 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   fermiWelcome: {
-    padding: 24,
-    alignItems: "center",
+    padding: 16,
+    alignItems: "flex-start",
   },
   fermiWelcomeText: {
-    color: "#fabd2f",
-    fontSize: 18,
-    fontWeight: "bold",
+    color: "#b8bb26",
+    fontSize: 14,
+    fontWeight: "normal",
     marginBottom: 12,
-    textAlign: "center",
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
   },
   fermiWelcomeSubtext: {
-    color: "#d5c4a1",
-    fontSize: 15,
-    textAlign: "center",
-    lineHeight: 22,
+    color: "#928374",
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
   },
   fermiChatInputContainer: {
     flexDirection: "row",
     alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: "#665c54",
-    padding: 10,
+    padding: 8,
+    paddingBottom: 8,
     backgroundColor: "#1d2021",
-    minHeight: 60,
+    minHeight: 54,
   },
   fermiChatInput: {
     flex: 1,
