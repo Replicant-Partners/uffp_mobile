@@ -2891,9 +2891,10 @@ export default function ForecastWorkspaceScreen() {
                                       formatted += "\n";
                                     }
 
-                                    // Research response (main content)
+                                    // Research response (main content) - PRIORITIZE THIS
                                     if (typeof result === "string") {
-                                      formatted += `Research:\n${result}\n\n`;
+                                      // This is the actual research - show it directly!
+                                      return result;
                                     } else if (result) {
                                       // Try various field names for summary
                                       if (result.summary || result.result) {
