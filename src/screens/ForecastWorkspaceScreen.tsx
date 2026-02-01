@@ -951,21 +951,35 @@ export default function ForecastWorkspaceScreen() {
               // Update saved driver in active forecast
               const updatedDrivers = activeForecast.drivers.map((d: any) => {
                 if (d.id === targetDriver.id) {
-                  return {
-                    ...d,
-                    evidence: [
-                      ...(d.evidence || []),
-                      {
-                        type: "research",
-                        source: agent.name || agent,
-                        summary:
-                          result.result?.summary ||
-                          "Research completed successfully",
-                        timestamp: new Date().toISOString(),
-                        fullResult: result.result, // Store the actual ResearchResult
-                      },
-                    ],
+                  const newEvidence = {
+                    type: "research",
+                    source: agent.name || agent,
+                    summary:
+                      result.result?.summary ||
+                      "Research completed successfully",
+                    timestamp: new Date().toISOString(),
+                    fullResult: result.result, // Store the actual ResearchResult
                   };
+
+                  // Create version for evidence addition (minor change)
+                  const version = createDriverVersion(
+                    d,
+                    [`Added research evidence from ${agent.name}`],
+                    "minor",
+                  );
+
+                  const currentVersion = d.version || { major: 1, minor: 0 };
+                  const updatedDriver = {
+                    ...d,
+                    evidence: [...(d.evidence || []), newEvidence],
+                    version: {
+                      major: currentVersion.major,
+                      minor: currentVersion.minor + 1,
+                    },
+                    history: [...(d.history || []), version],
+                  };
+
+                  return updatedDriver;
                 }
                 return d;
               });
@@ -1328,21 +1342,34 @@ export default function ForecastWorkspaceScreen() {
           // Update saved driver in active forecast
           const updatedDrivers = activeForecast.drivers.map((d: any) => {
             if (d.id === targetDriver.id) {
-              return {
-                ...d,
-                evidence: [
-                  ...(d.evidence || []),
-                  {
-                    type: "research",
-                    source: agent.name || agent,
-                    summary:
-                      result.result?.summary ||
-                      "Research completed successfully",
-                    timestamp: new Date().toISOString(),
-                    fullResult: result.result, // Store the actual ResearchResult
-                  },
-                ],
+              const newEvidence = {
+                type: "research",
+                source: agent.name || agent,
+                summary:
+                  result.result?.summary || "Research completed successfully",
+                timestamp: new Date().toISOString(),
+                fullResult: result.result, // Store the actual ResearchResult
               };
+
+              // Create version for evidence addition (minor change)
+              const version = createDriverVersion(
+                d,
+                [`Added research evidence from ${agent.name}`],
+                "minor",
+              );
+
+              const currentVersion = d.version || { major: 1, minor: 0 };
+              const updatedDriver = {
+                ...d,
+                evidence: [...(d.evidence || []), newEvidence],
+                version: {
+                  major: currentVersion.major,
+                  minor: currentVersion.minor + 1,
+                },
+                history: [...(d.history || []), version],
+              };
+
+              return updatedDriver;
             }
             return d;
           });
