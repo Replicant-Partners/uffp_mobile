@@ -2846,11 +2846,75 @@ export default function ForecastWorkspaceScreen() {
                             </Text>
                             {isExpanded && ev.fullResult && (
                               <View style={styles.fullResultSection}>
-                                <Text style={styles.fullResultLabel}>
-                                  Full Research:
-                                </Text>
+                                <View style={styles.resultHeader}>
+                                  <Text style={styles.fullResultLabel}>
+                                    Full Research:
+                                  </Text>
+                                  <TouchableOpacity
+                                    style={styles.exportButton}
+                                    onPress={(e) => {
+                                      e.stopPropagation();
+                                      // Copy to clipboard or show export dialog
+                                      const jsonStr = JSON.stringify(
+                                        ev.fullResult,
+                                        null,
+                                        2,
+                                      );
+                                      setError(
+                                        `JSON copied to console. Check browser console for full data.`,
+                                      );
+                                      console.log("[Evidence Export]", jsonStr);
+                                    }}
+                                  >
+                                    <Text style={styles.exportButtonText}>
+                                      Export JSON
+                                    </Text>
+                                  </TouchableOpacity>
+                                </View>
                                 <Text style={styles.fullResultText}>
-                                  {JSON.stringify(ev.fullResult, null, 2)}
+                                  {(() => {
+                                    // Format as readable text instead of raw JSON
+                                    const result = ev.fullResult;
+                                    if (typeof result === "string")
+                                      return result;
+
+                                    let formatted = "";
+                                    if (result.summary)
+                                      formatted += `Summary:\n${result.summary}\n\n`;
+                                    if (result.findings) {
+                                      formatted += `Findings:\n`;
+                                      if (Array.isArray(result.findings)) {
+                                        result.findings.forEach(
+                                          (f: any, i: number) => {
+                                            formatted += `${i + 1}. ${typeof f === "string" ? f : JSON.stringify(f)}\n`;
+                                          },
+                                        );
+                                      } else {
+                                        formatted += `${result.findings}\n`;
+                                      }
+                                      formatted += "\n";
+                                    }
+                                    if (result.sources) {
+                                      formatted += `Sources:\n`;
+                                      if (Array.isArray(result.sources)) {
+                                        result.sources.forEach((s: any) => {
+                                          formatted += `• ${typeof s === "string" ? s : s.title || s.url || JSON.stringify(s)}\n`;
+                                        });
+                                      } else {
+                                        formatted += `${result.sources}\n`;
+                                      }
+                                      formatted += "\n";
+                                    }
+                                    if (result.confidence !== undefined) {
+                                      formatted += `Confidence: ${result.confidence}\n`;
+                                    }
+
+                                    // Fallback to JSON if no recognized structure
+                                    return (
+                                      formatted ||
+                                      JSON.stringify(result, null, 2)
+                                    );
+                                  })()}
                                 </Text>
                               </View>
                             )}
@@ -3845,17 +3909,32 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#504945",
   },
+  resultHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
   fullResultLabel: {
     fontSize: 11,
     color: "#83a598",
     fontWeight: "600",
-    marginBottom: 4,
+  },
+  exportButton: {
+    backgroundColor: "#458588",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  exportButtonText: {
+    fontSize: 10,
+    color: "#ebdbb2",
+    fontWeight: "600",
   },
   fullResultText: {
-    fontSize: 11,
+    fontSize: 12,
     color: "#d5c4a1",
-    fontFamily: "monospace",
-    lineHeight: 14,
+    lineHeight: 18,
   },
   suggestedDriverCard: {
     backgroundColor: "#3c3836",
