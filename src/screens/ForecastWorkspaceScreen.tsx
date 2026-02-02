@@ -4479,7 +4479,9 @@ export default function ForecastWorkspaceScreen() {
                     <Text style={styles.driverFieldLabel}>
                       Probability:{" "}
                       <Text style={styles.driverFieldValue}>
-                        {driverBeingConfigured.probability || 50}%
+                        {driverBeingConfigured.probability != null
+                          ? `${driverBeingConfigured.probability}%`
+                          : "not set - use /p <value>"}
                       </Text>
                     </Text>
                     <Text style={styles.driverFieldExplanation}>
@@ -5376,6 +5378,13 @@ export default function ForecastWorkspaceScreen() {
                                   await saveForecast(updatedForecast);
 
                                   // Enter config mode immediately
+                                  // Auto-fix: ensure binary drivers have probability set
+                                  if (
+                                    newDriver.type === "binary" &&
+                                    newDriver.probability == null
+                                  ) {
+                                    newDriver.probability = 50;
+                                  }
                                   setDriverBeingConfigured(newDriver);
                                   setCommandInput("");
 
