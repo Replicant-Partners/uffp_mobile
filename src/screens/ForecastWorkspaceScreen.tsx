@@ -429,6 +429,7 @@ export default function ForecastWorkspaceScreen() {
         type: recommendation.type,
         direction: recommendation.direction,
         agents: [] as any[],
+        evidence: [],
         createdAt: new Date().toISOString(),
         aiRecommendation: recommendation, // Store for reference
         version: { major: 1, minor: 0 },
@@ -568,17 +569,21 @@ export default function ForecastWorkspaceScreen() {
       ) {
         try {
           // Build context for AI
+          // Map UI state to backend coach stages: base_rate, drivers, quantify, review
+          let coachStage = "review";
+          if (driverBeingConfigured) {
+            coachStage = "quantify"; // Configuring individual driver
+          } else if (agentBeingConfigured) {
+            coachStage = "quantify"; // Configuring agent within driver
+          } else if (activeForecast?.probability !== undefined) {
+            coachStage = "review"; // Have final probability, reviewing results
+          } else if (activeForecast) {
+            coachStage = "drivers"; // Have question, working on drivers
+          }
+
           const context: any = {
             forecastId: activeForecast?.id,
-            stage: driverBeingConfigured
-              ? "driver_config"
-              : agentBeingConfigured
-                ? "agent_config"
-                : activeForecast?.probability !== undefined
-                  ? "simulation_results"
-                  : activeForecast
-                    ? "active_forecast"
-                    : "no_forecast",
+            stage: coachStage,
           };
 
           // Add forecast details if available
@@ -2144,8 +2149,18 @@ export default function ForecastWorkspaceScreen() {
       }
 
       // Handle @agent mentions - enter agent config mode (only when configuring a driver)
-      if (trimmed.startsWith("@") && !trimmed.includes("/")) {
+      // Support both @agent and @agent /query <text>
+      if (trimmed.startsWith("@")) {
         let agentName = trimmed.substring(1).trim();
+        let queryText = null;
+
+        // Check if there's a /query command inline
+        if (agentName.includes("/query ")) {
+          const parts = agentName.split("/query ");
+          agentName = parts[0].trim();
+          queryText = parts[1]?.trim();
+        }
+
         // Extract just the agent ID (before any space or parenthesis)
         // e.g., "competitive_intel (competitor tracking)" -> "competitive_intel"
         const spaceIndex = agentName.indexOf(" ");
@@ -2157,7 +2172,11 @@ export default function ForecastWorkspaceScreen() {
           );
           agentName = agentName.substring(0, cutIndex).trim();
         }
-        console.log("Agent mention detected in driver config:", agentName);
+        console.log(
+          "Agent mention detected in driver config:",
+          agentName,
+          queryText ? `with query: ${queryText}` : "",
+        );
 
         // Special handling for @fermi coach agent
         if (agentName === "fermi") {
@@ -2177,13 +2196,21 @@ export default function ForecastWorkspaceScreen() {
 
           if (existingAgent) {
             // Edit mode - load existing agent
-            setAgentBeingConfigured({ ...existingAgent });
+            const updatedAgent = queryText
+              ? { ...existingAgent, query: queryText }
+              : { ...existingAgent };
+
+            setAgentBeingConfigured(updatedAgent);
             setCommandInput("");
             setError("");
 
+            const message = queryText
+              ? `📝 Editing @${agentName} - Query updated\n\nNew query: ${queryText}\nSchedule: ${existingAgent.schedule || "on-demand"}\n\nModify with /query, /schedule, or /threshold.\nType /save when done or /cancel to discard changes.`
+              : `📝 Editing @${agentName}\n\nCurrent query: ${existingAgent.query}\nSchedule: ${existingAgent.schedule || "on-demand"}\n\nModify with /query, /schedule, or /threshold.\nType /save when done or /cancel to discard changes.`;
+
             await addFermiMessage(
-              `@${agentName}`,
-              `📝 Editing @${agentName}\n\nCurrent query: ${existingAgent.query}\nSchedule: ${existingAgent.schedule || "on-demand"}\n\nModify with /query, /schedule, or /threshold.\nType /save when done or /cancel to discard changes.`,
+              `@${agentName}${queryText ? ` /query ${queryText}` : ""}`,
+              message,
               [
                 {
                   key: "query",
@@ -2201,21 +2228,39 @@ export default function ForecastWorkspaceScreen() {
             );
           } else {
             // Create new agent
-            setAgentBeingConfigured({ name: agentName });
+            const newAgent = queryText
+              ? { name: agentName, query: queryText }
+              : { name: agentName };
+
+            setAgentBeingConfigured(newAgent);
             setCommandInput("");
             setError("");
 
+            const message = queryText
+              ? `✓ Agent @${agentName} configured with query\n\nQuery: ${queryText}\n\nYou can now:\n• /save to attach agent\n• /schedule to set update frequency\n• /threshold to set trigger conditions`
+              : `📋 Configuring @${agentName}\n\nWhat should this agent research?\n\nNext: Type /query <your research question>`;
+
             await addFermiMessage(
-              `@${agentName}`,
-              `📋 Configuring @${agentName}\n\nWhat should this agent research?\n\nNext: Type /query <your research question>`,
-              [
-                {
-                  key: "query",
-                  label: "/query ",
-                  description: "Set research query",
-                },
-                { key: "cancel", label: "/cancel", description: "Cancel" },
-              ],
+              `@${agentName}${queryText ? ` /query ${queryText}` : ""}`,
+              message,
+              queryText
+                ? [
+                    {
+                      key: "schedule",
+                      label: "/schedule ",
+                      description: "Set update frequency",
+                    },
+                    { key: "save", label: "/save", description: "Save agent" },
+                    { key: "cancel", label: "/cancel", description: "Cancel" },
+                  ]
+                : [
+                    {
+                      key: "query",
+                      label: "/query ",
+                      description: "Set research query",
+                    },
+                    { key: "cancel", label: "/cancel", description: "Cancel" },
+                  ],
             );
           }
         }
@@ -2798,6 +2843,15 @@ export default function ForecastWorkspaceScreen() {
             `Simulation #${simulationCount} complete: ${result.probability}`,
           );
         } else {
+          // Handle forecast not found - backend was reset
+          if (
+            result.error?.includes("not found") ||
+            result.error?.includes("404")
+          ) {
+            throw new Error(
+              "Forecast not found on backend. The server may have restarted. Please create a new forecast.",
+            );
+          }
           throw new Error(result.error || "Simulation failed");
         }
       } catch (err: any) {
@@ -2959,8 +3013,11 @@ export default function ForecastWorkspaceScreen() {
           type: recommendation.type,
           direction: recommendation.direction,
           agents: [] as any[],
+          evidence: [],
           createdAt: new Date().toISOString(),
           aiRecommendation: recommendation,
+          version: { major: 1, minor: 0 },
+          versionHistory: [],
         };
 
         if (recommendation.type === "binary") {
@@ -3784,6 +3841,12 @@ export default function ForecastWorkspaceScreen() {
         },
         { key: "type", label: "/type", desc: "Set type (continuous|binary)" },
         { key: "evidence", label: "/evidence", desc: "Add manual evidence" },
+        {
+          key: "run",
+          label: "/run",
+          desc: "Execute agent (@agent [/query text])",
+        },
+        { key: "edit", label: "/edit", desc: "Edit driver configuration" },
         { key: "save", label: "/save", desc: "Save driver" },
         { key: "cancel", label: "/cancel", desc: "Cancel" },
       ];
@@ -4508,7 +4571,7 @@ export default function ForecastWorkspaceScreen() {
                   <Text style={styles.driverDetails}>
                     {driver.type === "continuous"
                       ? `P(${driver.p5}-${driver.p50}-${driver.p95}) · ${driver.distribution}`
-                      : `P(${driver.probability}%)`}{" "}
+                      : `P(${driver.probability != null ? driver.probability + "%" : "not set"})`}{" "}
                     · {driver.direction}
                   </Text>
                   {driver.evidence && driver.evidence.length > 0 && (
@@ -5262,23 +5325,32 @@ export default function ForecastWorkspaceScreen() {
                                 setProcessingAction("Adding driver...");
 
                                 try {
-                                  const newDriver = {
+                                  const driverType =
+                                    driverData.type || "continuous";
+                                  const newDriver: any = {
                                     id: Date.now().toString(),
                                     name: driverData.name,
-                                    type: driverData.type || "continuous",
-                                    distribution:
-                                      driverData.distribution || "triangular",
-                                    p5: driverData.p5 || 30,
-                                    p50: driverData.p50 || 50,
-                                    p95: driverData.p95 || 70,
-                                    direction:
-                                      driverData.direction || "increases",
+                                    type: driverType,
                                     agents: [] as any[],
                                     evidence: [],
                                     createdAt: new Date().toISOString(),
                                     version: { major: 1, minor: 0 },
                                     versionHistory: [],
                                   };
+
+                                  // Add type-specific fields
+                                  if (driverType === "binary") {
+                                    newDriver.probability =
+                                      driverData.probability || 50;
+                                  } else {
+                                    newDriver.distribution =
+                                      driverData.distribution || "triangular";
+                                    newDriver.p5 = driverData.p5 || 30;
+                                    newDriver.p50 = driverData.p50 || 50;
+                                    newDriver.p95 = driverData.p95 || 70;
+                                    newDriver.direction =
+                                      driverData.direction || "increases";
+                                  }
 
                                   // Add driver to forecast
                                   const updatedForecast = {
