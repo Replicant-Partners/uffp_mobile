@@ -5118,7 +5118,6 @@ export default function ForecastWorkspaceScreen() {
 
                               if (driverData && activeForecast) {
                                 // Auto-save driver from decompose suggestion
-                                setFermiChatInput(commandText);
                                 setProcessingAction("Adding driver...");
 
                                 try {
@@ -5134,7 +5133,10 @@ export default function ForecastWorkspaceScreen() {
                                     direction:
                                       driverData.direction || "increases",
                                     agents: [] as any[],
+                                    evidence: [],
                                     createdAt: new Date().toISOString(),
+                                    version: { major: 1, minor: 0 },
+                                    versionHistory: [],
                                   };
 
                                   // Add driver to forecast
@@ -5150,9 +5152,19 @@ export default function ForecastWorkspaceScreen() {
                                   setActiveForecast(updatedForecast);
                                   await saveForecast(updatedForecast);
 
-                                  // Show success in error area (temporary notification)
-                                  setError(`✓ Added driver: ${newDriver.name}`);
-                                  setTimeout(() => setError(""), 3000);
+                                  // Enter config mode immediately
+                                  setDriverBeingConfigured(newDriver);
+                                  setCommandInput("");
+
+                                  // Show success toast
+                                  showToast(
+                                    `✓ Driver added: ${newDriver.name}`,
+                                  );
+
+                                  // Show config guidance
+                                  setError(
+                                    `✓ Driver saved with AI defaults!\n\nNow configure:\n• Add agents: @research_analyst\n• Adjust values: /p 20 50 80\n• Add evidence: /evidence\n\nType /save when done or /cancel to exit.`,
+                                  );
                                 } catch (err) {
                                   console.error(
                                     "[Auto-save driver] Failed:",
