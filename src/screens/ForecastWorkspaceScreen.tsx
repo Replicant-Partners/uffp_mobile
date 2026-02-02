@@ -616,6 +616,12 @@ export default function ForecastWorkspaceScreen() {
             methodology: "Fermi estimation + Monte Carlo simulation + research agents for calibrated probabilistic forecasts",
           };
 
+          // Add important context constraints
+          context.systemConstraints = {
+            agentUsage: "Research agents (except @fermi) can only be attached to drivers during driver configuration. @fermi can be invoked anytime for coaching.",
+            workflow: "forecast → drivers → agents attached to drivers → simulation",
+          };
+
           // Call AI backend
           const response = await researchService.chatWithCoach(userQuery, context);
 
@@ -1884,6 +1890,40 @@ export default function ForecastWorkspaceScreen() {
       }
     }
 
+    // Handle @agent mentions outside of driver config context
+    if (trimmed.startsWith("@") && !trimmed.includes("/") && !driverBeingConfigured && !agentBeingConfigured) {
+      let agentName = trimmed.substring(1).trim();
+      const spaceIndex = agentName.indexOf(" ");
+      const parenIndex = agentName.indexOf("(");
+      if (spaceIndex > 0 || parenIndex > 0) {
+        const cutIndex = Math.min(
+          spaceIndex > 0 ? spaceIndex : Infinity,
+          parenIndex > 0 ? parenIndex : Infinity,
+        );
+        agentName = agentName.substring(0, cutIndex).trim();
+      }
+
+      // Special handling for @fermi - always allowed
+      if (agentName === "fermi") {
+        await handleFermiCoaching();
+        setCommandInput("");
+        return;
+      }
+
+      // Other agents require driver context
+      await addFermiMessage(
+        `@${agentName}`,
+        `⚠️ Agents can only be attached to drivers\n\nTo use @${agentName}:\n1. Start a forecast: /question <your question>\n2. Add a driver: /driver <driver name>\n3. While configuring the driver, type @${agentName}\n\nOr ask @fermi for help!`,
+        [
+          { key: "question", label: "/question ", description: "Start a forecast" },
+          { key: "help", label: "/help", description: "Show all commands" },
+          { key: "agent-list", label: "/agent-list", description: "See all agents" },
+        ],
+      );
+      setCommandInput("");
+      return;
+    }
+
     // Handle driver configuration commands
     if (driverBeingConfigured) {
       // /type <continuous|binary>
@@ -2001,7 +2041,7 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
-      // Handle @agent mentions - enter agent config mode
+      // Handle @agent mentions - enter agent config mode (only when configuring a driver)
       if (trimmed.startsWith("@") && !trimmed.includes("/")) {
         let agentName = trimmed.substring(1).trim();
         // Extract just the agent ID (before any space or parenthesis)
@@ -2015,7 +2055,7 @@ export default function ForecastWorkspaceScreen() {
           );
           agentName = agentName.substring(0, cutIndex).trim();
         }
-        console.log("Agent mention detected:", agentName);
+        console.log("Agent mention detected in driver config:", agentName);
 
         // Special handling for @fermi coach agent
         if (agentName === "fermi") {
