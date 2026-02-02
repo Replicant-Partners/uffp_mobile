@@ -633,6 +633,35 @@ export default function ForecastWorkspaceScreen() {
       let guidance = "";
       const suggestions: CommandSuggestion[] = [];
 
+      // If in agent config mode, provide agent-specific help
+      if (agentBeingConfigured) {
+        guidance = `🦊 @fermi — Agent Configuration Help\n\n`;
+        guidance += `📋 Configuring: @${agentBeingConfigured.name}\n\n`;
+
+        if (!agentBeingConfigured.query) {
+          guidance += `❗ Missing: Research query (required)\n`;
+          guidance += `Use: /query <your research question>\n\n`;
+          guidance += `Example: /query What is the market size for electric vehicles in 2025?\n`;
+        } else {
+          guidance += `✓ Query set: ${agentBeingConfigured.query}\n\n`;
+        }
+
+        if (!agentBeingConfigured.schedule) {
+          guidance += `Schedule: /schedule daily|weekly|on-demand\n`;
+        } else {
+          guidance += `✓ Schedule: ${agentBeingConfigured.schedule}\n`;
+        }
+
+        guidance += `\n💡 Commands:\n`;
+        guidance += `• /query <question> - Set what to research\n`;
+        guidance += `• /schedule <frequency> - Set update frequency\n`;
+        guidance += `• /save - Save agent to driver\n`;
+        guidance += `• /cancel - Cancel agent config\n`;
+
+        await addFermiMessage(userQuery || "@fermi", guidance);
+        return;
+      }
+
       // Check if user is asking about a specific concept
       if (userQuery && userQuery.length > 0) {
         const conceptMatch = ontology.explainConcept(userQuery);
@@ -1232,6 +1261,53 @@ export default function ForecastWorkspaceScreen() {
   };
 
   const processSingleCommand = async (trimmed: string) => {
+    // GLOBAL COMMANDS - work in any context
+
+    // /help - always available
+    if (trimmed === "/help" || trimmed === "/-h") {
+      const helpText = `Available commands:
+
+/question <text> - Start a new forecast
+/list [all|active|expired] - Show forecasts
+/driver <name> - Add a driver
+/simulate - Run simulation
+/external <reference class> - Set external view
+/premortem - Enable premortem mode
+@fermi - Get coaching help
+
+Type a command to get started!`;
+
+      const commandSuggestions: CommandSuggestion[] = [
+        {
+          key: "question",
+          label: "/question ",
+          description: "Start new forecast",
+        },
+        { key: "list", label: "/list", description: "Show forecasts" },
+        { key: "driver", label: "/driver ", description: "Add a driver" },
+        { key: "simulate", label: "/simulate", description: "Run simulation" },
+      ];
+
+      await addFermiMessage("/help", helpText, commandSuggestions);
+      setCommandInput("");
+      return;
+    }
+
+    // /cancel - exit any config mode
+    if (trimmed === "/cancel") {
+      if (agentBeingConfigured) {
+        setAgentBeingConfigured(null);
+        await addFermiMessage("/cancel", "✓ Agent configuration cancelled");
+      } else if (driverBeingConfigured) {
+        setDriverBeingConfigured(null);
+        await addFermiMessage("/cancel", "✓ Driver configuration cancelled");
+      } else {
+        await addFermiMessage("/cancel", "Nothing to cancel");
+      }
+      setCommandInput("");
+      return;
+    }
+
     // Handle agent configuration commands
     if (agentBeingConfigured) {
       // /query <search query>
@@ -4433,9 +4509,26 @@ Type a command to get started!`;
                 <TouchableOpacity
                   key={hint.key}
                   style={styles.fermiHintChip}
-                  onPress={() => {
-                    // Apply hint
-                    if (hint.label.startsWith("@")) {
+                  onPress={async () => {
+                    // Auto-execute commands that don't need arguments
+                    const noArgCommands = [
+                      "save",
+                      "cancel",
+                      "help",
+                      "list",
+                      "simulate",
+                    ];
+
+                    if (noArgCommands.includes(hint.key)) {
+                      // Execute immediately
+                      setFermiChatInput("");
+                      if (hint.label.startsWith("/")) {
+                        await processSingleCommand(hint.label);
+                      } else {
+                        await handleFermiCoaching(hint.label);
+                      }
+                    } else if (hint.label.startsWith("@")) {
+                      // For @ mentions, replace and let user continue typing
                       if (fermiChatInput.includes("@")) {
                         const atIndex = fermiChatInput.lastIndexOf("@");
                         setFermiChatInput(
@@ -4446,14 +4539,8 @@ Type a command to get started!`;
                       } else {
                         setFermiChatInput(hint.label + " ");
                       }
-                    } else if (
-                      hint.key === "save" ||
-                      hint.key === "cancel" ||
-                      hint.key === "help" ||
-                      hint.key === "list"
-                    ) {
-                      setFermiChatInput(hint.label);
                     } else {
+                      // For commands needing args, just autocomplete
                       setFermiChatInput(hint.label + " ");
                     }
                   }}
@@ -5562,14 +5649,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#3c3836",
     borderWidth: 1,
     borderColor: "#665c54",
-    borderRadius: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderRadius: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     marginRight: 6,
   },
   fermiHintChipLabel: {
     color: "#d5c4a1",
-    fontSize: 12,
+    fontSize: 11,
     fontFamily:
       Platform.OS === "ios"
         ? "Menlo"
