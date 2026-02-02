@@ -4785,10 +4785,9 @@ export default function ForecastWorkspaceScreen() {
                                   setActiveForecast(updatedForecast);
                                   await saveForecast(updatedForecast);
 
-                                  await addFermiMessage(
-                                    commandText,
-                                    `✓ Added driver: ${newDriver.name}\n\nDriver auto-configured from decompose suggestion.`,
-                                  );
+                                  // Show success in error area (temporary notification)
+                                  setError(`✓ Added driver: ${newDriver.name}`);
+                                  setTimeout(() => setError(""), 3000);
                                 } catch (err) {
                                   console.error("[Auto-save driver] Failed:", err);
                                   setError("Failed to save driver. Please try again.");
