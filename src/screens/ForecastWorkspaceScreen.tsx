@@ -263,6 +263,14 @@ export default function ForecastWorkspaceScreen() {
         console.log(`Loaded ${result.forecasts.length} forecasts from backend`);
         const migrated = migrateEvidenceFormat(result.forecasts);
         setSavedForecasts(migrated);
+
+        // Clear local storage since backend is source of truth
+        if (Platform.OS === "web") {
+          localStorage.removeItem(STORAGE_KEY);
+        } else {
+          await AsyncStorage.removeItem(STORAGE_KEY);
+        }
+        console.log("Cleared local storage - using backend as source of truth");
         return;
       }
 
@@ -522,7 +530,10 @@ export default function ForecastWorkspaceScreen() {
     };
 
     setActiveForecast(updatedForecast);
-    await saveForecast(updatedForecast);
+    // Only save to local if it's a local-only forecast
+    if (activeForecast.id && activeForecast.id.startsWith("local-")) {
+      await saveForecast(updatedForecast);
+    }
 
     // Clear thinking state
     setFermiThinking(false);
@@ -1384,9 +1395,8 @@ export default function ForecastWorkspaceScreen() {
         });
 
         if (result.success && result.forecast) {
-          // Update from backend response
+          // Update from backend response - no need to save locally
           setActiveForecast(result.forecast);
-          await saveForecast(result.forecast);
           console.log("Driver added to backend");
         } else {
           // Fall back to local update
@@ -2742,7 +2752,7 @@ export default function ForecastWorkspaceScreen() {
           // Backend returns forecast with simulations array already updated
           if (result.forecast) {
             setActiveForecast(result.forecast);
-            await saveForecast(result.forecast);
+            // No need to save locally - backend is source of truth
           } else {
             // Fallback: update probability only (shouldn't happen with backend-primary)
             const updatedForecast = {
@@ -2942,14 +2952,13 @@ Type a command to get started!`;
 
           setActiveForecast(newForecast);
 
-          // Also save to local storage as backup
-          await saveForecast(newForecast);
-
-          console.log(
-            createResult.fromBackend
-              ? `Created forecast ${newForecast.id} on backend`
-              : "Created forecast locally (backend unavailable)",
-          );
+          // Only save to local storage if backend failed
+          if (!createResult.fromBackend) {
+            await saveForecast(newForecast);
+            console.log("Created forecast locally (backend unavailable)");
+          } else {
+            console.log(`Created forecast ${newForecast.id} on backend`);
+          }
         } else {
           throw new Error("Failed to create forecast");
         }
