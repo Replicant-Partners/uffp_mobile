@@ -153,9 +153,18 @@ class ResearchService {
     forecastId: string,
     driver: {
       name: string;
-      description: string;
-      direction: "increases" | "decreases";
-      magnitude: "low" | "medium" | "high";
+      type: "binary" | "continuous";
+      probability?: number;
+      p5?: number;
+      p50?: number;
+      p95?: number;
+      distribution?: "normal" | "triangular" | "lognormal";
+      direction?: "increases" | "decreases";
+      reasoning?: string;
+      evidence?: any[];
+      agents?: any[];
+      version?: any;
+      versionHistory?: any[];
     },
   ): Promise<any> {
     const response = await this.makeRequest("/forecasts?action=addDriver", {
