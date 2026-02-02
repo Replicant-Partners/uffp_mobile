@@ -2974,10 +2974,18 @@ export default function ForecastWorkspaceScreen() {
               existingDrivers: activeForecast.drivers,
             },
           );
+          // Convert backend suggestions to frontend format
+          const suggestions = response.suggestions?.map((s: any) => ({
+            command: `/driver ${s.data.name}`,
+            description: s.data.description,
+            clickable: true,
+            driverData: s.data,
+          })) || [];
 
           await addFermiMessage(
             "/decompose",
             response.message || response.decomposition,
+            suggestions,
           );
           return;
         } catch (apiError) {
