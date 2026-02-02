@@ -2867,89 +2867,16 @@ export default function ForecastWorkspaceScreen() {
           );
           return;
         } catch (apiError) {
-          console.warn(
-            "[Review] API call failed, falling back to local analysis:",
-            apiError,
+          console.error("[Review] API call failed:", apiError);
+          await addFermiMessage(
+            "/review",
+            "❌ **Backend unavailable**\n\nCouldn't connect to the AI coach. Please check your connection and try again.",
           );
-          // Fall through to local fallback
+        } finally {
+          setFermiThinking(false);
         }
-
-        // Local fallback: Use contextAnalyzer
-        const { analyzeContext } = await import("../services/contextAnalyzer");
-        const insights = analyzeContext(activeForecast);
-
-        let reviewMessage = `📊 **Forecast Review: ${activeForecast.question}**\n\n`;
-
-        // Summary stats
-        reviewMessage += `**Current State:**\n`;
-        reviewMessage += `• ${activeForecast.drivers.length} driver(s)\n`;
-        const driversWithAgents = activeForecast.drivers.filter(
-          (d) => d.agents && d.agents.length > 0,
-        ).length;
-        reviewMessage += `• ${driversWithAgents} driver(s) with research agents\n`;
-        if (activeForecast.probability !== undefined) {
-          reviewMessage += `• Current estimate: ${Math.round(activeForecast.probability)}%\n`;
-        }
-        reviewMessage += `\n`;
-
-        // Show insights by severity
-        if (insights.length === 0) {
-          reviewMessage += `✅ **Great work!** Your forecast looks well-structured with good coverage and no obvious issues.\n\n`;
-          reviewMessage += `Consider running /simulate to get a probability estimate if you haven't already.`;
-        } else {
-          const critical = insights.filter((i) => i.severity === "critical");
-          const warnings = insights.filter((i) => i.severity === "warning");
-          const infos = insights.filter((i) => i.severity === "info");
-
-          if (critical.length > 0) {
-            reviewMessage += `🔴 **Critical Issues (${critical.length}):**\n`;
-            critical.forEach((i) => {
-              reviewMessage += `\n**${i.title}**\n${i.description}\n`;
-              if (i.suggestedAction)
-                reviewMessage += `→ ${i.suggestedAction}\n`;
-            });
-            reviewMessage += `\n`;
-          }
-
-          if (warnings.length > 0) {
-            reviewMessage += `⚠️  **Warnings (${warnings.length}):**\n`;
-            warnings.forEach((i) => {
-              reviewMessage += `\n**${i.title}**\n${i.description}\n`;
-              if (i.suggestedAction)
-                reviewMessage += `→ ${i.suggestedAction}\n`;
-            });
-            reviewMessage += `\n`;
-          }
-
-          if (infos.length > 0) {
-            reviewMessage += `ℹ️  **Suggestions (${infos.length}):**\n`;
-            infos.forEach((i) => {
-              reviewMessage += `\n**${i.title}**\n${i.description}\n`;
-              if (i.suggestedAction)
-                reviewMessage += `→ ${i.suggestedAction}\n`;
-            });
-          }
-        }
-
-        // Generate command suggestions from insights
-        const suggestions: CommandSuggestion[] = insights
-          .filter((i) => i.suggestedCommand)
-          .map((i) => ({
-            label: i.suggestedCommand!,
-            desc: i.title,
-          }));
-
-        await addFermiMessage("/review", reviewMessage, suggestions);
-      } catch (error) {
-        console.error("[Review] Failed:", error);
-        await addFermiMessage(
-          "/review",
-          "❌ Failed to generate review. Please try again.",
-        );
-      } finally {
-        setFermiThinking(false);
+        return;
       }
-      return;
     }
 
     // Handle /decompose command - suggest strategies for breaking down the question
@@ -2989,55 +2916,16 @@ export default function ForecastWorkspaceScreen() {
           );
           return;
         } catch (apiError) {
-          console.warn(
-            "[Decompose] API call failed, falling back to local strategies:",
-            apiError,
+          console.error("[Decompose] API call failed:", apiError);
+          await addFermiMessage(
+            "/decompose",
+            "❌ **Backend unavailable**\n\nCouldn't connect to the AI coach. Please check your connection and try again.",
           );
-          // Fall through to local fallback
+        } finally {
+          setFermiThinking(false);
         }
-
-        // Local fallback: Use fermiDecomposition
-        const { suggestDecompositions, generateDecompositionTemplate } =
-          await import("../services/fermiDecomposition");
-
-        const suggestions = suggestDecompositions(activeForecast.question);
-
-        let decompMessage = `🎯 **Decomposition Strategies for:**\n_"${activeForecast.question}"_\n\n`;
-        decompMessage += `Here are ${suggestions.length} recommended approaches to break down this forecast:\n\n`;
-
-        suggestions.forEach((suggestion, i) => {
-          decompMessage += `### ${i + 1}. ${suggestion.strategy.name}\n\n`;
-          decompMessage += `${suggestion.reasoning}\n\n`;
-          decompMessage += `**Key factors to consider:** ${suggestion.applicableFactors.join(", ")}\n\n`;
-          decompMessage += `**Approach:**\n`;
-          suggestion.strategy.steps.forEach((step, j) => {
-            decompMessage += `${j + 1}. ${step}\n`;
-          });
-
-          if (suggestion.strategy.example) {
-            decompMessage += `\n_Example: ${suggestion.strategy.example}_\n`;
-          }
-
-          decompMessage += `\n`;
-        });
-
-        decompMessage += `---\n\n`;
-        decompMessage += `💡 **Next steps:**\n`;
-        decompMessage += `• Pick a strategy that fits your question\n`;
-        decompMessage += `• Use /driver to create drivers for each step\n`;
-        decompMessage += `• Ask me for help refining any step\n`;
-
-        await addFermiMessage("/decompose", decompMessage);
-      } catch (error) {
-        console.error("[Decompose] Failed:", error);
-        await addFermiMessage(
-          "/decompose",
-          "❌ Failed to generate decomposition suggestions. Please try again.",
-        );
-      } finally {
-        setFermiThinking(false);
+        return;
       }
-      return;
     }
 
     // Handle numbered driver selection (e.g., "1", "2", "3")
