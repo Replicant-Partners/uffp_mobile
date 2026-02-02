@@ -2524,40 +2524,37 @@ export default function ForecastWorkspaceScreen() {
       setFermiThinking(true);
 
       try {
-        // Try agentic API call first
-        try {
-          const response = await researchService.reviewForecast(
-            activeForecast.id || "temp",
-            {
-              question: activeForecast.question,
-              drivers: activeForecast.drivers,
-              probability: activeForecast.probability,
-            },
-          );
+        const response = await researchService.reviewForecast(
+          activeForecast.id || "temp",
+          {
+            question: activeForecast.question,
+            drivers: activeForecast.drivers,
+            probability: activeForecast.probability,
+          },
+        );
 
-          const suggestions: CommandSuggestion[] =
-            response.suggestions?.map((s: any) => ({
-              label: s.command || s.label,
-              desc: s.description || s.desc,
-            })) || [];
+        const suggestions: CommandSuggestion[] =
+          response.suggestions?.map((s: any) => ({
+            label: s.command || s.label,
+            desc: s.description || s.desc,
+          })) || [];
 
-          await addFermiMessage(
-            "/review",
-            response.message || response.review,
-            suggestions,
-          );
-          return;
-        } catch (apiError) {
-          console.error("[Review] API call failed:", apiError);
-          await addFermiMessage(
-            "/review",
-            "❌ **Backend unavailable**\n\nCouldn't connect to the AI coach. Please check your connection and try again.",
-          );
-        } finally {
-          setFermiThinking(false);
-        }
+        await addFermiMessage(
+          "/review",
+          response.message || response.review,
+          suggestions,
+        );
         return;
+      } catch (apiError) {
+        console.error("[Review] API call failed:", apiError);
+        await addFermiMessage(
+          "/review",
+          "❌ **Backend unavailable**\n\nCouldn't connect to the AI coach. Please check your connection and try again.",
+        );
+      } finally {
+        setFermiThinking(false);
       }
+      return;
     }
 
     // Handle /decompose command - suggest strategies for breaking down the question
@@ -2573,40 +2570,38 @@ export default function ForecastWorkspaceScreen() {
       setFermiThinking(true);
 
       try {
-        // Try agentic API call first
-        try {
-          const response = await researchService.decomposeForecast(
-            activeForecast.question,
-            {
-              forecastId: activeForecast.id,
-              existingDrivers: activeForecast.drivers,
-            },
-          );
-          // Convert backend suggestions to frontend format
-          const suggestions = response.suggestions?.map((s: any) => ({
+        const response = await researchService.decomposeForecast(
+          activeForecast.question,
+          {
+            forecastId: activeForecast.id,
+            existingDrivers: activeForecast.drivers,
+          },
+        );
+        // Convert backend suggestions to frontend format
+        const suggestions =
+          response.suggestions?.map((s: any) => ({
             command: `/driver ${s.data.name}`,
             description: s.data.description,
             clickable: true,
             driverData: s.data,
           })) || [];
 
-          await addFermiMessage(
-            "/decompose",
-            response.message || response.decomposition,
-            suggestions,
-          );
-          return;
-        } catch (apiError) {
-          console.error("[Decompose] API call failed:", apiError);
-          await addFermiMessage(
-            "/decompose",
-            "❌ **Backend unavailable**\n\nCouldn't connect to the AI coach. Please check your connection and try again.",
-          );
-        } finally {
-          setFermiThinking(false);
-        }
+        await addFermiMessage(
+          "/decompose",
+          response.message || response.decomposition,
+          suggestions,
+        );
         return;
+      } catch (apiError) {
+        console.error("[Decompose] API call failed:", apiError);
+        await addFermiMessage(
+          "/decompose",
+          "❌ **Backend unavailable**\n\nCouldn't connect to the AI coach. Please check your connection and try again.",
+        );
+      } finally {
+        setFermiThinking(false);
       }
+      return;
     }
 
     // Handle numbered driver selection (e.g., "1", "2", "3")
@@ -3221,7 +3216,11 @@ export default function ForecastWorkspaceScreen() {
         { key: "driver", label: "/driver", desc: "Add a driver" },
         { key: "simulate", label: "/simulate", desc: "Run simulation" },
         { key: "review", label: "/review", desc: "Analyze forecast quality" },
-        { key: "decompose", label: "/decompose", desc: "Break down the question" },
+        {
+          key: "decompose",
+          label: "/decompose",
+          desc: "Break down the question",
+        },
       );
 
       // Show expire command if forecast has a probability and isn't resolved yet
@@ -3431,7 +3430,11 @@ export default function ForecastWorkspaceScreen() {
         { key: "driver", label: "/driver", desc: "Add a driver" },
         { key: "simulate", label: "/simulate", desc: "Run simulation" },
         { key: "review", label: "/review", desc: "Analyze forecast quality" },
-        { key: "decompose", label: "/decompose", desc: "Break down the question" },
+        {
+          key: "decompose",
+          label: "/decompose",
+          desc: "Break down the question",
+        },
       );
     }
 
@@ -4766,11 +4769,13 @@ export default function ForecastWorkspaceScreen() {
                                     id: Date.now().toString(),
                                     name: driverData.name,
                                     type: driverData.type || "continuous",
-                                    distribution: driverData.distribution || "triangular",
+                                    distribution:
+                                      driverData.distribution || "triangular",
                                     p5: driverData.p5 || 30,
                                     p50: driverData.p50 || 50,
                                     p95: driverData.p95 || 70,
-                                    direction: driverData.direction || "increases",
+                                    direction:
+                                      driverData.direction || "increases",
                                     agents: [] as any[],
                                     createdAt: new Date().toISOString(),
                                   };
@@ -4778,7 +4783,10 @@ export default function ForecastWorkspaceScreen() {
                                   // Add driver to forecast
                                   const updatedForecast = {
                                     ...activeForecast,
-                                    drivers: [...(activeForecast.drivers || []), newDriver],
+                                    drivers: [
+                                      ...(activeForecast.drivers || []),
+                                      newDriver,
+                                    ],
                                     updatedAt: new Date().toISOString(),
                                   };
 
@@ -4789,8 +4797,13 @@ export default function ForecastWorkspaceScreen() {
                                   setError(`✓ Added driver: ${newDriver.name}`);
                                   setTimeout(() => setError(""), 3000);
                                 } catch (err) {
-                                  console.error("[Auto-save driver] Failed:", err);
-                                  setError("Failed to save driver. Please try again.");
+                                  console.error(
+                                    "[Auto-save driver] Failed:",
+                                    err,
+                                  );
+                                  setError(
+                                    "Failed to save driver. Please try again.",
+                                  );
                                 } finally {
                                   setProcessingAction("");
                                 }
