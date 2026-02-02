@@ -444,26 +444,10 @@ export default function ForecastWorkspaceScreen() {
 
       setError(message);
     } catch (err) {
-      console.error("[Driver Config] Analysis failed, using defaults:", err);
-
-      // Fallback to default configuration
-      const newDriver = {
-        id: Date.now().toString(),
-        name: suggestedDriver,
-        type: "continuous",
-        distribution: "triangular",
-        p5: 30,
-        p50: 50,
-        p95: 70,
-        direction: "increases",
-        agents: [] as any[],
-        createdAt: new Date().toISOString(),
-        version: { major: 1, minor: 0 },
-        versionHistory: [],
-      };
-
-      setDriverBeingConfigured(newDriver);
-      setCommandInput("");
+      console.error("[Driver Config] Analysis failed:", err);
+      setError(
+        "❌ Backend unavailable - couldn't analyze driver. Please check your connection and try again.",
+      );
     } finally {
       setProcessingAction("");
     }
@@ -728,324 +712,21 @@ export default function ForecastWorkspaceScreen() {
           return;
         } catch (error) {
           console.error("[Fermi AI] Failed to get AI response:", error);
-          // Fall through to static guidance
-        }
-      }
-
-      // Get ontology service for fallback
-      const ontology = getOntologyService();
-
-      // Observe this interaction for pattern learning
-      try {
-        ontology.observe({
-          type: "invoke",
-          entity: "USER",
-          target: "FERMI",
-          context: userQuery || "general_help",
-        });
-      } catch (obsErr) {
-        console.log("[Fermi] Ontology observe skipped:", obsErr);
-      }
-
-      // queryText already defined at top of function
-
-      // Check if this is a command (starts with /)
-      if (queryText.startsWith("/")) {
-        const context = getCurrentContext();
-        const state = {
-          activeForecast,
-          driverBeingConfigured,
-          agentBeingConfigured,
-          drivers: activeForecast?.drivers || [],
-        };
-
-        const result = await executeCommand(queryText, context, state);
-
-        // Handle state updates from command
-        if (result.updateState) {
-          if (result.updateState.question) {
-            setActiveQuestion(result.updateState.question);
-            // Auto-execute /question command
-            await processSingleCommand(
-              `/question ${result.updateState.question}`,
-            );
-          }
-          if (result.updateState.configureDriver) {
-            await processSingleCommand(
-              `/driver ${result.updateState.configureDriver}`,
-            );
-          }
-          if (result.updateState.runSimulation) {
-            await processSingleCommand("/simulate");
-          }
-          if (result.updateState.showList !== undefined) {
-            setShowForecastList(result.updateState.showList);
-          }
-          if (result.updateState.save) {
-            // Check if we're saving an agent or a driver
-            if (agentBeingConfigured) {
-              await saveConfiguredAgent();
-            } else {
-              await saveConfiguredDriver();
-            }
-          }
-          if (result.updateState.cancel) {
-            if (agentBeingConfigured) setAgentBeingConfigured(null);
-            if (driverBeingConfigured) setDriverBeingConfigured(null);
-          }
-          if (result.updateState.p5 !== undefined) {
-            setDriverBeingConfigured((prev) =>
-              prev ? { ...prev, p5: result.updateState.p5 } : null,
-            );
-          }
-          if (result.updateState.p50 !== undefined) {
-            setDriverBeingConfigured((prev) =>
-              prev ? { ...prev, p50: result.updateState.p50 } : null,
-            );
-          }
-          if (result.updateState.p95 !== undefined) {
-            setDriverBeingConfigured((prev) =>
-              prev ? { ...prev, p95: result.updateState.p95 } : null,
-            );
-          }
-          if (result.updateState.distribution) {
-            setDriverBeingConfigured((prev) =>
-              prev
-                ? { ...prev, distribution: result.updateState.distribution }
-                : null,
-            );
-          }
-          if (result.updateState.direction) {
-            setDriverBeingConfigured((prev) =>
-              prev
-                ? { ...prev, direction: result.updateState.direction }
-                : null,
-            );
-          }
-
-          // Handle agent configuration
-          if (result.updateState.configureAgent) {
-            setAgentBeingConfigured({
-              name: result.updateState.configureAgent,
-            });
-          }
-          if (result.updateState.query) {
-            setAgentBeingConfigured((prev) =>
-              prev ? { ...prev, query: result.updateState.query } : null,
-            );
-          }
-          if (result.updateState.schedule) {
-            setAgentBeingConfigured((prev) =>
-              prev ? { ...prev, schedule: result.updateState.schedule } : null,
-            );
-          }
-          if (result.updateState.runAgent) {
-            // Execute agent research immediately
-            if (agentBeingConfigured && driverBeingConfigured) {
-              await runAgentDuringConfiguration();
-            }
-          }
-        }
-
-        // Add to fermi conversation with suggestions
-        await addFermiMessage(queryText, result.message, result.suggestions);
-        return;
-      }
-
-      // Determine context and provide appropriate coaching
-      let guidance = "";
-      const suggestions: CommandSuggestion[] = [];
-
-      // If in agent config mode, provide agent-specific help
-      if (agentBeingConfigured) {
-        guidance = `🦊 @fermi — Agent Configuration Help\n\n`;
-        guidance += `📋 Configuring: @${agentBeingConfigured.name}\n\n`;
-
-        if (!agentBeingConfigured.query) {
-          guidance += `❗ Missing: Research query (required)\n`;
-          guidance += `Use: /query <your research question>\n\n`;
-          guidance += `Example: /query What is the market size for electric vehicles in 2025?\n`;
-        } else {
-          guidance += `✓ Query set: ${agentBeingConfigured.query}\n\n`;
-        }
-
-        if (!agentBeingConfigured.schedule) {
-          guidance += `Schedule: /schedule daily|weekly|on-demand\n`;
-        } else {
-          guidance += `✓ Schedule: ${agentBeingConfigured.schedule}\n`;
-        }
-
-        guidance += `\n💡 Commands:\n`;
-        guidance += `• /query <question> - Set what to research\n`;
-        guidance += `• /schedule <frequency> - Set update frequency\n`;
-        guidance += `• /save - Save agent to driver\n`;
-        guidance += `• /cancel - Cancel agent config\n`;
-
-        await addFermiMessage(userQuery || "@fermi", guidance);
-        return;
-      }
-
-      // Check if user is asking about a specific concept
-      if (userQuery && userQuery.length > 0) {
-        const conceptMatch = ontology.explainConcept(userQuery);
-        if (conceptMatch) {
-          guidance = `🦊 @fermi — Concept Explanation\n\n`;
-          guidance += `📖 ${userQuery}:\n\n`;
-          guidance += conceptMatch;
-          guidance += `\n\n💬 Ask me about other concepts or type /commands for commands!`;
-          await addFermiMessage(queryText, guidance);
-          return;
-        }
-
-        // Search for related concepts
-        const searchResults = ontology.searchConcepts(userQuery);
-        if (searchResults.length > 0 && searchResults.length <= 3) {
-          guidance = `🦊 @fermi — Found ${searchResults.length} related concept(s)\n\n`;
-          for (const result of searchResults) {
-            guidance += `📖 ${result.concept}:\n${result.explanation}\n\n`;
-          }
-          await addFermiMessage(queryText, guidance);
-          return;
-        }
-      }
-
-      if (driverBeingConfigured) {
-        // Context: Configuring a driver
-        guidance = generateFermiGuidance(
-          driverBeingConfigured.name,
-          driverBeingConfigured.type,
-          driverBeingConfigured,
-        );
-
-        // Add context-specific suggestions
-        suggestions.push(
-          { key: "p", label: "/p ", description: "Set p5/p50/p95 values" },
-          { key: "dist", label: "/dist ", description: "Set distribution" },
-          {
-            key: "direction",
-            label: "/direction ",
-            description: "Set direction",
-          },
-          { key: "save", label: "/save", description: "Save driver" },
-        );
-      } else if (activeForecast && activeForecast.probability !== undefined) {
-        // Context: Looking at forecast results
-        guidance = `🦊 @fermi — Simulation Results Coach\n\n`;
-        guidance += `📊 Your Forecast: ${activeForecast.probability}%\n\n`;
-        guidance += `🎯 What This Means:\n`;
-        guidance += `• This is the probability the outcome happens\n`;
-        guidance += `• Based on ${activeForecast.drivers?.length || 0} drivers with uncertainty ranges\n`;
-        guidance += `• Monte Carlo simulation: ${activeForecast.iterations || 10000} scenarios tested\n\n`;
-
-        if (activeForecast.probability < 10) {
-          guidance += `📉 Very Unlikely (<10%): Consider if you're missing positive drivers or being too pessimistic\n`;
-        } else if (activeForecast.probability < 30) {
-          guidance += `📉 Unlikely (10-30%): Possible but factors lean against it\n`;
-        } else if (activeForecast.probability < 70) {
-          guidance += `⚖️ Uncertain (30-70%): Could go either way - good epistemic humility!\n`;
-        } else if (activeForecast.probability < 90) {
-          guidance += `📈 Likely (70-90%): Factors lean toward this outcome\n`;
-        } else {
-          guidance += `📈 Very Likely (>90%): Consider if you're overconfident or missing negative drivers\n`;
-        }
-
-        guidance += `\n🦊 Next Steps:\n`;
-        guidance += `• Review your drivers - any missing?\n`;
-        guidance += `• Check uncertainty ranges - are they realistic?\n`;
-        guidance += `• Consider running research agents for more evidence\n`;
-        guidance += `• Track this forecast and update as new info comes in\n`;
-
-        if (activeForecast.brierScore !== undefined) {
-          guidance += `\n🎯 Your Brier Score: ${activeForecast.brierScore.toFixed(3)}\n`;
-          guidance += `• 0.00 = perfect (predicted exactly right)\n`;
-          guidance += `• 0.25 = coin flip (no better than guessing)\n`;
-          guidance += `• Lower is better!\n`;
-          if (activeForecast.brierScore < 0.1) {
-            guidance += `• Excellent! You're well-calibrated\n`;
-          } else if (activeForecast.brierScore < 0.2) {
-            guidance += `• Good! Better than average forecaster\n`;
-          } else {
-            guidance += `• Room to improve - review what you got wrong\n`;
-          }
-        }
-
-        // Add suggestions for results view
-        suggestions.push(
-          {
-            key: "driver",
-            label: "/driver ",
-            description: "Add another driver",
-          },
-          { key: "list", label: "/list", description: "View all forecasts" },
-        );
-      } else if (activeForecast) {
-        // Context: Have a forecast but no results yet
-        guidance = `🦊 @fermi — Getting Started\n\n`;
-        guidance += `📋 Your Question: ${activeForecast.question}\n\n`;
-        guidance += `🎯 Next Steps:\n`;
-        if (!activeForecast.drivers || activeForecast.drivers.length === 0) {
-          guidance += `1. Add drivers - what factors influence this outcome?\n`;
-          guidance += `2. Configure each driver with realistic ranges\n`;
-          guidance += `3. Set direction (increases/decreases likelihood)\n`;
-          guidance += `4. Run simulation to see probability\n\n`;
-          guidance += `🦊 Tip: Start with 2-4 key drivers. You can always add more!\n`;
-
-          suggestions.push({
-            key: "driver",
-            label: "/driver ",
-            description: "Add first driver",
-          });
-        } else {
-          guidance += `1. You have ${activeForecast.drivers.length} driver(s) - need more?\n`;
-          guidance += `2. Review driver configurations - are ranges realistic?\n`;
-          guidance += `3. Consider adding research agents for evidence\n`;
-          guidance += `4. Ready to simulate? Type /simulate\n`;
-
-          suggestions.push(
-            {
-              key: "simulate",
-              label: "/simulate",
-              description: "Run simulation",
-            },
-            {
-              key: "driver",
-              label: "/driver ",
-              description: "Add another driver",
-            },
+          await addFermiMessage(
+            userQuery || "@fermi",
+            "❌ **Backend unavailable**\n\nCouldn't connect to the AI coach. Please check your connection and try again.",
           );
+          return;
+        } finally {
+          setFermiThinking(false);
         }
-      } else {
-        // Context: No active forecast
-        guidance = `🦊 @fermi — Universal Coach\n\n`;
-        guidance += `👋 I'm Fermi, your forecasting coach!\n\n`;
-        guidance += `I can help you:\n`;
-        guidance += `• Understand driver types and distributions\n`;
-        guidance += `• Set realistic p5/p50/p95 values\n`;
-        guidance += `• Interpret simulation results\n`;
-        guidance += `• Improve your calibration with Brier scores\n`;
-        guidance += `• Suggest query+agent combinations for research\n\n`;
-        guidance += `🚀 Get Started:\n`;
-        guidance += `• Type /question to start a new forecast\n`;
-        guidance += `• Type /list to see your forecasts\n`;
-        guidance += `• Mention me (@fermi) anytime for help!\n`;
-
-        suggestions.push(
-          {
-            key: "question",
-            label: "/question ",
-            description: "Start new forecast",
-          },
-          { key: "list", label: "/list", description: "View forecasts" },
-          {
-            key: "commands",
-            label: "/commands",
-            description: "Show all commands",
-          },
-        );
       }
 
-      // Add to conversation with suggestions
-      await addFermiMessage(queryText, guidance, suggestions);
+      // If user just typed @fermi with no question, show error
+      await addFermiMessage(
+        "@fermi",
+        "❌ **Please ask a question**\n\n@fermi needs a question or context to help you. Try asking something like:\n• 'How do I set p values?'\n• 'What distribution should I use?'\n• 'Help me with this driver'",
+      );
     } catch (err) {
       console.error("[Fermi] Error in handleFermiCoaching:", err);
       setFermiThinking(false);
@@ -2987,23 +2668,10 @@ export default function ForecastWorkspaceScreen() {
           `✓ AI configured as ${recommendation.type} ${recommendation.distribution || ""}. ${recommendation.reasoning}`,
         );
       } catch (err) {
-        console.error("[Custom Driver] Analysis failed, using defaults:", err);
-
-        // Fallback to default configuration
-        const newDriver = {
-          id: Date.now().toString(),
-          name: driverName,
-          type: "continuous",
-          distribution: "triangular",
-          p5: 30,
-          p50: 50,
-          p95: 70,
-          direction: "increases",
-          agents: [] as any[],
-          createdAt: new Date().toISOString(),
-        };
-
-        setDriverBeingConfigured(newDriver);
+        console.error("[Custom Driver] Analysis failed:", err);
+        setError(
+          "❌ Backend unavailable - couldn't analyze driver. Please check your connection and try again.",
+        );
       } finally {
         setLoading(false);
         setProcessingAction("");
