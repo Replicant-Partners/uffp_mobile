@@ -286,7 +286,19 @@ export async function addDriverWithSync(
 
   try {
     console.log(`[BackendSync] Adding driver to forecast ${forecastId}...`);
-    const result = await researchService.addDriver(forecastId, driverData);
+
+    // Map agents → researchResults for backend
+    const backendDriverData = {
+      ...driverData,
+      researchResults: driverData.agents || [],
+    };
+    // Remove agents field to avoid confusion
+    delete backendDriverData.agents;
+
+    const result = await researchService.addDriver(
+      forecastId,
+      backendDriverData,
+    );
 
     if (result.success && result.forecast) {
       const mapped = mapBackendToLocal(result.forecast);

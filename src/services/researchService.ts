@@ -162,7 +162,7 @@ class ResearchService {
       direction?: "increases" | "decreases";
       reasoning?: string;
       evidence?: any[];
-      agents?: any[];
+      researchResults?: any[]; // Backend expects researchResults, not agents
       version?: any;
       versionHistory?: any[];
     },
