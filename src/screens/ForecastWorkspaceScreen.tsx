@@ -3100,7 +3100,6 @@ Type a command to get started!`;
           desc: "Set direction (increases|decreases)",
         },
         { key: "type", label: "/type", desc: "Set type (continuous|binary)" },
-        { key: "agent", label: "/agent", desc: "Add research agent" },
         { key: "evidence", label: "/evidence", desc: "Add manual evidence" },
         { key: "save", label: "/save", desc: "Save driver" },
         { key: "cancel", label: "/cancel", desc: "Cancel" },
