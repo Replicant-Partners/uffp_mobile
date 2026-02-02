@@ -157,8 +157,8 @@ export async function addDriver(
     agents: driver.agents || [],
     evidence: driver.evidence || [],
     researchResults: driver.researchResults || [],
-    currentVersion: 1,
-    versions: [],
+    version: { major: 1, minor: 0 },
+    versionHistory: [],
     createdAt: new Date(),
     updatedAt: new Date(),
   };

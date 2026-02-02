@@ -1409,20 +1409,26 @@ export default function ForecastWorkspaceScreen() {
 
     // /commands - always available, context-aware command reference
     if (trimmed === "/commands" || trimmed === "/-h") {
-      const { getAvailableCommands } =
+      const { getAvailableCommands, COMMANDS } =
         await import("../services/fermiCommands");
       const commandContext = getCurrentContext();
       const availableCommands = getAvailableCommands(commandContext);
+      const availableCommandNames = new Set(
+        availableCommands.map((cmd) => cmd.name),
+      );
+
+      // Get ALL commands and mark availability
+      const allCommands = Object.values(COMMANDS);
 
       // Group by category
-      const byCategory: Record<string, typeof availableCommands> = {};
-      availableCommands.forEach((cmd) => {
+      const byCategory: Record<string, typeof allCommands> = {};
+      allCommands.forEach((cmd) => {
         if (!byCategory[cmd.category]) byCategory[cmd.category] = [];
         byCategory[cmd.category].push(cmd);
       });
 
       // Build rich help text
-      let helpText = `📚 Available Commands (${commandContext})\n\n`;
+      let helpText = `📚 All Commands (context: ${commandContext})\n\n`;
       helpText += `🦊 @fermi — Ask me anything about forecasting!\n`;
       helpText += `   Example: "@fermi help me set p values for this driver"\n\n`;
 
@@ -1438,13 +1444,18 @@ export default function ForecastWorkspaceScreen() {
         const emoji = categoryEmoji[category] || "•";
         helpText += `${emoji} ${category.toUpperCase()}\n`;
         cmds.forEach((cmd) => {
-          helpText += `  ${cmd.syntax}\n  → ${cmd.description}\n\n`;
+          const isAvailable = availableCommandNames.has(cmd.name);
+          const prefix = isAvailable ? "  " : "  ◦ "; // Ghosted with bullet
+          const contextNote = !isAvailable ? " (not available here)" : "";
+          helpText += `${prefix}${cmd.syntax}${contextNote}\n`;
+          helpText += `${prefix}→ ${cmd.description}\n\n`;
         });
       }
 
+      helpText += `💡 Tip: ◦ Commands marked with ◦ are not available in current context\n`;
       helpText += `💡 Tip: Type command + space to see autocomplete\n`;
 
-      // Create clickable suggestions for most common commands
+      // Create clickable suggestions for AVAILABLE commands only
       const commandSuggestions: CommandSuggestion[] = availableCommands
         .slice(0, 6)
         .map((cmd) => ({
