@@ -171,6 +171,11 @@ export default function ForecastWorkspaceScreen() {
     schedule?: string;
     threshold?: number;
   } | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] = useState<{
+    action: string;
+    data?: any;
+    message: string;
+  } | null>(null);
   const [fermiChatExpanded, setFermiChatExpanded] = useState(true); // Always start expanded
   const [fermiChatCollapsed, setFermiChatCollapsed] = useState(false);
   const [fermiChatInput, setFermiChatInput] = useState("");
@@ -1443,14 +1448,90 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
-    // /cancel - exit any config mode
+    // /confirm - confirm a pending action
+    if (trimmed === "/confirm") {
+      if (!pendingConfirmation) {
+        await addFermiMessage("/confirm", "No action pending confirmation");
+        setCommandInput("");
+        return;
+      }
+
+      const { action, data } = pendingConfirmation;
+
+      if (action === "cancel") {
+        // Confirmed: discard config
+        if (data.configType === "agent") {
+          setAgentBeingConfigured(null);
+          await addFermiMessage("/confirm", "✓ Agent configuration discarded");
+        } else {
+          setDriverBeingConfigured(null);
+          await addFermiMessage("/confirm", "✓ Driver configuration discarded");
+        }
+      } else if (action === "expire") {
+        // Confirmed: resolve forecast
+        const { outcome } = data;
+
+        setLoading(true);
+        setProcessingAction("Resolving forecast...");
+
+        try {
+          const { resolveForecastWithSync } =
+            await import("../utils/backendSync");
+          const result = await resolveForecastWithSync(
+            activeForecast!.id,
+            outcome === "positive",
+          );
+
+          if (result.success) {
+            setActiveForecast(result.forecast);
+            await addFermiMessage(
+              "/confirm",
+              `✓ Forecast resolved as ${outcome.toUpperCase()}\n\nBrier Score: ${result.brierScore?.toFixed(3) || "N/A"}\n\n${result.brierScore < 0.1 ? "🎯 Excellent calibration!" : result.brierScore < 0.2 ? "✓ Good forecasting" : "📊 Room to improve - review what you got wrong"}`,
+            );
+          }
+        } catch (err) {
+          setError("Failed to resolve forecast. Please try again.");
+        } finally {
+          setLoading(false);
+          setProcessingAction("");
+        }
+      }
+
+      setPendingConfirmation(null);
+      setCommandInput("");
+      return;
+    }
+
+    // /cancel - exit any config mode with confirmation
     if (trimmed === "/cancel") {
-      if (agentBeingConfigured) {
-        setAgentBeingConfigured(null);
-        await addFermiMessage("/cancel", "✓ Agent configuration cancelled");
-      } else if (driverBeingConfigured) {
-        setDriverBeingConfigured(null);
-        await addFermiMessage("/cancel", "✓ Driver configuration cancelled");
+      if (pendingConfirmation?.action === "cancel") {
+        // Already asked, canceling the confirmation itself
+        setPendingConfirmation(null);
+        await addFermiMessage("/cancel", "✓ Cancelled confirmation");
+        setCommandInput("");
+        return;
+      }
+
+      if (agentBeingConfigured || driverBeingConfigured) {
+        const configType = agentBeingConfigured ? "agent" : "driver";
+        const configName = agentBeingConfigured
+          ? agentBeingConfigured.name
+          : driverBeingConfigured?.name;
+
+        setPendingConfirmation({
+          action: "cancel",
+          data: { configType },
+          message: `Discard ${configType} configuration for "${configName}"?`,
+        });
+
+        await addFermiMessage(
+          "/cancel",
+          `⚠️ Discard ${configType} configuration for "${configName}"?\n\nType /confirm to discard changes, or /cancel again to keep editing.`,
+          [
+            { key: "confirm", label: "/confirm", desc: "Discard changes" },
+            { key: "cancel", label: "/cancel", desc: "Keep editing" },
+          ],
+        );
       } else {
         await addFermiMessage("/cancel", "Nothing to cancel");
       }
@@ -2445,59 +2526,30 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
-      const actualOutcome = outcome === "positive";
+      // Ask for confirmation before resolving
+      setPendingConfirmation({
+        action: "expire",
+        data: { outcome },
+        message: `Resolve forecast as ${outcome}?`,
+      });
+
+      const outcomeEmoji = outcome === "positive" ? "✓" : "✗";
+      const forecastProb = activeForecast.probability;
+      const expectedBrier = Math.pow(
+        forecastProb / 100 - (outcome === "positive" ? 1 : 0),
+        2,
+      );
+
+      await addFermiMessage(
+        `/expire ${outcome}`,
+        `⚠️ Resolve forecast as **${outcome.toUpperCase()}**?\n\nYour forecast: ${forecastProb}%\nOutcome: ${outcomeEmoji} ${outcome}\nExpected Brier Score: ${expectedBrier.toFixed(3)}\n\n**This action is permanent.** Type /confirm to proceed or /cancel to abort.`,
+        [
+          { key: "confirm", label: "/confirm", desc: "Resolve forecast" },
+          { key: "cancel", label: "/cancel", desc: "Cancel" },
+        ],
+      );
+
       setCommandInput("");
-      setLoading(true);
-      setProcessingAction("Resolving forecast...");
-
-      try {
-        // Check if forecast has backend ID
-        if (activeForecast.id && !activeForecast.id.startsWith("local-")) {
-          // Resolve on backend
-          const { resolveForecastWithSync } =
-            await import("../utils/backendSync");
-          const result = await resolveForecastWithSync(
-            activeForecast.id,
-            actualOutcome,
-          );
-
-          if (result.success && result.forecast) {
-            setActiveForecast(result.forecast);
-            await saveForecast(result.forecast);
-            console.log(
-              `Forecast resolved with Brier score: ${result.brierScore}`,
-            );
-          } else {
-            throw new Error(result.error || "Resolution failed");
-          }
-        } else {
-          // Local-only forecast - calculate and save locally
-          const forecastProb = activeForecast.probability;
-          const brierScore = Math.pow(
-            forecastProb - (actualOutcome ? 1 : 0),
-            2,
-          );
-
-          const resolvedForecast = {
-            ...activeForecast,
-            resolved: true,
-            actualOutcome,
-            resolvedAt: new Date().toISOString(),
-            brierScore,
-            updatedAt: new Date().toISOString(),
-          };
-
-          setActiveForecast(resolvedForecast);
-          await saveForecast(resolvedForecast);
-        }
-
-        setError("");
-      } catch (err: any) {
-        setError(err.message || "Failed to resolve forecast");
-      } finally {
-        setLoading(false);
-        setProcessingAction("");
-      }
       return;
     }
 
