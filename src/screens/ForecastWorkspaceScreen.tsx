@@ -3094,9 +3094,21 @@ export default function ForecastWorkspaceScreen() {
           return;
         }
 
-        // Remove driver
+        // Remove driver (with cascade delete logging)
         const updatedDrivers = [...(activeForecast.drivers || [])];
         const removedDriver = updatedDrivers.splice(driverIndex, 1)[0];
+
+        // Log cascade delete info
+        const agentsCount = removedDriver.agents?.length || 0;
+        const researchCount = removedDriver.researchResults?.length || 0;
+        const evidenceCount = removedDriver.evidence?.length || 0;
+
+        console.log(
+          `[RemoveDriver] Cascade deleting driver "${removedDriver.name}":`,
+        );
+        console.log(`  - ${agentsCount} agent(s)`);
+        console.log(`  - ${researchCount} research result(s)`);
+        console.log(`  - ${evidenceCount} evidence item(s)`);
 
         const updatedForecast = {
           ...activeForecast,
@@ -3107,8 +3119,22 @@ export default function ForecastWorkspaceScreen() {
         setActiveForecast(updatedForecast);
         saveForecast(updatedForecast);
         setCommandInput("");
+
+        // Show detailed cascade delete message
+        const cascadeInfo = [];
+        if (agentsCount > 0) cascadeInfo.push(`${agentsCount} agent(s)`);
+        if (researchCount > 0)
+          cascadeInfo.push(`${researchCount} research result(s)`);
+        if (evidenceCount > 0)
+          cascadeInfo.push(`${evidenceCount} evidence item(s)`);
+
+        const cascadeMsg =
+          cascadeInfo.length > 0
+            ? `\n\nCascade deleted: ${cascadeInfo.join(", ")}`
+            : "";
+
         showToast(`✓ Removed driver: ${removedDriver.name}`);
-        setError(`✓ Removed driver: ${removedDriver.name}`);
+        setError(`✓ Removed driver: ${removedDriver.name}${cascadeMsg}`);
         return;
       } else if (removeTarget.startsWith("agent ")) {
         const agentName = removeTarget.replace("agent ", "").trim();

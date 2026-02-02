@@ -231,10 +231,29 @@ export async function removeDriver(
     throw new Error("Forecast not found");
   }
 
+  // Find the driver to get cascade delete info before removing
+  const driver = forecast.drivers.find((d) => d.id === driverId);
+  if (!driver) {
+    throw new Error("Driver not found");
+  }
+
+  // Log what will be cascade deleted
+  const agentsCount = driver.agents?.length || 0;
+  const researchCount = driver.researchResults?.length || 0;
+  const evidenceCount = driver.evidence?.length || 0;
+
+  console.log(`[RemoveDriver] Cascade deleting driver "${driver.name}":`);
+  console.log(`  - ${agentsCount} agent(s)`);
+  console.log(`  - ${researchCount} research result(s)`);
+  console.log(`  - ${evidenceCount} evidence item(s)`);
+
+  // Remove the driver (cascade deletes agents, researchResults, evidence)
   forecast.drivers = forecast.drivers.filter((d) => d.id !== driverId);
   forecast.updatedAt = new Date();
 
   forecasts.set(forecastId, forecast);
+
+  console.log(`[RemoveDriver] Successfully removed driver and associated data`);
 
   return forecast;
 }
