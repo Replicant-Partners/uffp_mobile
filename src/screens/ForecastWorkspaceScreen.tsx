@@ -2304,6 +2304,128 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
+      // /run @agent [/query <text>] - Quick agent execution
+      if (trimmed.startsWith("/run @")) {
+        const fullCommand = trimmed.replace("/run @", "").trim();
+
+        // Parse: agent_name /query some text
+        let agentName = fullCommand;
+        let query = null;
+
+        if (fullCommand.includes("/query ")) {
+          const parts = fullCommand.split("/query ");
+          agentName = parts[0].trim();
+          query = parts[1]?.trim();
+        }
+
+        if (!agentName) {
+          setError("Usage: /run @agent_name [/query <text>]");
+          setCommandInput("");
+          return;
+        }
+
+        setLoading(true);
+        setProcessingAction(`Running @${agentName}...`);
+
+        try {
+          // If query provided, create/update agent with query
+          let agentToRun = driverBeingConfigured.agents?.find(
+            (a: any) => a.name === agentName,
+          );
+
+          if (query) {
+            // Create or update agent with the query
+            const newAgent = {
+              id: agentToRun?.id || Date.now().toString(),
+              name: agentName,
+              query: query,
+              schedule: agentToRun?.schedule || "on-demand",
+              threshold: agentToRun?.threshold,
+              createdAt: agentToRun?.createdAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+
+            // Update driver with agent
+            const existingIndex = driverBeingConfigured.agents?.findIndex(
+              (a: any) => a.name === agentName,
+            );
+
+            let updatedAgents;
+            if (existingIndex >= 0) {
+              updatedAgents = [...driverBeingConfigured.agents];
+              updatedAgents[existingIndex] = newAgent;
+            } else {
+              updatedAgents = [
+                ...(driverBeingConfigured.agents || []),
+                newAgent,
+              ];
+            }
+
+            setDriverBeingConfigured({
+              ...driverBeingConfigured,
+              agents: updatedAgents,
+            });
+
+            agentToRun = newAgent;
+            showToast(`✓ Agent @${agentName} configured`);
+          } else if (!agentToRun || !agentToRun.query) {
+            setError(
+              `Agent @${agentName} needs a query. Use: /run @${agentName} /query <text>`,
+            );
+            setLoading(false);
+            setProcessingAction("");
+            setCommandInput("");
+            return;
+          }
+
+          // Execute research
+          const result = await researchService.executeResearch({
+            agentId: agentName,
+            promptId: "market_tam_sizing",
+            variables: {
+              MARKET_SEGMENT: agentToRun.query,
+              GEOGRAPHY: "United States",
+            },
+          });
+
+          // Add evidence to driver
+          const newEvidence = {
+            type: "research",
+            source: agentName,
+            summary: result.result?.summary || "Research completed",
+            timestamp: new Date().toISOString(),
+            fullResult: result.result,
+          };
+
+          setDriverBeingConfigured({
+            ...driverBeingConfigured,
+            evidence: [...(driverBeingConfigured.evidence || []), newEvidence],
+          });
+
+          await addFermiMessage(
+            `/run @${agentName}`,
+            `✓ Research complete!\n\n**Summary:** ${result.result?.summary || "See evidence below"}\n\n**Key Findings:**\n${result.result?.keyFindings?.map((f: string) => `• ${f}`).join("\n") || "No findings"}\n\nEvidence added to driver. Type /save to commit changes.`,
+          );
+
+          showToast(`✓ @${agentName} research complete`);
+        } catch (err) {
+          console.error("[Run Agent] Failed:", err);
+          setError(
+            `Research failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+          );
+          await addFermiMessage(
+            `/run @${agentName}`,
+            `❌ Research failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+          );
+        } finally {
+          setLoading(false);
+          setProcessingAction("");
+        }
+
+        setCommandInput("");
+        return;
+      }
+
       // /save - save the configured driver
       if (trimmed === "/save") {
         await saveConfiguredDriver();
