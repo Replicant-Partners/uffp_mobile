@@ -601,6 +601,11 @@ export default function ForecastWorkspaceScreen() {
             { name: "financial_analyst", description: "Financial statement analysis and modeling" },
             { name: "market_researcher", description: "Market sizing and industry analysis" },
             { name: "expert_synthesizer", description: "Synthesize expert opinions and predictions" },
+            { name: "regulatory_monitor", description: "Track regulatory and policy changes" },
+            { name: "growth_signals", description: "Monitor user adoption and growth metrics" },
+            { name: "hiring_tracker", description: "Track hiring trends and team growth" },
+            { name: "pricing_intel", description: "Monitor pricing and cost trends" },
+            { name: "technology_validator", description: "Validate technology feasibility and launch readiness" },
           ];
 
           // Add domain ontology for forecasting understanding
@@ -2989,6 +2994,11 @@ Type a command to get started!`;
         financial_analyst: "Financial statement analysis and modeling",
         market_researcher: "Market sizing and industry analysis",
         expert_synthesizer: "Synthesize expert opinions and predictions",
+        regulatory_monitor: "Track regulatory and policy changes",
+        growth_signals: "Monitor user adoption and growth metrics",
+        hiring_tracker: "Track hiring trends and team growth",
+        pricing_intel: "Monitor pricing and cost trends",
+        technology_validator: "Validate technology feasibility and launch readiness",
       };
 
       // Extract the part after @ for filtering
@@ -3267,6 +3277,11 @@ Type a command to get started!`;
         financial_analyst: "Financial statement analysis and modeling",
         market_researcher: "Market sizing and industry analysis",
         expert_synthesizer: "Synthesize expert opinions and predictions",
+        regulatory_monitor: "Track regulatory and policy changes",
+        growth_signals: "Monitor user adoption and growth metrics",
+        hiring_tracker: "Track hiring trends and team growth",
+        pricing_intel: "Monitor pricing and cost trends",
+        technology_validator: "Validate technology feasibility and launch readiness",
       };
 
       const atIndex = input.lastIndexOf("@");
