@@ -1,6 +1,12 @@
 /**
  * Fermi Estimation Context Service
  * Provides decomposition hints, calibration anchors, and sanity checks for drivers
+ *
+ * NOTE: Will integrate with AKP (Agent Knowledge Protocol) once deployed to:
+ * - Learn from user decomposition patterns across all forecasts
+ * - Suggest hints based on collective intelligence (what worked for similar questions)
+ * - Personalize anchors and sanity bounds based on user's calibration history
+ * - Recommend optimal agent collaborations (e.g., @research_analyst for market data)
  */
 
 export interface FermiHint {

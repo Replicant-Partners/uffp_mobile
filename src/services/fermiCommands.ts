@@ -211,6 +211,94 @@ export const COMMANDS: Record<string, Command> = {
     },
   },
 
+  review: {
+    name: "review",
+    syntax: "/review",
+    description: "Analyze forecast quality and get actionable insights",
+    contexts: ["forecast_active"],
+    category: "forecast",
+    examples: ["/review"],
+    execute: async (args, state) => {
+      const { drivers, question } = state;
+      if (!question) {
+        return {
+          success: false,
+          message: "❌ No active forecast to review.",
+          suggestions: [
+            {
+              command: "/question <your forecast>",
+              description: "Start a new forecast",
+              clickable: false,
+            },
+          ],
+        };
+      }
+
+      return {
+        success: true,
+        message: `📊 Analyzing your forecast...\n\nI'll review:\n• Driver coverage and quality\n• Potential biases\n• Calibration opportunities\n• Missing perspectives\n\nOne moment...`,
+        updateState: { showReview: true },
+      };
+    },
+  },
+
+  decompose: {
+    name: "decompose",
+    syntax: "/decompose [strategy]",
+    description: "Break down complex questions using Fermi strategies",
+    contexts: ["forecast_active"],
+    category: "forecast",
+    examples: ["/decompose", "/decompose market-sizing"],
+    execute: async (args, state) => {
+      const { question } = state;
+      if (!question) {
+        return {
+          success: false,
+          message: "❌ No active forecast to decompose.",
+          suggestions: [
+            {
+              command: "/question <your forecast>",
+              description: "Start a new forecast",
+              clickable: false,
+            },
+          ],
+        };
+      }
+
+      const strategy = args[0];
+      if (strategy) {
+        return {
+          success: true,
+          message: `🔍 Applying ${strategy} decomposition strategy to your question...\n\nI'll break this down step-by-step.`,
+          updateState: { decompose: true, strategy },
+        };
+      }
+
+      return {
+        success: true,
+        message: `🔍 Analyzing your question to suggest decomposition strategies...\n\nLet me identify the best approaches for breaking this down.`,
+        updateState: { decompose: true },
+        suggestions: [
+          {
+            command: "/decompose market-sizing",
+            description: "Top-down market sizing",
+            clickable: true,
+          },
+          {
+            command: "/decompose unit-economics",
+            description: "Bottom-up unit economics",
+            clickable: true,
+          },
+          {
+            command: "/decompose timeline",
+            description: "Timeline decomposition",
+            clickable: true,
+          },
+        ],
+      };
+    },
+  },
+
   // Driver configuration commands
   driver: {
     name: "driver",

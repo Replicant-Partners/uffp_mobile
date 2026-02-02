@@ -199,6 +199,35 @@ class ResearchService {
     return response.json();
   }
 
+  async reviewForecast(
+    forecastId: string,
+    forecast: {
+      question: string;
+      drivers: any[];
+      probability?: number;
+    },
+  ): Promise<any> {
+    const response = await this.makeRequest("/coach/review", {
+      method: "POST",
+      body: JSON.stringify({ forecastId, forecast }),
+    });
+    return response.json();
+  }
+
+  async decomposeForecast(
+    question: string,
+    context?: {
+      forecastId?: string;
+      existingDrivers?: any[];
+    },
+  ): Promise<any> {
+    const response = await this.makeRequest("/coach/decompose", {
+      method: "POST",
+      body: JSON.stringify({ question, ...context }),
+    });
+    return response.json();
+  }
+
   // List forecasts
   async listForecasts(params?: {
     userId?: string;

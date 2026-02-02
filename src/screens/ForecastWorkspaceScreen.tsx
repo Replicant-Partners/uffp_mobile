@@ -840,8 +840,10 @@ export default function ForecastWorkspaceScreen() {
             );
           }
           if (result.updateState.runAgent) {
-            // TODO: Implement agent execution
-            console.log("[Agent] Running agent research...");
+            // Execute agent research immediately
+            if (agentBeingConfigured && driverBeingConfigured) {
+              await runAgentDuringConfiguration();
+            }
           }
         }
 
@@ -1231,6 +1233,68 @@ export default function ForecastWorkspaceScreen() {
     }
 
     return changes;
+  };
+
+  const runAgentDuringConfiguration = async () => {
+    if (!agentBeingConfigured || !driverBeingConfigured || !activeForecast)
+      return;
+
+    // Validate agent has required fields
+    if (!agentBeingConfigured.query) {
+      setError(
+        "Agent must have a research query before running. Use /query to set it.",
+      );
+      return;
+    }
+
+    setLoading(true);
+    setProcessingAction(`Running @${agentBeingConfigured.name} research...`);
+
+    try {
+      // Execute research
+      const result = await researchService.executeResearch({
+        agentId: agentBeingConfigured.name,
+        promptId: "market_tam_sizing",
+        variables: {
+          MARKET_SEGMENT: agentBeingConfigured.query,
+          GEOGRAPHY: "United States",
+        },
+      });
+
+      // Store result as evidence on the driver being configured
+      const newEvidence = {
+        type: "research",
+        source: agentBeingConfigured.name,
+        summary: result.result?.summary || "Research completed successfully",
+        timestamp: new Date().toISOString(),
+        fullResult: result.result,
+      };
+
+      // Update driver being configured with evidence
+      setDriverBeingConfigured((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          evidence: [...(prev.evidence || []), newEvidence],
+        };
+      });
+
+      await addFermiMessage(
+        `/run @${agentBeingConfigured.name}`,
+        `✓ Research complete!\n\n**Summary:** ${result.result?.summary || "See evidence below"}\n\n**Key Findings:**\n${result.result?.keyFindings?.map((f: string) => `• ${f}`).join("\n") || "No findings"}\n\nEvidence has been added to driver "${driverBeingConfigured.name}". Use /save to save the driver with this evidence.`,
+      );
+    } catch (err) {
+      setError(
+        `Research failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+      );
+      await addFermiMessage(
+        `/run @${agentBeingConfigured.name}`,
+        `❌ Research failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+      );
+    } finally {
+      setLoading(false);
+      setProcessingAction("");
+    }
   };
 
   const saveConfiguredAgent = async () => {
@@ -2929,6 +2993,38 @@ export default function ForecastWorkspaceScreen() {
       setFermiThinking(true);
 
       try {
+        // Try agentic API call first
+        try {
+          const response = await researchService.reviewForecast(
+            activeForecast.id || "temp",
+            {
+              question: activeForecast.question,
+              drivers: activeForecast.drivers,
+              probability: activeForecast.probability,
+            },
+          );
+
+          const suggestions: CommandSuggestion[] =
+            response.suggestions?.map((s: any) => ({
+              label: s.command || s.label,
+              desc: s.description || s.desc,
+            })) || [];
+
+          await addFermiMessage(
+            "/review",
+            response.message || response.review,
+            suggestions,
+          );
+          return;
+        } catch (apiError) {
+          console.warn(
+            "[Review] API call failed, falling back to local analysis:",
+            apiError,
+          );
+          // Fall through to local fallback
+        }
+
+        // Local fallback: Use contextAnalyzer
         const { analyzeContext } = await import("../services/contextAnalyzer");
         const insights = analyzeContext(activeForecast);
 
@@ -3019,6 +3115,30 @@ export default function ForecastWorkspaceScreen() {
       setFermiThinking(true);
 
       try {
+        // Try agentic API call first
+        try {
+          const response = await researchService.decomposeForecast(
+            activeForecast.question,
+            {
+              forecastId: activeForecast.id,
+              existingDrivers: activeForecast.drivers,
+            },
+          );
+
+          await addFermiMessage(
+            "/decompose",
+            response.message || response.decomposition,
+          );
+          return;
+        } catch (apiError) {
+          console.warn(
+            "[Decompose] API call failed, falling back to local strategies:",
+            apiError,
+          );
+          // Fall through to local fallback
+        }
+
+        // Local fallback: Use fermiDecomposition
         const { suggestDecompositions, generateDecompositionTemplate } =
           await import("../services/fermiDecomposition");
 
