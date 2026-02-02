@@ -4753,11 +4753,56 @@ export default function ForecastWorkspaceScreen() {
                             key={sidx}
                             style={styles.suggestionChip}
                             onPress={async () => {
-                              setFermiChatInput(commandText);
-                              if (commandText.startsWith("/")) {
-                                await processSingleCommand(commandText);
+                              // Check if this suggestion has driver data (from /decompose)
+                              const driverData = (suggestion as any).driverData;
+
+                              if (driverData && activeForecast) {
+                                // Auto-save driver from decompose suggestion
+                                setFermiChatInput(commandText);
+                                setProcessingAction("Adding driver...");
+
+                                try {
+                                  const newDriver = {
+                                    id: Date.now().toString(),
+                                    name: driverData.name,
+                                    type: driverData.type || "continuous",
+                                    distribution: driverData.distribution || "triangular",
+                                    p5: driverData.p5 || 30,
+                                    p50: driverData.p50 || 50,
+                                    p95: driverData.p95 || 70,
+                                    direction: driverData.direction || "increases",
+                                    agents: [] as any[],
+                                    createdAt: new Date().toISOString(),
+                                  };
+
+                                  // Add driver to forecast
+                                  const updatedForecast = {
+                                    ...activeForecast,
+                                    drivers: [...(activeForecast.drivers || []), newDriver],
+                                    updatedAt: new Date().toISOString(),
+                                  };
+
+                                  setActiveForecast(updatedForecast);
+                                  await saveForecast(updatedForecast);
+
+                                  await addFermiMessage(
+                                    commandText,
+                                    `✓ Added driver: ${newDriver.name}\n\nDriver auto-configured from decompose suggestion.`,
+                                  );
+                                } catch (err) {
+                                  console.error("[Auto-save driver] Failed:", err);
+                                  setError("Failed to save driver. Please try again.");
+                                } finally {
+                                  setProcessingAction("");
+                                }
                               } else {
-                                await handleFermiCoaching(commandText);
+                                // Normal chip behavior
+                                setFermiChatInput(commandText);
+                                if (commandText.startsWith("/")) {
+                                  await processSingleCommand(commandText);
+                                } else {
+                                  await handleFermiCoaching(commandText);
+                                }
                               }
                             }}
                           >
