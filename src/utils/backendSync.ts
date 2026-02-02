@@ -3,60 +3,68 @@
  */
 
 import { researchService } from "../services/researchService";
+import { authService } from "../services/authService";
 import { Platform, AsyncStorage } from "react-native";
 
-// Generate or retrieve persistent user ID
-let PERSISTENT_USER_ID: string | null = null;
+// Get user ID - prefer authenticated user, fallback to anonymous
+async function getUserId(): Promise<string> {
+  // Check if user is authenticated
+  const authState = authService.getState();
+  if (authState.isAuthenticated && authState.user) {
+    console.log(
+      "[BackendSync] Using authenticated user ID:",
+      authState.user.id,
+    );
+    return authState.user.id;
+  }
 
-async function getPersistentUserId(): Promise<string> {
-  if (PERSISTENT_USER_ID) return PERSISTENT_USER_ID;
+  // Fallback to anonymous user for backward compatibility
+  return await getAnonymousUserId();
+}
 
-  const STORAGE_KEY = "@uffp_user_id";
+// Legacy anonymous user ID system (for unauthenticated users)
+let ANONYMOUS_USER_ID: string | null = null;
+
+async function getAnonymousUserId(): Promise<string> {
+  if (ANONYMOUS_USER_ID) return ANONYMOUS_USER_ID;
+
+  const STORAGE_KEY = "@uffp_anonymous_id";
 
   try {
-    // Try to get existing ID
     const stored =
       Platform.OS === "web"
         ? localStorage.getItem(STORAGE_KEY)
         : await AsyncStorage.getItem(STORAGE_KEY);
 
     if (stored) {
-      PERSISTENT_USER_ID = stored;
-      console.log(
-        "[BackendSync] Loaded persistent user ID:",
-        PERSISTENT_USER_ID,
-      );
-      return PERSISTENT_USER_ID;
+      ANONYMOUS_USER_ID = stored;
+      console.log("[BackendSync] Using anonymous ID:", ANONYMOUS_USER_ID);
+      return ANONYMOUS_USER_ID;
     }
 
-    // Generate new ID
-    PERSISTENT_USER_ID =
+    // Generate new anonymous ID
+    ANONYMOUS_USER_ID =
       "anonymous-user-" +
       Date.now() +
       "-" +
       Math.random().toString(36).substring(7);
 
-    // Store it
     if (Platform.OS === "web") {
-      localStorage.setItem(STORAGE_KEY, PERSISTENT_USER_ID);
+      localStorage.setItem(STORAGE_KEY, ANONYMOUS_USER_ID);
     } else {
-      await AsyncStorage.setItem(STORAGE_KEY, PERSISTENT_USER_ID);
+      await AsyncStorage.setItem(STORAGE_KEY, ANONYMOUS_USER_ID);
     }
 
-    console.log(
-      "[BackendSync] Generated new persistent user ID:",
-      PERSISTENT_USER_ID,
-    );
-    return PERSISTENT_USER_ID;
+    console.log("[BackendSync] Generated anonymous ID:", ANONYMOUS_USER_ID);
+    return ANONYMOUS_USER_ID;
   } catch (error) {
-    console.error("[BackendSync] Failed to get/set user ID:", error);
-    // Fallback to session-based ID
-    PERSISTENT_USER_ID = "anonymous-user-" + Date.now();
-    return PERSISTENT_USER_ID;
+    console.error("[BackendSync] Failed to get/set anonymous ID:", error);
+    ANONYMOUS_USER_ID = "anonymous-user-" + Date.now();
+    return ANONYMOUS_USER_ID;
   }
 }
 
-export const TEMP_USER_ID = "anonymous-user-temp"; // Legacy export, will be replaced by getPersistentUserId()
+export const TEMP_USER_ID = "anonymous-user-temp"; // Legacy export
 
 /**
  * Sync mode: controls how data is persisted
@@ -131,7 +139,7 @@ export async function loadForecastsWithSync(params?: {
   }
 
   try {
-    const userId = await getPersistentUserId();
+    const userId = await getUserId();
     console.log(
       "[BackendSync] Loading forecasts from backend for user:",
       userId,
@@ -191,7 +199,7 @@ export async function createForecastWithSync(data: {
   }
 
   try {
-    const userId = await getPersistentUserId();
+    const userId = await getUserId();
     console.log("[BackendSync] Creating forecast on backend...", {
       userId,
       question: data.question,
@@ -386,7 +394,7 @@ export async function getUserStatsFromBackend(): Promise<{
   }
 
   try {
-    const userId = await getPersistentUserId();
+    const userId = await getUserId();
     console.log("[BackendSync] Fetching user stats for:", userId);
     const result = await researchService.getUserStats(userId);
 
