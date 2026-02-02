@@ -726,6 +726,18 @@ export default function ForecastWorkspaceScreen() {
           driverBeingConfigured.type,
           driverBeingConfigured,
         );
+
+        // Add context-specific suggestions
+        suggestions.push(
+          { key: "p", label: "/p ", description: "Set p5/p50/p95 values" },
+          { key: "dist", label: "/dist ", description: "Set distribution" },
+          {
+            key: "direction",
+            label: "/direction ",
+            description: "Set direction",
+          },
+          { key: "save", label: "/save", description: "Save driver" },
+        );
       } else if (activeForecast && activeForecast.probability !== undefined) {
         // Context: Looking at forecast results
         guidance = `🦊 @fermi — Simulation Results Coach\n\n`;
@@ -766,6 +778,16 @@ export default function ForecastWorkspaceScreen() {
             guidance += `• Room to improve - review what you got wrong\n`;
           }
         }
+
+        // Add suggestions for results view
+        suggestions.push(
+          {
+            key: "driver",
+            label: "/driver ",
+            description: "Add another driver",
+          },
+          { key: "list", label: "/list", description: "View all forecasts" },
+        );
       } else if (activeForecast) {
         // Context: Have a forecast but no results yet
         guidance = `🦊 @fermi — Getting Started\n\n`;
@@ -782,6 +804,15 @@ export default function ForecastWorkspaceScreen() {
           guidance += `2. Review driver configurations - are ranges realistic?\n`;
           guidance += `3. Consider adding research agents for evidence\n`;
           guidance += `4. Ready to simulate? Type /simulate\n`;
+
+          suggestions.push(
+            { key: "simulate", label: "/simulate", description: "Run simulation" },
+            { key: "driver", label: "/driver ", description: "Add another driver" },
+          );
+        } else {
+          suggestions.push(
+            { key: "driver", label: "/driver ", description: "Add first driver" },
+          );
         }
       } else {
         // Context: No active forecast
@@ -797,6 +828,12 @@ export default function ForecastWorkspaceScreen() {
         guidance += `• Type /question to start a new forecast\n`;
         guidance += `• Type /list to see your forecasts\n`;
         guidance += `• Mention me (@fermi) anytime for help!\n`;
+
+        suggestions.push(
+          { key: "question", label: "/question ", description: "Start new forecast" },
+          { key: "list", label: "/list", description: "View forecasts" },
+          { key: "help", label: "/help", description: "Show all commands" },
+        );
       }
 
       // Add to conversation with suggestions
