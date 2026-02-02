@@ -1,0 +1,264 @@
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Platform,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  ScrollView,
+} from "react-native";
+import { authService } from "../services/authService";
+
+interface AuthScreenProps {
+  onAuthSuccess: () => void;
+}
+
+export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async () => {
+    setError("");
+
+    // Validation
+    if (!email || !password) {
+      setError("Email and password are required");
+      return;
+    }
+
+    if (mode === "register" && password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const result =
+        mode === "login"
+          ? await authService.login(email, password)
+          : await authService.register(email, password, name || undefined);
+
+      if (result.success) {
+        onAuthSuccess();
+      } else {
+        setError(result.error || "Authentication failed");
+      }
+    } catch (err: any) {
+      setError(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleMode = () => {
+    setMode(mode === "login" ? "register" : "login");
+    setError("");
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.content}>
+          <Text style={styles.logo}>🔮 UFFP</Text>
+          <Text style={styles.subtitle}>Universal Forecasting Platform</Text>
+
+          <View style={styles.card}>
+            <Text style={styles.title}>
+              {mode === "login" ? "Welcome Back" : "Create Account"}
+            </Text>
+
+            {mode === "register" && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Name (optional)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Your name"
+                  placeholderTextColor="#928374"
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
+                  editable={!loading}
+                />
+              </View>
+            )}
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="you@example.com"
+                placeholderTextColor="#928374"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={mode === "register" ? "At least 8 characters" : "Your password"}
+                placeholderTextColor="#928374"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+              />
+            </View>
+
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleSubmit}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#282828" />
+              ) : (
+                <Text style={styles.buttonText}>
+                  {mode === "login" ? "Log In" : "Sign Up"}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.switchButton}
+              onPress={toggleMode}
+              disabled={loading}
+            >
+              <Text style={styles.switchText}>
+                {mode === "login"
+                  ? "Don't have an account? Sign up"
+                  : "Already have an account? Log in"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.footer}>
+            Strong Calibration • Universal Forecasting
+          </Text>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#1d2021",
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    padding: 20,
+  },
+  content: {
+    maxWidth: 400,
+    width: "100%",
+    alignSelf: "center",
+  },
+  logo: {
+    fontSize: 48,
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  subtitle: {
+    color: "#ebdbb2",
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 32,
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
+  },
+  card: {
+    backgroundColor: "#282828",
+    borderRadius: 8,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: "#3c3836",
+  },
+  title: {
+    color: "#ebdbb2",
+    fontSize: 24,
+    fontWeight: "600",
+    marginBottom: 24,
+    textAlign: "center",
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    color: "#ebdbb2",
+    fontSize: 14,
+    marginBottom: 6,
+    fontWeight: "500",
+  },
+  input: {
+    backgroundColor: "#3c3836",
+    color: "#ebdbb2",
+    padding: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#504945",
+    fontSize: 16,
+  },
+  error: {
+    color: "#fb4934",
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  button: {
+    backgroundColor: "#fabd2f",
+    padding: 16,
+    borderRadius: 6,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: "#282828",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  switchButton: {
+    marginTop: 16,
+    padding: 8,
+  },
+  switchText: {
+    color: "#928374",
+    fontSize: 14,
+    textAlign: "center",
+  },
+  footer: {
+    color: "#665c54",
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 24,
+  },
+});

@@ -320,6 +320,52 @@ class ResearchService {
     });
     return response.json();
   }
+
+  // Authentication
+  async register(email: string, password: string, name?: string): Promise<any> {
+    const response = await this.makeRequest("/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ email, password, name }),
+    });
+    return response.json();
+  }
+
+  async login(email: string, password: string): Promise<any> {
+    const response = await this.makeRequest("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+    return response.json();
+  }
+
+  async getCurrentUser(token: string): Promise<any> {
+    const response = await this.makeRequest("/auth/me", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.json();
+  }
+
+  // Forecast discovery
+  async discoverForecasts(params?: {
+    tags?: string[];
+    domain?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.tags) queryParams.set("tags", params.tags.join(","));
+    if (params?.domain) queryParams.set("domain", params.domain);
+    if (params?.limit) queryParams.set("limit", params.limit.toString());
+    if (params?.offset) queryParams.set("offset", params.offset.toString());
+
+    const response = await this.makeRequest(
+      `/forecasts/discover?${queryParams.toString()}`,
+    );
+    return response.json();
+  }
 }
 
 export const researchService = new ResearchService();
