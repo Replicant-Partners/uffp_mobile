@@ -5,6 +5,8 @@
  * Later will migrate to Vercel KV or PostgreSQL
  */
 
+import { nanoid } from "nanoid";
+
 import type {
   Forecast,
   Driver,
@@ -20,10 +22,10 @@ const forecasts = new Map<string, Forecast>();
 const researchResults = new Map<string, any>();
 
 /**
- * Generate unique ID
+ * Generate unique ID using nanoid for better randomness and URL-safety
  */
 function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return nanoid(12);
 }
 
 /**

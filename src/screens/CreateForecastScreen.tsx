@@ -12,17 +12,28 @@ import {
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../App";
 import { ForecastConfig, ForecastDriver, Evidence } from "../types";
-import { TufteColors, TufteTypography, TufteSpacing, TufteLayout } from "../styles/tufte";
+import {
+  TufteColors,
+  TufteTypography,
+  TufteSpacing,
+  TufteLayout,
+} from "../styles/tufte";
 import { EvidenceManager } from "../components/EvidenceManager";
 import { PromptBuilder } from "../components/PromptBuilder";
 import { InfoTooltip } from "../components/InfoTooltip";
 import { GLOSSARY } from "../constants/glossary";
 import { ResearchPromptTemplate } from "../constants/researchPrompts";
+import { idGenerators } from "../utils/idGenerator";
 import { AgentConfig } from "../types/agentConfig";
 
-type CreateForecastScreenProps = NativeStackScreenProps<RootStackParamList, "CreateForecast">;
+type CreateForecastScreenProps = NativeStackScreenProps<
+  RootStackParamList,
+  "CreateForecast"
+>;
 
-export const CreateForecastScreen: React.FC<CreateForecastScreenProps> = ({ navigation }) => {
+export const CreateForecastScreen: React.FC<CreateForecastScreenProps> = ({
+  navigation,
+}) => {
   const [ticker, setTicker] = useState("");
   const [targetValue, setTargetValue] = useState("");
   const [targetDate, setTargetDate] = useState("2027-12-31");
@@ -90,7 +101,7 @@ export const CreateForecastScreen: React.FC<CreateForecastScreenProps> = ({ navi
           onPress: () => {
             // Create placeholder evidence to show the flow
             const placeholderEvidence: Evidence = {
-              id: Date.now().toString(),
+              id: idGenerators.evidence(),
               type: template.evidenceType,
               title: `[Agent Research] ${template.name}`,
               source: `${agentConfig.name} (${agentConfig.model})`,
@@ -160,7 +171,9 @@ export const CreateForecastScreen: React.FC<CreateForecastScreenProps> = ({ navi
       return;
     }
 
-    const hasInvalidDriver = drivers.some((d) => !d.name.trim() || !d.unit.trim());
+    const hasInvalidDriver = drivers.some(
+      (d) => !d.name.trim() || !d.unit.trim(),
+    );
     if (hasInvalidDriver) {
       Alert.alert("Error", "Please fill in all driver fields");
       return;
@@ -188,7 +201,8 @@ export const CreateForecastScreen: React.FC<CreateForecastScreenProps> = ({ navi
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.pageTitle}>Forecast Construction</Text>
         <Text style={styles.pageSubtitle}>
-          Define target and specify independent drivers using probability distributions
+          Define target and specify independent drivers using probability
+          distributions
         </Text>
 
         <View style={styles.divider} />
@@ -239,9 +253,10 @@ export const CreateForecastScreen: React.FC<CreateForecastScreenProps> = ({ navi
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>II. Probabilistic Drivers</Text>
           <Text style={styles.helpText}>
-            Specify 2–5 independent variables that multiply to yield revenue. Each driver requires a
-            probability distribution (triangular, normal, or uniform) with parameters defining the
-            range of plausible outcomes.
+            Specify 2–5 independent variables that multiply to yield revenue.
+            Each driver requires a probability distribution (triangular, normal,
+            or uniform) with parameters defining the range of plausible
+            outcomes.
           </Text>
 
           {drivers.map((driver, index) => (
@@ -249,7 +264,10 @@ export const CreateForecastScreen: React.FC<CreateForecastScreenProps> = ({ navi
               <View style={styles.driverHeader}>
                 <Text style={styles.driverNumber}>Driver {index + 1}</Text>
                 {drivers.length > 1 && (
-                  <TouchableOpacity onPress={() => removeDriver(index)} style={styles.removeButton}>
+                  <TouchableOpacity
+                    onPress={() => removeDriver(index)}
+                    style={styles.removeButton}
+                  >
                     <Text style={styles.removeButtonText}>Remove</Text>
                   </TouchableOpacity>
                 )}
@@ -284,7 +302,9 @@ export const CreateForecastScreen: React.FC<CreateForecastScreenProps> = ({ navi
                 <TextInput
                   style={styles.input}
                   value={driver.description}
-                  onChangeText={(val) => updateDriver(index, "description", val)}
+                  onChangeText={(val) =>
+                    updateDriver(index, "description", val)
+                  }
                   placeholder="What this driver represents"
                   placeholderTextColor={TufteColors.textTertiary}
                 />
@@ -300,7 +320,10 @@ export const CreateForecastScreen: React.FC<CreateForecastScreenProps> = ({ navi
               </View>
               <View style={styles.distributionButtons}>
                 {[
-                  { type: "triangular", glossary: GLOSSARY.TRIANGULAR_DISTRIBUTION },
+                  {
+                    type: "triangular",
+                    glossary: GLOSSARY.TRIANGULAR_DISTRIBUTION,
+                  },
                   { type: "normal", glossary: GLOSSARY.NORMAL_DISTRIBUTION },
                   { type: "uniform", glossary: GLOSSARY.UNIFORM_DISTRIBUTION },
                 ].map(({ type, glossary }) => (
@@ -308,14 +331,18 @@ export const CreateForecastScreen: React.FC<CreateForecastScreenProps> = ({ navi
                     <TouchableOpacity
                       style={[
                         styles.distributionButton,
-                        driver.distributionType === type && styles.distributionButtonActive,
+                        driver.distributionType === type &&
+                          styles.distributionButtonActive,
                       ]}
-                      onPress={() => updateDriver(index, "distributionType", type)}
+                      onPress={() =>
+                        updateDriver(index, "distributionType", type)
+                      }
                     >
                       <Text
                         style={[
                           styles.distributionButtonText,
-                          driver.distributionType === type && styles.distributionButtonTextActive,
+                          driver.distributionType === type &&
+                            styles.distributionButtonTextActive,
                         ]}
                       >
                         {type}
@@ -447,10 +474,29 @@ export const CreateForecastScreen: React.FC<CreateForecastScreenProps> = ({ navi
                 driverName={driver.name}
                 driverDescription={driver.description}
                 onPromptGenerated={(prompt, template, variables, agentConfig) =>
-                  handlePromptGenerated(index, prompt, template, variables, agentConfig)
+                  handlePromptGenerated(
+                    index,
+                    prompt,
+                    template,
+                    variables,
+                    agentConfig,
+                  )
                 }
-                onScheduleResearch={(prompt, template, variables, frequency, agentConfig) =>
-                  handleScheduleResearch(index, prompt, template, variables, frequency, agentConfig)
+                onScheduleResearch={(
+                  prompt,
+                  template,
+                  variables,
+                  frequency,
+                  agentConfig,
+                ) =>
+                  handleScheduleResearch(
+                    index,
+                    prompt,
+                    template,
+                    variables,
+                    frequency,
+                    agentConfig,
+                  )
                 }
               />
 
@@ -458,7 +504,9 @@ export const CreateForecastScreen: React.FC<CreateForecastScreenProps> = ({ navi
               <EvidenceManager
                 evidence={driver.evidence || []}
                 onAddEvidence={(evidence) => addEvidence(index, evidence)}
-                onRemoveEvidence={(evidenceId) => removeEvidence(index, evidenceId)}
+                onRemoveEvidence={(evidenceId) =>
+                  removeEvidence(index, evidenceId)
+                }
               />
             </View>
           ))}
@@ -470,13 +518,17 @@ export const CreateForecastScreen: React.FC<CreateForecastScreenProps> = ({ navi
 
         <View style={styles.divider} />
 
-        <TouchableOpacity style={styles.createButton} onPress={handleCreateForecast}>
+        <TouchableOpacity
+          style={styles.createButton}
+          onPress={handleCreateForecast}
+        >
           <Text style={styles.createButtonText}>Execute Simulation</Text>
         </TouchableOpacity>
 
         <Text style={styles.footnote}>
-          * Monte Carlo simulation with 10,000 iterations will be performed using specified
-          distributions. Results include P10/P50/P90 percentiles and success probability.
+          * Monte Carlo simulation with 10,000 iterations will be performed
+          using specified distributions. Results include P10/P50/P90 percentiles
+          and success probability.
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -503,7 +555,8 @@ const styles = StyleSheet.create({
   pageSubtitle: {
     fontSize: TufteTypography.fontSize.sm,
     color: TufteColors.textSecondary,
-    lineHeight: TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.sm,
+    lineHeight:
+      TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.sm,
     marginBottom: TufteSpacing.lg,
   },
   divider: {
@@ -525,7 +578,8 @@ const styles = StyleSheet.create({
     fontSize: TufteTypography.fontSize.sm,
     color: TufteColors.textTertiary,
     marginBottom: TufteSpacing.lg,
-    lineHeight: TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.sm,
+    lineHeight:
+      TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.sm,
   },
   formRow: {
     flexDirection: "row",
@@ -664,7 +718,8 @@ const styles = StyleSheet.create({
   footnote: {
     fontSize: TufteTypography.fontSize.xs,
     color: TufteColors.textTertiary,
-    lineHeight: TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.xs,
+    lineHeight:
+      TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.xs,
     fontStyle: "italic",
   },
 });

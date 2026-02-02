@@ -57,8 +57,9 @@ export interface Driver {
   name: string;
   description?: string;
   type: "binary" | "continuous";
+  direction: "increases" | "decreases"; // Impact on forecast probability
 
-  // Binary
+  // Binary (0-1 range, e.g., 0.5 = 50%)
   probability?: number;
 
   // Continuous
@@ -74,13 +75,28 @@ export interface Driver {
   // Evidence & research
   evidence: Evidence[];
 
-  // Evolution
-  currentVersion: number;
-  versions: DriverVersion[];
+  // AI-generated configuration
+  aiRecommendation?: {
+    type: "binary" | "continuous";
+    direction: "increases" | "decreases";
+    distribution?: "normal" | "triangular" | "lognormal";
+    reasoning: string;
+    examples?: {
+      probability?: number;
+      p5?: number;
+      p50?: number;
+      p95?: number;
+    };
+  };
+
+  // Versioning
+  version: { major: number; minor: number };
+  versionHistory: DriverVersion[];
 
   // Metadata
   createdAt: Date;
   updatedAt: Date;
+  resolutionDate?: Date; // Set when driver is expired/resolved
 }
 
 export interface Evidence {

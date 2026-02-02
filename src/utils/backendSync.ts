@@ -5,6 +5,7 @@
 import { researchService } from "../services/researchService";
 import { authService } from "../services/authService";
 import { Platform, AsyncStorage } from "react-native";
+import { validateForecast, formatValidationResults } from "./schemaValidator";
 
 // Get user ID - prefer authenticated user, fallback to anonymous
 async function getUserId(): Promise<string> {
@@ -162,6 +163,33 @@ export async function loadForecastsWithSync(params?: {
       console.log(
         `[BackendSync] Loaded ${mapped.length} forecasts from backend`,
       );
+
+      // Validate loaded forecasts
+      let validCount = 0;
+      let errorCount = 0;
+      mapped.forEach((forecast: any) => {
+        const validationResult = validateForecast(forecast);
+        if (!validationResult.valid) {
+          console.error(
+            `[BackendSync] Loaded forecast ${forecast.id} has validation errors:`,
+          );
+          console.error(formatValidationResults(validationResult));
+          errorCount++;
+        } else if (validationResult.warnings.length > 0) {
+          console.warn(
+            `[BackendSync] Loaded forecast ${forecast.id} has warnings:`,
+          );
+          console.warn(formatValidationResults(validationResult));
+        }
+        validCount++;
+      });
+
+      if (errorCount > 0) {
+        console.warn(
+          `[BackendSync] ${errorCount}/${mapped.length} forecasts have validation errors`,
+        );
+      }
+
       return { forecasts: mapped, fromBackend: true };
     }
 
@@ -268,7 +296,12 @@ export async function createForecastWithSync(data: {
 export async function addDriverWithSync(
   forecastId: string,
   driverData: any,
-): Promise<{ success: boolean; forecast?: any; error?: string }> {
+): Promise<{
+  success: boolean;
+  forecast?: any;
+  error?: string;
+  validationWarnings?: string[];
+}> {
   // For local-only forecasts, return success but indicate no backend sync
   // The caller (saveConfiguredDriver) will handle local persistence
   if (forecastId.startsWith("local-")) {
@@ -297,6 +330,33 @@ export async function addDriverWithSync(
       agents: driverData.agents || [],
       researchResults: driverData.researchResults || [],
     };
+
+    // Validate driver data before sending to backend
+    // Create a temporary forecast object for validation
+    const tempForecast = {
+      id: forecastId,
+      question: "Validation placeholder",
+      drivers: [backendDriverData],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const validationResult = validateForecast(tempForecast as any);
+
+    if (!validationResult.valid) {
+      console.error("[BackendSync] Driver validation failed:");
+      console.error(formatValidationResults(validationResult));
+      return {
+        success: false,
+        error: `Validation failed: ${validationResult.errors.map((e) => e.message).join(", ")}`,
+      };
+    }
+
+    // Log warnings but don't block
+    if (validationResult.warnings.length > 0) {
+      console.warn("[BackendSync] Driver validation warnings:");
+      console.warn(formatValidationResults(validationResult));
+    }
 
     const result = await researchService.addDriver(
       forecastId,

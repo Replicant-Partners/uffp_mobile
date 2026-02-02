@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Evidence } from "../types";
 import { TufteColors, TufteTypography, TufteSpacing } from "../styles/tufte";
+import { idGenerators } from "../utils/idGenerator";
 
 interface EvidenceManagerProps {
   evidence: Evidence[];
@@ -32,7 +33,7 @@ export const EvidenceManager: React.FC<EvidenceManagerProps> = ({
   const handleAddEvidence = () => {
     if (newEvidence.title && newEvidence.source && newEvidence.keyFinding) {
       onAddEvidence({
-        id: Date.now().toString(),
+        id: idGenerators.evidence(),
         type: newEvidence.type || "research",
         title: newEvidence.title,
         source: newEvidence.source,
@@ -67,7 +68,10 @@ export const EvidenceManager: React.FC<EvidenceManagerProps> = ({
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerText}>Evidence ({evidence.length})</Text>
-        <TouchableOpacity style={styles.addButton} onPress={() => setModalVisible(true)}>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => setModalVisible(true)}
+        >
           <Text style={styles.addButtonText}>+ Add Evidence</Text>
         </TouchableOpacity>
       </View>
@@ -77,11 +81,19 @@ export const EvidenceManager: React.FC<EvidenceManagerProps> = ({
           <View style={styles.evidenceHeader}>
             <View style={styles.evidenceTypeRow}>
               <View
-                style={[styles.relevanceDot, { backgroundColor: relevanceColors[item.relevance] }]}
+                style={[
+                  styles.relevanceDot,
+                  { backgroundColor: relevanceColors[item.relevance] },
+                ]}
               />
-              <Text style={styles.evidenceType}>{evidenceTypeLabels[item.type]}</Text>
+              <Text style={styles.evidenceType}>
+                {evidenceTypeLabels[item.type]}
+              </Text>
             </View>
-            <TouchableOpacity onPress={() => onRemoveEvidence(item.id)} style={styles.removeButton}>
+            <TouchableOpacity
+              onPress={() => onRemoveEvidence(item.id)}
+              style={styles.removeButton}
+            >
               <Text style={styles.removeButtonText}>×</Text>
             </TouchableOpacity>
           </View>
@@ -107,8 +119,8 @@ export const EvidenceManager: React.FC<EvidenceManagerProps> = ({
       {evidence.length === 0 && (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>
-            No evidence added yet. Add research, data, or expert opinions to support your parameter
-            choices.
+            No evidence added yet. Add research, data, or expert opinions to
+            support your parameter choices.
           </Text>
         </View>
       )}
@@ -120,12 +132,21 @@ export const EvidenceManager: React.FC<EvidenceManagerProps> = ({
         animationType="slide"
         onRequestClose={() => setModalVisible(false)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setModalVisible(false)}
+        >
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
             <ScrollView>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Add Evidence</Text>
-                <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
+                <TouchableOpacity
+                  onPress={() => setModalVisible(false)}
+                  style={styles.closeButton}
+                >
                   <Text style={styles.closeButtonText}>×</Text>
                 </TouchableOpacity>
               </View>
@@ -135,9 +156,15 @@ export const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                 {Object.entries(evidenceTypeLabels).map(([key, label]) => (
                   <TouchableOpacity
                     key={key}
-                    style={[styles.typeButton, newEvidence.type === key && styles.typeButtonActive]}
+                    style={[
+                      styles.typeButton,
+                      newEvidence.type === key && styles.typeButtonActive,
+                    ]}
                     onPress={() =>
-                      setNewEvidence({ ...newEvidence, type: key as Evidence["type"] })
+                      setNewEvidence({
+                        ...newEvidence,
+                        type: key as Evidence["type"],
+                      })
                     }
                   >
                     <Text
@@ -156,7 +183,9 @@ export const EvidenceManager: React.FC<EvidenceManagerProps> = ({
               <TextInput
                 style={styles.input}
                 value={newEvidence.title}
-                onChangeText={(text) => setNewEvidence({ ...newEvidence, title: text })}
+                onChangeText={(text) =>
+                  setNewEvidence({ ...newEvidence, title: text })
+                }
                 placeholder="e.g., Q3 2024 Earnings Report"
                 placeholderTextColor={TufteColors.textTertiary}
               />
@@ -165,7 +194,9 @@ export const EvidenceManager: React.FC<EvidenceManagerProps> = ({
               <TextInput
                 style={styles.input}
                 value={newEvidence.source}
-                onChangeText={(text) => setNewEvidence({ ...newEvidence, source: text })}
+                onChangeText={(text) =>
+                  setNewEvidence({ ...newEvidence, source: text })
+                }
                 placeholder="e.g., Company SEC Filing, Bloomberg, Internal Analysis"
                 placeholderTextColor={TufteColors.textTertiary}
               />
@@ -174,7 +205,9 @@ export const EvidenceManager: React.FC<EvidenceManagerProps> = ({
               <TextInput
                 style={styles.input}
                 value={newEvidence.url}
-                onChangeText={(text) => setNewEvidence({ ...newEvidence, url: text })}
+                onChangeText={(text) =>
+                  setNewEvidence({ ...newEvidence, url: text })
+                }
                 placeholder="https://..."
                 placeholderTextColor={TufteColors.textTertiary}
               />
@@ -183,7 +216,9 @@ export const EvidenceManager: React.FC<EvidenceManagerProps> = ({
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={newEvidence.keyFinding}
-                onChangeText={(text) => setNewEvidence({ ...newEvidence, keyFinding: text })}
+                onChangeText={(text) =>
+                  setNewEvidence({ ...newEvidence, keyFinding: text })
+                }
                 placeholder="What specific insight does this provide for your driver parameters?"
                 placeholderTextColor={TufteColors.textTertiary}
                 multiline
@@ -194,7 +229,9 @@ export const EvidenceManager: React.FC<EvidenceManagerProps> = ({
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={newEvidence.summary}
-                onChangeText={(text) => setNewEvidence({ ...newEvidence, summary: text })}
+                onChangeText={(text) =>
+                  setNewEvidence({ ...newEvidence, summary: text })
+                }
                 placeholder="Additional context or summary"
                 placeholderTextColor={TufteColors.textTertiary}
                 multiline
@@ -205,7 +242,9 @@ export const EvidenceManager: React.FC<EvidenceManagerProps> = ({
               <TextInput
                 style={styles.input}
                 value={newEvidence.date}
-                onChangeText={(text) => setNewEvidence({ ...newEvidence, date: text })}
+                onChangeText={(text) =>
+                  setNewEvidence({ ...newEvidence, date: text })
+                }
                 placeholder="YYYY-MM-DD"
                 placeholderTextColor={TufteColors.textTertiary}
               />
@@ -217,14 +256,18 @@ export const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                     key={level}
                     style={[
                       styles.relevanceButton,
-                      newEvidence.relevance === level && styles.relevanceButtonActive,
+                      newEvidence.relevance === level &&
+                        styles.relevanceButtonActive,
                     ]}
-                    onPress={() => setNewEvidence({ ...newEvidence, relevance: level })}
+                    onPress={() =>
+                      setNewEvidence({ ...newEvidence, relevance: level })
+                    }
                   >
                     <Text
                       style={[
                         styles.relevanceButtonText,
-                        newEvidence.relevance === level && styles.relevanceButtonTextActive,
+                        newEvidence.relevance === level &&
+                          styles.relevanceButtonTextActive,
                       ]}
                     >
                       {level.toUpperCase()}
@@ -233,7 +276,10 @@ export const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                 ))}
               </View>
 
-              <TouchableOpacity style={styles.saveButton} onPress={handleAddEvidence}>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleAddEvidence}
+              >
                 <Text style={styles.saveButtonText}>Add Evidence</Text>
               </TouchableOpacity>
             </ScrollView>
@@ -335,7 +381,8 @@ const styles = StyleSheet.create({
   keyFindingText: {
     fontSize: TufteTypography.fontSize.sm,
     color: TufteColors.text,
-    lineHeight: TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.sm,
+    lineHeight:
+      TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.sm,
   },
   evidenceUrl: {
     fontSize: TufteTypography.fontSize.xs,
@@ -352,7 +399,8 @@ const styles = StyleSheet.create({
     fontSize: TufteTypography.fontSize.sm,
     color: TufteColors.textTertiary,
     textAlign: "center",
-    lineHeight: TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.sm,
+    lineHeight:
+      TufteTypography.lineHeight.relaxed * TufteTypography.fontSize.sm,
   },
   modalOverlay: {
     flex: 1,

@@ -44,6 +44,7 @@ import {
   type CommandContext,
   type CommandSuggestion,
 } from "../services/fermiCommands";
+import { idGenerators } from "../utils/idGenerator";
 
 interface SimulationData {
   id: string;
@@ -424,20 +425,22 @@ export default function ForecastWorkspaceScreen() {
 
       // Create driver with AI-recommended configuration
       const newDriver: any = {
-        id: Date.now().toString(),
+        id: idGenerators.driver(),
         name: suggestedDriver,
         type: recommendation.type,
         direction: recommendation.direction,
         agents: [] as any[],
+        researchResults: [] as any[],
         evidence: [],
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         aiRecommendation: recommendation, // Store for reference
         version: { major: 1, minor: 0 },
         versionHistory: [],
       };
 
       if (recommendation.type === "binary") {
-        newDriver.probability = recommendation.examples?.probability || 50;
+        newDriver.probability = recommendation.examples?.probability || 0.5;
       } else {
         newDriver.distribution = recommendation.distribution || "triangular";
         newDriver.p5 = recommendation.examples?.p5 || 30;
@@ -766,15 +769,15 @@ export default function ForecastWorkspaceScreen() {
     if (driver.type === "binary") {
       if (driver.probability === undefined || driver.probability === null) {
         errors.push(
-          "Binary drivers require a probability value. Use /p <value> to set it.",
+          "Binary drivers require a probability value. Use /prob <value> to set it.",
         );
       }
       if (
         driver.probability !== undefined &&
         driver.probability !== null &&
-        (driver.probability < 0 || driver.probability > 100)
+        (driver.probability < 0 || driver.probability > 1)
       ) {
-        errors.push("Probability must be between 0 and 100");
+        errors.push("Probability must be between 0 and 1 (internal format)");
       }
     } else if (driver.type === "continuous") {
       if (!driver.distribution) {
@@ -920,9 +923,11 @@ export default function ForecastWorkspaceScreen() {
     // Binary probability changes
     if (newDriver.type === "binary" && originalDriver.type === "binary") {
       if (newDriver.probability !== originalDriver.probability) {
-        const diff = newDriver.probability - originalDriver.probability;
+        const oldPercent = Math.round((originalDriver.probability || 0) * 100);
+        const newPercent = Math.round((newDriver.probability || 0) * 100);
+        const diff = newPercent - oldPercent;
         changes.push(
-          `Probability: ${originalDriver.probability}% → ${newDriver.probability}% (${diff > 0 ? "+" : ""}${diff}%)`,
+          `Probability: ${oldPercent}% → ${newPercent}% (${diff > 0 ? "+" : ""}${diff}%)`,
         );
       }
     }
@@ -1036,7 +1041,7 @@ export default function ForecastWorkspaceScreen() {
     } else {
       // Create new agent
       const newAgent = {
-        id: Date.now().toString(),
+        id: idGenerators.agent(),
         name: agentBeingConfigured.name,
         query: agentBeingConfigured.query,
         schedule: agentBeingConfigured.schedule || "on-demand",
@@ -1150,7 +1155,7 @@ export default function ForecastWorkspaceScreen() {
       ];
       if (driverBeingConfigured.type === "binary") {
         initialChanges.push(
-          `probability: ${driverBeingConfigured.probability}%`,
+          `probability: ${Math.round((driverBeingConfigured.probability || 0) * 100)}%`,
         );
       } else {
         initialChanges.push(
@@ -1761,7 +1766,7 @@ export default function ForecastWorkspaceScreen() {
 
         const currentAgents = driverBeingConfigured.agents || [];
         const agentConfig = {
-          id: Date.now().toString(),
+          id: idGenerators.agent(),
           name: agentBeingConfigured.name,
           query: agentBeingConfigured.query,
           schedule: agentBeingConfigured.schedule || "on-demand",
@@ -2053,7 +2058,7 @@ export default function ForecastWorkspaceScreen() {
           const updated = { ...driverBeingConfigured, type };
           // If switching to binary, set default probability
           if (type === "binary" && !updated.probability) {
-            updated.probability = 50;
+            updated.probability = 0.5;
           }
           setDriverBeingConfigured(updated);
           setCommandInput("");
@@ -2070,11 +2075,11 @@ export default function ForecastWorkspaceScreen() {
           setError("Use /prob only for binary drivers. Use /p for continuous.");
           return;
         }
-        const prob = parseInt(trimmed.replace("/prob ", "").trim(), 10);
-        if (!isNaN(prob) && prob >= 0 && prob <= 100) {
+        const probPercent = parseInt(trimmed.replace("/prob ", "").trim(), 10);
+        if (!isNaN(probPercent) && probPercent >= 0 && probPercent <= 100) {
           setDriverBeingConfigured({
             ...driverBeingConfigured,
-            probability: prob,
+            probability: probPercent / 100, // Convert 0-100 to 0-1
           });
           setCommandInput("");
           setError("");
@@ -2394,7 +2399,7 @@ export default function ForecastWorkspaceScreen() {
           if (query) {
             // Create or update agent with the query
             const newAgent = {
-              id: agentToRun?.id || Date.now().toString(),
+              id: agentToRun?.id || idGenerators.agent(),
               name: agentName,
               query: query,
               schedule: agentToRun?.schedule || "on-demand",
@@ -2448,7 +2453,7 @@ export default function ForecastWorkspaceScreen() {
 
           // Create ResearchSnapshot and add to researchResults
           const researchSnapshot = {
-            id: Date.now().toString(),
+            id: idGenerators.researchSnapshot(),
             agentId: agentName,
             promptId: "market_tam_sizing",
             variables: {
@@ -3035,20 +3040,22 @@ export default function ForecastWorkspaceScreen() {
 
         // Create driver with AI-recommended configuration
         const newDriver: any = {
-          id: Date.now().toString(),
+          id: idGenerators.driver(),
           name: driverName,
           type: recommendation.type,
           direction: recommendation.direction,
           agents: [] as any[],
+          researchResults: [] as any[],
           evidence: [],
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           aiRecommendation: recommendation,
           version: { major: 1, minor: 0 },
           versionHistory: [],
         };
 
         if (recommendation.type === "binary") {
-          newDriver.probability = recommendation.examples?.probability || 50;
+          newDriver.probability = recommendation.examples?.probability || 0.5;
         } else {
           newDriver.distribution = recommendation.distribution || "triangular";
           newDriver.p5 = recommendation.examples?.p5 || 30;
@@ -4523,8 +4530,8 @@ export default function ForecastWorkspaceScreen() {
                       Probability:{" "}
                       <Text style={styles.driverFieldValue}>
                         {driverBeingConfigured.probability != null
-                          ? `${driverBeingConfigured.probability}%`
-                          : "not set - use /p <value>"}
+                          ? `${Math.round(driverBeingConfigured.probability * 100)}%`
+                          : "not set - use /prob <value>"}
                       </Text>
                     </Text>
                     <Text style={styles.driverFieldExplanation}>
@@ -4626,7 +4633,7 @@ export default function ForecastWorkspaceScreen() {
                   <Text style={styles.driverDetails}>
                     {driver.type === "continuous"
                       ? `P(${driver.p5}-${driver.p50}-${driver.p95}) · ${driver.distribution}`
-                      : `P(${driver.probability != null ? driver.probability + "%" : "not set"})`}{" "}
+                      : `P(${driver.probability != null ? Math.round(driver.probability * 100) + "%" : "not set"})`}{" "}
                     · {driver.direction}
                   </Text>
                   {driver.agents && driver.agents.length > 0 && (
@@ -5467,7 +5474,7 @@ export default function ForecastWorkspaceScreen() {
                                   const driverType =
                                     driverData.type || "continuous";
                                   const newDriver: any = {
-                                    id: Date.now().toString(),
+                                    id: idGenerators.driver(),
                                     name: driverData.name,
                                     type: driverType,
                                     agents: [] as any[],
@@ -5480,7 +5487,7 @@ export default function ForecastWorkspaceScreen() {
                                   // Add type-specific fields
                                   if (driverType === "binary") {
                                     newDriver.probability =
-                                      driverData.probability || 50;
+                                      driverData.probability || 0.5;
                                   } else {
                                     newDriver.distribution =
                                       driverData.distribution || "triangular";
@@ -5510,7 +5517,7 @@ export default function ForecastWorkspaceScreen() {
                                     newDriver.type === "binary" &&
                                     newDriver.probability == null
                                   ) {
-                                    newDriver.probability = 50;
+                                    newDriver.probability = 0.5;
                                   }
                                   setDriverBeingConfigured(newDriver);
                                   setCommandInput("");

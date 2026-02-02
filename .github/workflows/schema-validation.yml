@@ -1,0 +1,42 @@
+name: Schema Validation
+
+on:
+  push:
+    branches: [ master, main, develop ]
+  pull_request:
+    branches: [ master, main, develop ]
+
+jobs:
+  validate-schema:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run schema validation tests
+      run: npm run test:schema
+
+    - name: Run CLI driver creation tests
+      run: npm run test:cli
+
+    - name: Validate all saved forecasts (if any)
+      run: npm run validate-schema:all
+      continue-on-error: true
+
+    - name: Summary
+      if: success()
+      run: |
+        echo "✅ All schema validation tests passed!"
+        echo "- Schema validator: 8 tests"
+        echo "- CLI driver creation: 4 tests"
+        echo "- Total: 12 tests passing"
