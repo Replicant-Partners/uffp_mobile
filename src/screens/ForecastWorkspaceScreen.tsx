@@ -4582,29 +4582,37 @@ Type a command to get started!`;
                   {/* Render clickable suggestions */}
                   {suggestions.length > 0 && (
                     <View style={styles.suggestionChipsContainer}>
-                      {suggestions.map((suggestion, sidx) => (
-                        <TouchableOpacity
-                          key={sidx}
-                          style={styles.suggestionChip}
-                          onPress={async () => {
-                            if (suggestion.clickable) {
+                      {suggestions.map((suggestion, sidx) => {
+                        // Support both old format (command/description) and new format (label/description)
+                        const commandText =
+                          (suggestion as any).label ||
+                          (suggestion as any).command ||
+                          "";
+                        const descText = suggestion.description || "";
+
+                        return (
+                          <TouchableOpacity
+                            key={sidx}
+                            style={styles.suggestionChip}
+                            onPress={async () => {
                               // Execute the command
-                              setFermiChatInput(suggestion.command);
-                              await handleFermiCoaching(suggestion.command);
-                            } else {
-                              // Just populate input
-                              setFermiChatInput(suggestion.command);
-                            }
-                          }}
-                        >
-                          <Text style={styles.suggestionChipText}>
-                            {suggestion.command}
-                          </Text>
-                          <Text style={styles.suggestionChipDesc}>
-                            {suggestion.description}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+                              setFermiChatInput(commandText);
+                              if (commandText.startsWith("/")) {
+                                await processSingleCommand(commandText);
+                              } else {
+                                await handleFermiCoaching(commandText);
+                              }
+                            }}
+                          >
+                            <Text style={styles.suggestionChipText}>
+                              {commandText}
+                            </Text>
+                            <Text style={styles.suggestionChipDesc}>
+                              {descText}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
                   )}
 
