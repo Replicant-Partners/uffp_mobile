@@ -2231,7 +2231,7 @@ export default function ForecastWorkspaceScreen() {
 
     // Handle /help command
     if (trimmed === "/help") {
-      setError(`Available commands:
+      const helpText = `Available commands:
 
 /question <text> - Start a new forecast
 /list [all|active|expired] - Show forecasts
@@ -2241,7 +2241,31 @@ export default function ForecastWorkspaceScreen() {
 /premortem - Enable premortem mode
 @fermi - Get coaching help
 
-Type a command to get started!`);
+Type a command to get started!`;
+
+      // Create clickable command suggestions
+      const commandSuggestions: CommandSuggestion[] = [
+        {
+          key: "question",
+          label: "/question ",
+          description: "Start new forecast",
+        },
+        { key: "list", label: "/list", description: "Show forecasts" },
+        { key: "driver", label: "/driver ", description: "Add a driver" },
+        { key: "simulate", label: "/simulate", description: "Run simulation" },
+        {
+          key: "external",
+          label: "/external ",
+          description: "Set external view",
+        },
+        {
+          key: "premortem",
+          label: "/premortem",
+          description: "Enable premortem",
+        },
+      ];
+
+      await addFermiMessage("/help", helpText, commandSuggestions);
       setCommandInput("");
       return;
     }
