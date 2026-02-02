@@ -3862,15 +3862,6 @@ export default function ForecastWorkspaceScreen() {
       { key: "leaderboard", label: "/leaderboard", desc: "Global rankings" },
     ];
 
-    // Only show driver and simulate commands if there's an active forecast
-    if (activeForecast) {
-      hints.push(
-        { key: "driver", label: "/driver", desc: "Add a driver" },
-        { key: "simulate", label: "/simulate", desc: "Run simulation" },
-        { key: "review", label: "/review", desc: "Analyze forecast quality" },
-        { key: "decompose", label: "/decompose", desc: "Break down the question" },
-      );
-    }
 
     return hints.filter(
       (h) => h.label.includes(query) || h.desc.toLowerCase().includes(query),
