@@ -987,29 +987,51 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
-    // Create agent object
-    const newAgent = {
-      id: Date.now().toString(),
-      name: agentBeingConfigured.name,
-      query: agentBeingConfigured.query,
-      schedule: agentBeingConfigured.schedule || "on-demand",
-      threshold: agentBeingConfigured.threshold,
-      createdAt: new Date().toISOString(),
-    };
+    // Check if we're editing an existing agent or creating new
+    const existingAgentIndex = driverBeingConfigured.agents?.findIndex(
+      (a: any) =>
+        a.name.toLowerCase() === agentBeingConfigured.name.toLowerCase(),
+    );
 
-    // Add agent to the current driver
+    let updatedAgents;
+    let actionMessage;
+
+    if (existingAgentIndex !== undefined && existingAgentIndex >= 0) {
+      // Update existing agent
+      updatedAgents = [...(driverBeingConfigured.agents || [])];
+      updatedAgents[existingAgentIndex] = {
+        ...updatedAgents[existingAgentIndex],
+        query: agentBeingConfigured.query,
+        schedule: agentBeingConfigured.schedule || "on-demand",
+        threshold: agentBeingConfigured.threshold,
+        updatedAt: new Date().toISOString(),
+      };
+      actionMessage = `✓ Agent @${agentBeingConfigured.name} updated`;
+    } else {
+      // Create new agent
+      const newAgent = {
+        id: Date.now().toString(),
+        name: agentBeingConfigured.name,
+        query: agentBeingConfigured.query,
+        schedule: agentBeingConfigured.schedule || "on-demand",
+        threshold: agentBeingConfigured.threshold,
+        createdAt: new Date().toISOString(),
+      };
+      updatedAgents = [...(driverBeingConfigured.agents || []), newAgent];
+      actionMessage = `✓ Agent @${newAgent.name} added to driver "${driverBeingConfigured.name}"`;
+    }
+
+    // Update driver with new/updated agent
     const updatedDriver = {
       ...driverBeingConfigured,
-      agents: [...(driverBeingConfigured.agents || []), newAgent],
+      agents: updatedAgents,
     };
 
     setDriverBeingConfigured(updatedDriver);
     setAgentBeingConfigured(null);
 
     // Show success message
-    setError(
-      `✓ Agent @${newAgent.name} added to driver "${updatedDriver.name}"`,
-    );
+    setError(actionMessage);
   };
 
   const saveConfiguredDriver = async (force: boolean = false) => {
@@ -1991,23 +2013,55 @@ export default function ForecastWorkspaceScreen() {
 
         if (agentName) {
           console.log("Setting agent being configured:", agentName);
-          setAgentBeingConfigured({ name: agentName });
-          setCommandInput("");
-          setError(""); // Clear any errors
 
-          // Provide feedback in CLI
-          await addFermiMessage(
-            `@${agentName}`,
-            `📋 Configuring @${agentName}\n\nWhat should this agent research?\n\nNext: Type /query <your research question>`,
-            [
-              {
-                key: "query",
-                label: "/query ",
-                description: "Set research query",
-              },
-              { key: "cancel", label: "/cancel", description: "Cancel" },
-            ],
+          // Check if agent already exists on this driver - if so, edit it
+          const existingAgent = driverBeingConfigured.agents?.find(
+            (a: any) => a.name.toLowerCase() === agentName.toLowerCase(),
           );
+
+          if (existingAgent) {
+            // Edit mode - load existing agent
+            setAgentBeingConfigured({ ...existingAgent });
+            setCommandInput("");
+            setError("");
+
+            await addFermiMessage(
+              `@${agentName}`,
+              `📝 Editing @${agentName}\n\nCurrent query: ${existingAgent.query}\nSchedule: ${existingAgent.schedule || "on-demand"}\n\nModify with /query, /schedule, or /threshold.\nType /save when done or /cancel to discard changes.`,
+              [
+                {
+                  key: "query",
+                  label: "/query ",
+                  description: "Update research query",
+                },
+                {
+                  key: "schedule",
+                  label: "/schedule ",
+                  description: "Update schedule",
+                },
+                { key: "save", label: "/save", description: "Save changes" },
+                { key: "cancel", label: "/cancel", description: "Cancel" },
+              ],
+            );
+          } else {
+            // Create new agent
+            setAgentBeingConfigured({ name: agentName });
+            setCommandInput("");
+            setError("");
+
+            await addFermiMessage(
+              `@${agentName}`,
+              `📋 Configuring @${agentName}\n\nWhat should this agent research?\n\nNext: Type /query <your research question>`,
+              [
+                {
+                  key: "query",
+                  label: "/query ",
+                  description: "Set research query",
+                },
+                { key: "cancel", label: "/cancel", description: "Cancel" },
+              ],
+            );
+          }
         }
         return;
       }
