@@ -2896,6 +2896,96 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
+    // Handle /review command - comprehensive forecast analysis
+    if (trimmed === "/review") {
+      if (!activeForecast) {
+        setError("No active forecast to review. Type /question first.");
+        setCommandInput("");
+        return;
+      }
+
+      setCommandInput("");
+      setFermiChatExpanded(true);
+      setFermiThinking(true);
+
+      try {
+        const { analyzeContext } = await import("../services/contextAnalyzer");
+        const insights = analyzeContext(activeForecast);
+
+        let reviewMessage = `📊 **Forecast Review: ${activeForecast.question}**\n\n`;
+
+        // Summary stats
+        reviewMessage += `**Current State:**\n`;
+        reviewMessage += `• ${activeForecast.drivers.length} driver(s)\n`;
+        const driversWithAgents = activeForecast.drivers.filter(
+          (d) => d.agents && d.agents.length > 0,
+        ).length;
+        reviewMessage += `• ${driversWithAgents} driver(s) with research agents\n`;
+        if (activeForecast.probability !== undefined) {
+          reviewMessage += `• Current estimate: ${Math.round(activeForecast.probability)}%\n`;
+        }
+        reviewMessage += `\n`;
+
+        // Show insights by severity
+        if (insights.length === 0) {
+          reviewMessage += `✅ **Great work!** Your forecast looks well-structured with good coverage and no obvious issues.\n\n`;
+          reviewMessage += `Consider running /simulate to get a probability estimate if you haven't already.`;
+        } else {
+          const critical = insights.filter((i) => i.severity === "critical");
+          const warnings = insights.filter((i) => i.severity === "warning");
+          const infos = insights.filter((i) => i.severity === "info");
+
+          if (critical.length > 0) {
+            reviewMessage += `🔴 **Critical Issues (${critical.length}):**\n`;
+            critical.forEach((i) => {
+              reviewMessage += `\n**${i.title}**\n${i.description}\n`;
+              if (i.suggestedAction)
+                reviewMessage += `→ ${i.suggestedAction}\n`;
+            });
+            reviewMessage += `\n`;
+          }
+
+          if (warnings.length > 0) {
+            reviewMessage += `⚠️  **Warnings (${warnings.length}):**\n`;
+            warnings.forEach((i) => {
+              reviewMessage += `\n**${i.title}**\n${i.description}\n`;
+              if (i.suggestedAction)
+                reviewMessage += `→ ${i.suggestedAction}\n`;
+            });
+            reviewMessage += `\n`;
+          }
+
+          if (infos.length > 0) {
+            reviewMessage += `ℹ️  **Suggestions (${infos.length}):**\n`;
+            infos.forEach((i) => {
+              reviewMessage += `\n**${i.title}**\n${i.description}\n`;
+              if (i.suggestedAction)
+                reviewMessage += `→ ${i.suggestedAction}\n`;
+            });
+          }
+        }
+
+        // Generate command suggestions from insights
+        const suggestions: CommandSuggestion[] = insights
+          .filter((i) => i.suggestedCommand)
+          .map((i) => ({
+            label: i.suggestedCommand!,
+            desc: i.title,
+          }));
+
+        await addFermiMessage("/review", reviewMessage, suggestions);
+      } catch (error) {
+        console.error("[Review] Failed:", error);
+        await addFermiMessage(
+          "/review",
+          "❌ Failed to generate review. Please try again.",
+        );
+      } finally {
+        setFermiThinking(false);
+      }
+      return;
+    }
+
     // Handle numbered driver selection (e.g., "1", "2", "3")
     if (/^\d+$/.test(trimmed)) {
       const index = parseInt(trimmed, 10) - 1; // Convert to 0-indexed
@@ -3573,6 +3663,7 @@ Type a command to get started!`;
         { key: "setprob", label: "/setprob", desc: "Set probability (0-100)" },
         { key: "simulate", label: "/simulate", desc: "Run simulation" },
         { key: "run", label: "/run @agent", desc: "Execute research agent" },
+        { key: "review", label: "/review", desc: "Analyze forecast quality" },
       );
 
       // Show expire command if forecast has a probability and isn't resolved yet
