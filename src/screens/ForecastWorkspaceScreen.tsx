@@ -680,6 +680,17 @@ export default function ForecastWorkspaceScreen() {
               "forecast → drivers → agents attached to drivers → simulation",
           };
 
+          // Add contextual insights (proactive coaching)
+          if (activeForecast) {
+            const { analyzeContext } =
+              await import("../services/contextAnalyzer");
+            const insights = analyzeContext(activeForecast);
+            if (insights.length > 0) {
+              context.contextualInsights = insights;
+              context.coachingNote = `IMPORTANT: Share ${insights.length} proactive insight(s) with the user to improve their forecast quality.`;
+            }
+          }
+
           // Call AI backend
           const response = await researchService.chatWithCoach(
             userQuery,
