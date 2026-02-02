@@ -1346,9 +1346,39 @@ Type a command to get started!`;
       // /query <search query>
       if (trimmed.startsWith("/query ")) {
         const query = trimmed.replace("/query ", "").trim();
+        if (!query) {
+          await addFermiMessage(
+            "/query",
+            "Please provide a research query.\n\nExample: /query What is the market size for EVs in 2025?",
+          );
+          return;
+        }
         setAgentBeingConfigured({ ...agentBeingConfigured, query });
         setCommandInput("");
         setError("");
+
+        await addFermiMessage(
+          `/query ${query}`,
+          `✓ Query set: "${query}"\n\nHow often should this agent update?\n\nNext: /schedule daily, /schedule weekly, or /schedule on-demand`,
+          [
+            {
+              key: "daily",
+              label: "/schedule daily",
+              description: "Update daily",
+            },
+            {
+              key: "weekly",
+              label: "/schedule weekly",
+              description: "Update weekly",
+            },
+            {
+              key: "on-demand",
+              label: "/schedule on-demand",
+              description: "Manual updates",
+            },
+            { key: "save", label: "/save", description: "Save agent" },
+          ],
+        );
         return;
       }
 
@@ -1359,8 +1389,41 @@ Type a command to get started!`;
           setAgentBeingConfigured({ ...agentBeingConfigured, schedule });
           setCommandInput("");
           setError("");
+
+          await addFermiMessage(
+            `/schedule ${schedule}`,
+            `✓ Schedule set to ${schedule}\n\nAgent configuration complete! Save it now.\n\nNext: /save to add agent to driver`,
+            [
+              {
+                key: "save",
+                label: "/save",
+                description: "Save agent to driver",
+              },
+              { key: "cancel", label: "/cancel", description: "Cancel" },
+            ],
+          );
         } else {
-          setError("Schedule must be 'daily', 'weekly', or 'on-demand'");
+          await addFermiMessage(
+            `/schedule ${schedule}`,
+            "❌ Schedule must be 'daily', 'weekly', or 'on-demand'",
+            [
+              {
+                key: "daily",
+                label: "/schedule daily",
+                description: "Update daily",
+              },
+              {
+                key: "weekly",
+                label: "/schedule weekly",
+                description: "Update weekly",
+              },
+              {
+                key: "on-demand",
+                label: "/schedule on-demand",
+                description: "Manual",
+              },
+            ],
+          );
         }
         return;
       }
@@ -1384,12 +1447,25 @@ Type a command to get started!`;
       // /save - save agent to driver and optionally execute
       if (trimmed === "/save") {
         if (!driverBeingConfigured) {
-          setError("No driver being configured. Start driver config first.");
+          await addFermiMessage(
+            "/save",
+            "❌ No driver being configured. Start driver config first with /driver <name>",
+          );
           return;
         }
 
         if (!agentBeingConfigured.query) {
-          setError("Agent needs a query! Use /query <search query> first.");
+          await addFermiMessage(
+            "/save",
+            "❌ Agent needs a query! Use /query <search query> first.",
+            [
+              {
+                key: "query",
+                label: "/query ",
+                description: "Set research query",
+              },
+            ],
+          );
           return;
         }
 
@@ -1406,7 +1482,10 @@ Type a command to get started!`;
           (a: any) => (a.name || a) === agentConfig.name,
         );
         if (isDuplicate) {
-          setError(`Agent @${agentConfig.name} already added to this driver`);
+          await addFermiMessage(
+            "/save",
+            `❌ Agent @${agentConfig.name} already added to this driver`,
+          );
           return;
         }
 
@@ -1418,8 +1497,14 @@ Type a command to get started!`;
         // Clear agent config and show success
         setAgentBeingConfigured(null);
         setCommandInput("");
-        setError(
-          `✓ Agent @${agentConfig.name} added! You can add more agents with @ or /save the driver.`,
+
+        await addFermiMessage(
+          "/save",
+          `✓ Agent @${agentConfig.name} added to driver "${driverBeingConfigured.name}"!\n\nYou can:\n• Add more agents with @<agent_name>\n• Save the driver with /save\n• Configure driver parameters`,
+          [
+            { key: "save-driver", label: "/save", description: "Save driver" },
+            { key: "another", label: "@", description: "Add another agent" },
+          ],
         );
         return;
       }
@@ -1763,6 +1848,20 @@ Type a command to get started!`;
           setAgentBeingConfigured({ name: agentName });
           setCommandInput("");
           setError(""); // Clear any errors
+
+          // Provide feedback in CLI
+          await addFermiMessage(
+            `@${agentName}`,
+            `📋 Configuring @${agentName}\n\nWhat should this agent research?\n\nNext: Type /query <your research question>`,
+            [
+              {
+                key: "query",
+                label: "/query ",
+                description: "Set research query",
+              },
+              { key: "cancel", label: "/cancel", description: "Cancel" },
+            ],
+          );
         }
         return;
       }
