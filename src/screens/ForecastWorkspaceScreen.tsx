@@ -3655,27 +3655,11 @@ export default function ForecastWorkspaceScreen() {
     if (activeForecast) {
       hints.push(
         { key: "driver", label: "/driver", desc: "Add a driver" },
-        {
-          key: "external",
-          label: "/external",
-          desc: "Set reference class (external view)",
-        },
-        {
-          key: "premortem",
-          label: "/premortem",
-          desc: "Enable pre-mortem mode",
-        },
-        { key: "grounding", label: "/grounding", desc: "Set grounding type" },
-        { key: "setprob", label: "/setprob", desc: "Set probability (0-100)" },
         { key: "simulate", label: "/simulate", desc: "Run simulation" },
-        { key: "run", label: "/run @agent", desc: "Execute research agent" },
         { key: "review", label: "/review", desc: "Analyze forecast quality" },
-        {
-          key: "decompose",
-          label: "/decompose",
-          desc: "Break down the question",
-        },
+        { key: "decompose", label: "/decompose", desc: "Break down the question" },
       );
+    }
 
       // Show expire command if forecast has a probability and isn't resolved yet
       if (activeForecast.probability && !activeForecast.resolved) {
@@ -3883,7 +3867,10 @@ export default function ForecastWorkspaceScreen() {
       hints.push(
         { key: "driver", label: "/driver", desc: "Add a driver" },
         { key: "simulate", label: "/simulate", desc: "Run simulation" },
+        { key: "review", label: "/review", desc: "Analyze forecast quality" },
+        { key: "decompose", label: "/decompose", desc: "Break down the question" },
       );
+    }
     }
 
     return hints.filter(
@@ -5263,6 +5250,8 @@ export default function ForecastWorkspaceScreen() {
                   onPress={async () => {
                     // Auto-execute commands that don't need arguments
                     const noArgCommands = [
+                      "review",
+                      "decompose",
                       "save",
                       "cancel",
                       "commands",
