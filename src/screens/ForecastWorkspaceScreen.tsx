@@ -139,6 +139,10 @@ export default function ForecastWorkspaceScreen() {
     null,
   );
   const [savedForecasts, setSavedForecasts] = useState<SavedForecast[]>([]);
+  const [forecastPrivacy, setForecastPrivacy] = useState<
+    "private" | "unlisted" | "public" | "organization"
+  >("private");
+  const [forecastTags, setForecastTags] = useState<string[]>([]);
   const [showForecastList, setShowForecastList] = useState(false);
   const [forecastFilter, setForecastFilter] = useState<
     "all" | "active" | "expired"
@@ -2479,6 +2483,107 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
+    // Handle /privacy command - set forecast privacy level
+    if (trimmed.startsWith("/privacy")) {
+      const privacyArg = trimmed.replace("/privacy", "").trim().toLowerCase();
+
+      if (!privacyArg) {
+        // Show current privacy setting
+        const privacyLabels = {
+          private: "🔒 Private (only you)",
+          unlisted: "🔗 Unlisted (link sharing)",
+          public: "🌍 Public (discoverable)",
+          organization: "🏢 Organization (team-only)",
+        };
+
+        await addFermiMessage(
+          "/privacy",
+          `Current privacy: ${privacyLabels[forecastPrivacy]}\n\nAvailable options:\n• private - Only you can see\n• unlisted - Anyone with link can see\n• public - Appears in discovery feed\n• organization - Team members can see\n\nUsage: /privacy <level>`,
+          [
+            {
+              key: "private",
+              label: "/privacy private",
+              description: "Only you",
+            },
+            {
+              key: "unlisted",
+              label: "/privacy unlisted",
+              description: "Link sharing",
+            },
+            {
+              key: "public",
+              label: "/privacy public",
+              description: "Discoverable",
+            },
+          ],
+        );
+        setCommandInput("");
+        return;
+      }
+
+      if (
+        ["private", "unlisted", "public", "organization"].includes(privacyArg)
+      ) {
+        setForecastPrivacy(
+          privacyArg as "private" | "unlisted" | "public" | "organization",
+        );
+        const labels = {
+          private: "🔒 Private - only you can see",
+          unlisted: "🔗 Unlisted - link sharing enabled",
+          public: "🌍 Public - will appear in discovery",
+          organization: "🏢 Organization - team members can see",
+        };
+        await addFermiMessage(
+          `/privacy ${privacyArg}`,
+          `Privacy set to: ${labels[privacyArg as keyof typeof labels]}\n\nThis will apply to your next forecast.`,
+        );
+        setCommandInput("");
+        return;
+      }
+
+      setError(
+        "Invalid privacy level. Use: private, unlisted, public, or organization",
+      );
+      setCommandInput("");
+      return;
+    }
+
+    // Handle /tags command - set forecast tags
+    if (trimmed.startsWith("/tags")) {
+      const tagsArg = trimmed.replace("/tags", "").trim();
+
+      if (!tagsArg) {
+        await addFermiMessage(
+          "/tags",
+          forecastTags.length > 0
+            ? `Current tags: ${forecastTags.join(", ")}\n\nTo update: /tags tag1, tag2, tag3\nTo clear: /tags clear`
+            : `No tags set.\n\nAdd tags to help others discover your forecast:\n/tags technology, AI, 2025\n\nTags are useful for public forecasts.`,
+          [],
+        );
+        setCommandInput("");
+        return;
+      }
+
+      if (tagsArg === "clear") {
+        setForecastTags([]);
+        await addFermiMessage("/tags clear", "Tags cleared.");
+        setCommandInput("");
+        return;
+      }
+
+      const tags = tagsArg
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+      setForecastTags(tags);
+      await addFermiMessage(
+        `/tags ${tagsArg}`,
+        `Tags set: ${tags.join(", ")}\n\nThese will apply to your next forecast.`,
+      );
+      setCommandInput("");
+      return;
+    }
+
     // Handle /list command - with optional filter
     if (trimmed.startsWith("/list")) {
       const filterArg = trimmed.replace("/list", "").trim().toLowerCase();
@@ -2933,6 +3038,8 @@ Type a command to get started!`;
           domain: parsed.domain,
           timeframe: parsed.timeframe,
           parsedData: parsed,
+          privacy: forecastPrivacy,
+          tags: forecastTags,
         });
 
         if (createResult.forecast) {

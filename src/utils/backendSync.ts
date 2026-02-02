@@ -180,6 +180,8 @@ export async function createForecastWithSync(data: {
   domain?: string;
   timeframe?: string;
   parsedData?: any;
+  privacy?: "private" | "unlisted" | "public" | "organization";
+  tags?: string[];
 }): Promise<{ forecast: any; fromBackend: boolean; error?: string }> {
   if (currentSyncMode === "local-only") {
     // Return local-only forecast
@@ -211,6 +213,8 @@ export async function createForecastWithSync(data: {
       domain: data.domain || data.parsedData?.domain || "general",
       timeframe: data.timeframe || data.parsedData?.timeframe,
       resolutionCriteria: `Forecast resolves when outcome is known for: ${data.question}`,
+      privacy: data.privacy || "private",
+      tags: data.tags || [],
     });
 
     console.log("[BackendSync] Backend create response:", result);

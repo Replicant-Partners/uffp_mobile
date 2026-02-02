@@ -132,6 +132,8 @@ class ResearchService {
     domain?: string;
     timeframe?: string;
     resolutionCriteria: string;
+    privacy?: "private" | "unlisted" | "public" | "organization";
+    tags?: string[];
   }): Promise<any> {
     const response = await this.makeRequest("/forecasts?action=create", {
       method: "POST",
