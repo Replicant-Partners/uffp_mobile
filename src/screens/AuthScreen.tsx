@@ -63,6 +63,29 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setError("");
   };
 
+  const handleOAuthLogin = async (provider: "google" | "github") => {
+    if (Platform.OS !== "web") {
+      setError("OAuth login is only available on web");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const result = await authService.loginWithOAuth(provider);
+      if (result.success) {
+        onAuthSuccess();
+      } else {
+        setError(result.error || "OAuth login failed");
+      }
+    } catch (err: any) {
+      setError(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -112,7 +135,11 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               <Text style={styles.label}>Password</Text>
               <TextInput
                 style={styles.input}
-                placeholder={mode === "register" ? "At least 8 characters" : "Your password"}
+                placeholder={
+                  mode === "register"
+                    ? "At least 8 characters"
+                    : "Your password"
+                }
                 placeholderTextColor="#928374"
                 value={password}
                 onChangeText={setPassword}
@@ -138,6 +165,44 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                 </Text>
               )}
             </TouchableOpacity>
+
+            {Platform.OS === "web" && (
+              <>
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>or</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                <TouchableOpacity
+                  style={[
+                    styles.oauthButton,
+                    styles.googleButton,
+                    loading && styles.buttonDisabled,
+                  ]}
+                  onPress={() => handleOAuthLogin("google")}
+                  disabled={loading}
+                >
+                  <Text style={styles.oauthButtonText}>
+                    Continue with Google
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.oauthButton,
+                    styles.githubButton,
+                    loading && styles.buttonDisabled,
+                  ]}
+                  onPress={() => handleOAuthLogin("github")}
+                  disabled={loading}
+                >
+                  <Text style={styles.oauthButtonText}>
+                    Continue with GitHub
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
 
             <TouchableOpacity
               style={styles.switchButton}
@@ -260,5 +325,45 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: "center",
     marginTop: 24,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#504945",
+  },
+  dividerText: {
+    color: "#928374",
+    paddingHorizontal: 12,
+    fontSize: 14,
+  },
+  oauthButton: {
+    padding: 14,
+    borderRadius: 6,
+    alignItems: "center",
+    marginTop: 8,
+    borderWidth: 1,
+  },
+  googleButton: {
+    backgroundColor: "#fff",
+    borderColor: "#ddd",
+  },
+  googleButtonText: {
+    color: "#1f1f1f",
+  },
+  githubButton: {
+    backgroundColor: "#24292e",
+    borderColor: "#24292e",
+  },
+  githubButtonText: {
+    color: "#fff",
+  },
+  oauthButtonText: {
+    fontSize: 15,
+    fontWeight: "500",
   },
 });

@@ -106,7 +106,11 @@ class AuthService {
   }
 
   // Register new user
-  async register(email: string, password: string, name?: string): Promise<{
+  async register(
+    email: string,
+    password: string,
+    name?: string,
+  ): Promise<{
     success: boolean;
     error?: string;
   }> {
@@ -128,7 +132,10 @@ class AuthService {
   }
 
   // Login existing user
-  async login(email: string, password: string): Promise<{
+  async login(
+    email: string,
+    password: string,
+  ): Promise<{
     success: boolean;
     error?: string;
   }> {
@@ -206,6 +213,62 @@ class AuthService {
     } catch (error) {
       console.error("[Auth] Failed to refresh user:", error);
     }
+  }
+
+  // OAuth login - opens popup window
+  async loginWithOAuth(provider: "google" | "github"): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    return new Promise((resolve) => {
+      const API_BASE_URL =
+        typeof __DEV__ !== "undefined" && __DEV__
+          ? "http://localhost:3000"
+          : "https://uffp-backend.vercel.app";
+
+      const width = 600;
+      const height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+
+      const popup = window.open(
+        `${API_BASE_URL}/api/auth/oauth?provider=${provider}`,
+        "oauth",
+        `width=${width},height=${height},left=${left},top=${top}`,
+      );
+
+      if (!popup) {
+        resolve({ success: false, error: "Popup blocked" });
+        return;
+      }
+
+      // Listen for message from popup
+      const messageHandler = async (event: MessageEvent) => {
+        if (event.data?.type === "oauth-success") {
+          window.removeEventListener("message", messageHandler);
+
+          this.token = event.data.token;
+          this.user = event.data.user;
+          await this.saveToStorage(event.data.token, event.data.user);
+          this.notifyListeners();
+
+          resolve({ success: true });
+        }
+      };
+
+      window.addEventListener("message", messageHandler);
+
+      // Check if popup was closed
+      const checkClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener("message", messageHandler);
+          if (!this.token) {
+            resolve({ success: false, error: "Authentication cancelled" });
+          }
+        }
+      }, 500);
+    });
   }
 }
 
