@@ -2909,6 +2909,40 @@ export default function ForecastWorkspaceScreen() {
       }
     }
 
+    // Handle /edit question command
+    if (trimmed.startsWith("/edit question ")) {
+      if (!activeForecast) {
+        setError("No active forecast. Create one first with /question");
+        setCommandInput("");
+        return;
+      }
+
+      const newQuestion = trimmed.replace("/edit question ", "").trim();
+      if (!newQuestion) {
+        setError("Usage: /edit question <new question text>");
+        setCommandInput("");
+        return;
+      }
+
+      const updatedForecast = {
+        ...activeForecast,
+        question: newQuestion,
+        updatedAt: new Date().toISOString(),
+      };
+
+      setActiveForecast(updatedForecast);
+      await saveForecast(updatedForecast);
+      setCommandInput("");
+      showToast(`✓ Question updated`);
+      setError(`✓ Question updated to: "${newQuestion}"`);
+
+      await addFermiMessage(
+        trimmed,
+        `✓ Question updated to:\n\n"${newQuestion}"\n\nYour existing drivers and evidence remain unchanged.`,
+      );
+      return;
+    }
+
     // Handle /question command
     if (trimmed.startsWith("/question ")) {
       const question = trimmed.replace("/question ", "").trim();
@@ -3142,6 +3176,19 @@ export default function ForecastWorkspaceScreen() {
       "/questi": "/question ",
       "/questio": "/question ",
       "/question": "/question ",
+      "/e": "/edit question ",
+      "/ed": "/edit question ",
+      "/edi": "/edit question ",
+      "/edit": "/edit question ",
+      "/edit ": "/edit question ",
+      "/edit q": "/edit question ",
+      "/edit qu": "/edit question ",
+      "/edit que": "/edit question ",
+      "/edit ques": "/edit question ",
+      "/edit quest": "/edit question ",
+      "/edit questi": "/edit question ",
+      "/edit questio": "/edit question ",
+      "/edit question": "/edit question ",
       "/d": "/driver ",
       "/dr": "/driver ",
       "/dri": "/driver ",
