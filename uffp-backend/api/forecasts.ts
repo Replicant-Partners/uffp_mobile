@@ -235,7 +235,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           await import("../lib/database");
         const resolvedForecast = await dbUpdateForecast(forecastId, {
           ...forecast,
-          resolved: true,
           actualOutcome,
           resolvedAt: resolvedAt || new Date().toISOString(),
           brierScore,

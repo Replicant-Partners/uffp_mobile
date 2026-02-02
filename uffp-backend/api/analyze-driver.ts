@@ -128,7 +128,7 @@ Respond with ONLY the JSON object, no other text.`,
       });
     }
 
-    const data = await response.json();
+    const data: any = await response.json();
     const content = data.content?.[0]?.text || "{}";
 
     // Extract JSON from response (Claude might wrap it in markdown)

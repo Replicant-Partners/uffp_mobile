@@ -72,7 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Handle OAuth callback with code
   try {
-    let userInfo;
+    let userInfo: any;
 
     if (state === "google") {
       // Exchange code for token
@@ -88,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }),
       });
 
-      const tokens = await tokenResponse.json();
+      const tokens: any = await tokenResponse.json();
 
       // Get user info
       const userResponse = await fetch(
