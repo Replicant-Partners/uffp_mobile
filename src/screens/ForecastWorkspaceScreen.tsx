@@ -3659,7 +3659,6 @@ export default function ForecastWorkspaceScreen() {
         { key: "review", label: "/review", desc: "Analyze forecast quality" },
         { key: "decompose", label: "/decompose", desc: "Break down the question" },
       );
-    }
 
       // Show expire command if forecast has a probability and isn't resolved yet
       if (activeForecast.probability && !activeForecast.resolved) {
