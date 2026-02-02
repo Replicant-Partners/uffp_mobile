@@ -57,6 +57,17 @@ export interface Driver {
   p95?: number;
   distribution?: "normal" | "triangular" | "lognormal";
 
+  // Direction
+  direction?: "increases" | "decreases";
+
+  // Research agents attached to this driver
+  agents?: Array<{
+    name: string;
+    query: string;
+    schedule: "daily" | "weekly" | "on-demand";
+    threshold?: number;
+  }>;
+
   // Evidence & research
   evidence: Evidence[];
   researchResults: ResearchSnapshot[];
