@@ -4719,8 +4719,8 @@ Type a command to get started!`;
                 const userMsg = fermiChatInput.trim();
                 setFermiChatInput("");
 
-                // Commands go through main handler, coaching goes through fermi
-                if (userMsg.startsWith("/")) {
+                // Commands and @ mentions go through main handler, other text goes to coaching
+                if (userMsg.startsWith("/") || userMsg.startsWith("@")) {
                   await processSingleCommand(userMsg);
                 } else {
                   await handleFermiCoaching(userMsg);
@@ -4739,8 +4739,8 @@ Type a command to get started!`;
                   const userMsg = fermiChatInput.trim();
                   setFermiChatInput("");
 
-                  // Commands go through main handler, coaching goes through fermi
-                  if (userMsg.startsWith("/")) {
+                  // Commands and @ mentions go through main handler, other text goes to coaching
+                  if (userMsg.startsWith("/") || userMsg.startsWith("@")) {
                     await processSingleCommand(userMsg);
                   } else {
                     await handleFermiCoaching(userMsg);
@@ -4766,8 +4766,8 @@ Type a command to get started!`;
                 const userMsg = fermiChatInput.trim();
                 setFermiChatInput("");
 
-                // Commands go through main handler, coaching goes through fermi
-                if (userMsg.startsWith("/")) {
+                // Commands and @ mentions go through main handler, other text goes to coaching
+                if (userMsg.startsWith("/") || userMsg.startsWith("@")) {
                   await processSingleCommand(userMsg);
                 } else {
                   await handleFermiCoaching(userMsg);
@@ -5890,21 +5890,21 @@ const styles = StyleSheet.create({
   suggestionChip: {
     backgroundColor: "#3c3836",
     borderWidth: 1,
-    borderColor: "#fabd2f",
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderColor: "#665c54",
+    borderRadius: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     flexDirection: "column",
   },
   suggestionChipText: {
     color: "#fabd2f",
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 2,
+    fontSize: 11,
+    fontWeight: "500",
+    marginBottom: 1,
   },
   suggestionChipDesc: {
     color: "#928374",
-    fontSize: 11,
+    fontSize: 9,
   },
   fermiCollapsedTab: {
     position: "absolute",
