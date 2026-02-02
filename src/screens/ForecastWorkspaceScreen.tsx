@@ -171,6 +171,9 @@ export default function ForecastWorkspaceScreen() {
   const [fermiChatCollapsed, setFermiChatCollapsed] = useState(false);
   const [fermiChatInput, setFermiChatInput] = useState("");
   const [fermiThinking, setFermiThinking] = useState(false);
+  const [globalFermiConversation, setGlobalFermiConversation] = useState<
+    Array<{ timestamp: string; role: string; message: string }>
+  >([]);
   const inputRef = useRef<TextInput>(null);
   const chatScrollRef = useRef<ScrollView>(null);
 
@@ -460,7 +463,37 @@ export default function ForecastWorkspaceScreen() {
     fermiResponse: string,
     suggestions?: CommandSuggestion[],
   ) => {
-    if (!activeForecast) return;
+    // If no active forecast, use global conversation
+    if (!activeForecast) {
+      const newMessages = [
+        ...globalFermiConversation,
+        {
+          timestamp: new Date().toISOString(),
+          role: "user",
+          message: userQuery,
+        },
+        {
+          timestamp: new Date().toISOString(),
+          role: "fermi",
+          message:
+            suggestions && suggestions.length > 0
+              ? fermiResponse +
+                "\n\n__SUGGESTIONS__:" +
+                JSON.stringify(suggestions)
+              : fermiResponse,
+        },
+      ];
+
+      setGlobalFermiConversation(newMessages);
+      setFermiThinking(false);
+
+      // Auto-scroll to bottom
+      setTimeout(() => {
+        chatScrollRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+
+      return;
+    }
 
     const conversation = activeForecast.fermiConversation || [];
 
@@ -4406,9 +4439,16 @@ Type a command to get started!`;
             chatScrollRef.current?.scrollToEnd({ animated: true })
           }
         >
-          {activeForecast?.fermiConversation &&
-          activeForecast.fermiConversation.length > 0 ? (
-            activeForecast.fermiConversation.map((msg, idx) => {
+          {(() => {
+            // Use global conversation if no forecast, otherwise use forecast conversation
+            const conversation =
+              activeForecast?.fermiConversation || globalFermiConversation;
+
+            if (!conversation || conversation.length === 0) {
+              return null;
+            }
+
+            return conversation.map((msg, idx) => {
               // Parse suggestions if present
               let messageText = msg.message;
               let suggestions: CommandSuggestion[] = [];
@@ -4475,17 +4515,21 @@ Type a command to get started!`;
                   </Text>
                 </View>
               );
-            })
-          ) : (
-            <View style={styles.fermiWelcome}>
-              <Text style={styles.fermiWelcomeText}>🦊 fermi@uffp ~ $</Text>
-              <Text style={styles.fermiWelcomeSubtext}>
-                Type /question to start a forecast{"\n"}
-                Type /help to see all commands{"\n"}
-                Type @fermi to get coaching
-              </Text>
-            </View>
-          )}
+            });
+          })()}
+
+          {/* Welcome message when no conversation */}
+          {!activeForecast?.fermiConversation?.length &&
+            !globalFermiConversation.length && (
+              <View style={styles.fermiWelcome}>
+                <Text style={styles.fermiWelcomeText}>🦊 fermi@uffp ~ $</Text>
+                <Text style={styles.fermiWelcomeSubtext}>
+                  Type /question to start a forecast{"\n"}
+                  Type /help to see all commands{"\n"}
+                  Type @fermi to get coaching
+                </Text>
+              </View>
+            )}
 
           {/* Thinking Indicator */}
           {fermiThinking && (
