@@ -544,7 +544,52 @@ export default function ForecastWorkspaceScreen() {
       // Show thinking indicator
       setFermiThinking(true);
 
-      // Get ontology service
+      const queryText = userQuery || "help";
+
+      // If user provides actual text (not just @fermi), use AI backend
+      if (userQuery && userQuery.length > 0 && !userQuery.startsWith("@fermi")) {
+        try {
+          // Build context for AI
+          const context: any = {
+            forecastId: activeForecast?.id,
+            stage: driverBeingConfigured
+              ? "driver_config"
+              : agentBeingConfigured
+              ? "agent_config"
+              : activeForecast?.probability !== undefined
+              ? "simulation_results"
+              : activeForecast
+              ? "active_forecast"
+              : "no_forecast",
+          };
+
+          // Add forecast details if available
+          if (activeForecast) {
+            context.question = activeForecast.question;
+            context.drivers = activeForecast.drivers;
+            context.probability = activeForecast.probability;
+          }
+
+          // Add driver context if configuring
+          if (driverBeingConfigured) {
+            context.currentDriver = driverBeingConfigured;
+          }
+
+          // Call AI backend
+          const response = await researchService.chatWithCoach(userQuery, context);
+
+          // Parse suggestions from response if provided
+          const suggestions: CommandSuggestion[] = response.suggestions || [];
+
+          await addFermiMessage(queryText, response.message || response.response, suggestions);
+          return;
+        } catch (error) {
+          console.error("[Fermi AI] Failed to get AI response:", error);
+          // Fall through to static guidance
+        }
+      }
+
+      // Get ontology service for fallback
       const ontology = getOntologyService();
 
       // Observe this interaction for pattern learning
@@ -559,7 +604,7 @@ export default function ForecastWorkspaceScreen() {
         console.log("[Fermi] Ontology observe skipped:", obsErr);
       }
 
-      const queryText = userQuery || "help";
+      // queryText already defined at top of function
 
       // Check if this is a command (starts with /)
       if (queryText.startsWith("/")) {
