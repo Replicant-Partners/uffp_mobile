@@ -176,6 +176,10 @@ export default function ForecastWorkspaceScreen() {
     data?: any;
     message: string;
   } | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    timestamp: number;
+  } | null>(null);
   const [fermiChatExpanded, setFermiChatExpanded] = useState(true); // Always start expanded
   const [fermiChatCollapsed, setFermiChatCollapsed] = useState(false);
   const [fermiChatInput, setFermiChatInput] = useState("");
@@ -185,6 +189,12 @@ export default function ForecastWorkspaceScreen() {
   >([]);
   const inputRef = useRef<TextInput>(null);
   const chatScrollRef = useRef<ScrollView>(null);
+
+  // Toast notification helper
+  const showToast = (message: string) => {
+    setToast({ message, timestamp: Date.now() });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   // Check if screen is wide enough for side-by-side layout
   const screenWidth = Dimensions.get("window").width;
@@ -1035,7 +1045,8 @@ export default function ForecastWorkspaceScreen() {
     setDriverBeingConfigured(updatedDriver);
     setAgentBeingConfigured(null);
 
-    // Show success message
+    // Show toast and success message
+    showToast(actionMessage);
     setError(actionMessage);
   };
 
@@ -1246,6 +1257,9 @@ export default function ForecastWorkspaceScreen() {
       }
 
       setDriverBeingConfigured(null);
+
+      // Show toast notification
+      showToast(`✓ Driver saved: ${updatedDriver.name}`);
 
       // Show next-step suggestions
       const driverCount = activeForecast.drivers.length;
@@ -2864,6 +2878,7 @@ export default function ForecastWorkspaceScreen() {
         setActiveForecast(updatedForecast);
         saveForecast(updatedForecast);
         setCommandInput("");
+        showToast(`✓ Removed driver: ${removedDriver.name}`);
         setError(`✓ Removed driver: ${removedDriver.name}`);
         return;
       } else if (removeTarget.startsWith("agent ")) {
@@ -2897,6 +2912,7 @@ export default function ForecastWorkspaceScreen() {
         });
 
         setCommandInput("");
+        showToast(`✓ Removed agent: ${removedAgent.name}`);
         setError(`✓ Removed agent: ${removedAgent.name}`);
         return;
       } else {
@@ -5255,6 +5271,13 @@ export default function ForecastWorkspaceScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Toast Notification */}
+      {toast && (
+        <View style={styles.toastContainer}>
+          <Text style={styles.toastText}>{toast.message}</Text>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -6477,5 +6500,29 @@ const styles = StyleSheet.create({
     transform: [],
     fontSize: 16,
     textAlign: "center",
+  },
+  toastContainer: {
+    position: "absolute",
+    bottom: 100,
+    left: "50%",
+    transform: [{ translateX: -150 }],
+    backgroundColor: "#427b58",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    minWidth: 300,
+    maxWidth: 500,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 9999,
+  },
+  toastText: {
+    color: "#fff",
+    fontSize: 14,
+    textAlign: "center",
+    fontWeight: "500",
   },
 });
