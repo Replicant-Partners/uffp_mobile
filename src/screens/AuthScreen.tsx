@@ -187,20 +187,6 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                     Continue with Google
                   </Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.oauthButton,
-                    styles.githubButton,
-                    loading && styles.buttonDisabled,
-                  ]}
-                  onPress={() => handleOAuthLogin("github")}
-                  disabled={loading}
-                >
-                  <Text style={styles.oauthButtonText}>
-                    Continue with GitHub
-                  </Text>
-                </TouchableOpacity>
               </>
             )}
 
