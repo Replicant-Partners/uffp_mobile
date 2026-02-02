@@ -2,6 +2,24 @@
 
 **Purpose:** Keep schema files synchronized between `uffp_mobile` and `uffp-backend` repositories.
 
+## 🔒 Regression Testing Guarantee
+
+**CRITICAL:** Both mobile and backend repos now have **identical regression tests** that run on every commit via pre-commit hooks.
+
+✅ **Mobile:** 12 tests (8 schema + 4 CLI) run before every commit  
+✅ **Backend:** 12 tests (8 schema + 4 CLI) run before every commit
+
+This ensures that **no schema-breaking changes** can be deployed to either repository without passing validation.
+
+### Test Coverage
+- Schema validation (25+ rules)
+- ID format validation (nanoid with prefixes)
+- Probability range validation (0-1)
+- Direction field requirements
+- Version field format
+- Driver type requirements
+- Evidence and research snapshot integrity
+
 ## Repository Setup
 
 - **Mobile App:** `/home/ilabra/uffp_mobile` (React Native + Expo)
