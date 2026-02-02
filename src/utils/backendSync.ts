@@ -3,9 +3,60 @@
  */
 
 import { researchService } from "../services/researchService";
-import { Platform } from "react-native";
+import { Platform, AsyncStorage } from "react-native";
 
-export const TEMP_USER_ID = "anonymous-user-" + Date.now();
+// Generate or retrieve persistent user ID
+let PERSISTENT_USER_ID: string | null = null;
+
+async function getPersistentUserId(): Promise<string> {
+  if (PERSISTENT_USER_ID) return PERSISTENT_USER_ID;
+
+  const STORAGE_KEY = "@uffp_user_id";
+
+  try {
+    // Try to get existing ID
+    const stored =
+      Platform.OS === "web"
+        ? localStorage.getItem(STORAGE_KEY)
+        : await AsyncStorage.getItem(STORAGE_KEY);
+
+    if (stored) {
+      PERSISTENT_USER_ID = stored;
+      console.log(
+        "[BackendSync] Loaded persistent user ID:",
+        PERSISTENT_USER_ID,
+      );
+      return PERSISTENT_USER_ID;
+    }
+
+    // Generate new ID
+    PERSISTENT_USER_ID =
+      "anonymous-user-" +
+      Date.now() +
+      "-" +
+      Math.random().toString(36).substring(7);
+
+    // Store it
+    if (Platform.OS === "web") {
+      localStorage.setItem(STORAGE_KEY, PERSISTENT_USER_ID);
+    } else {
+      await AsyncStorage.setItem(STORAGE_KEY, PERSISTENT_USER_ID);
+    }
+
+    console.log(
+      "[BackendSync] Generated new persistent user ID:",
+      PERSISTENT_USER_ID,
+    );
+    return PERSISTENT_USER_ID;
+  } catch (error) {
+    console.error("[BackendSync] Failed to get/set user ID:", error);
+    // Fallback to session-based ID
+    PERSISTENT_USER_ID = "anonymous-user-" + Date.now();
+    return PERSISTENT_USER_ID;
+  }
+}
+
+export const TEMP_USER_ID = "anonymous-user-temp"; // Legacy export, will be replaced by getPersistentUserId()
 
 /**
  * Sync mode: controls how data is persisted
@@ -80,9 +131,13 @@ export async function loadForecastsWithSync(params?: {
   }
 
   try {
-    console.log("[BackendSync] Loading forecasts from backend...");
+    const userId = await getPersistentUserId();
+    console.log(
+      "[BackendSync] Loading forecasts from backend for user:",
+      userId,
+    );
     const result = await researchService.listForecasts({
-      userId: TEMP_USER_ID,
+      userId,
       status: params?.status,
       limit: params?.limit || 50,
     });
@@ -136,13 +191,14 @@ export async function createForecastWithSync(data: {
   }
 
   try {
+    const userId = await getPersistentUserId();
     console.log("[BackendSync] Creating forecast on backend...", {
-      userId: TEMP_USER_ID,
+      userId,
       question: data.question,
       domain: data.domain || data.parsedData?.domain || "general",
     });
     const result = await researchService.createForecast({
-      userId: TEMP_USER_ID,
+      userId,
       question: data.question,
       domain: data.domain || data.parsedData?.domain || "general",
       timeframe: data.timeframe || data.parsedData?.timeframe,
@@ -330,8 +386,9 @@ export async function getUserStatsFromBackend(): Promise<{
   }
 
   try {
-    console.log("[BackendSync] Fetching user stats...");
-    const result = await researchService.getUserStats(TEMP_USER_ID);
+    const userId = await getPersistentUserId();
+    console.log("[BackendSync] Fetching user stats for:", userId);
+    const result = await researchService.getUserStats(userId);
 
     if (result.success && result.stats) {
       console.log("[BackendSync] User stats retrieved");
