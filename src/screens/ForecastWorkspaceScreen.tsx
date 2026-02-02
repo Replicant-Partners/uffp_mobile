@@ -1189,39 +1189,44 @@ export default function ForecastWorkspaceScreen() {
     setDriverBeingConfigured(updatedDriver); // Update with version info
 
     try {
+      // Try backend sync for backend forecasts (new drivers only)
+      let backendSyncSucceeded = false;
       if (
         isNewDriver &&
         activeForecast.id &&
         !activeForecast.id.startsWith("local-")
       ) {
-        // Add new driver to backend
-        const { addDriverWithSync } = await import("../utils/backendSync");
-        const result = await addDriverWithSync(activeForecast.id, {
-          name: updatedDriver.name,
-          type: updatedDriver.type,
-          probability: updatedDriver.probability,
-          p5: updatedDriver.p5,
-          p50: updatedDriver.p50,
-          p95: updatedDriver.p95,
-          distribution: updatedDriver.distribution,
-          direction: updatedDriver.direction,
-          reasoning: updatedDriver.reasoning,
-          evidence: updatedDriver.evidence,
-          agents: updatedDriver.agents,
-          version: updatedDriver.version,
-          versionHistory: updatedDriver.versionHistory,
-        });
+        try {
+          const { addDriverWithSync } = await import("../utils/backendSync");
+          const result = await addDriverWithSync(activeForecast.id, {
+            name: updatedDriver.name,
+            type: updatedDriver.type,
+            probability: updatedDriver.probability,
+            p5: updatedDriver.p5,
+            p50: updatedDriver.p50,
+            p95: updatedDriver.p95,
+            distribution: updatedDriver.distribution,
+            direction: updatedDriver.direction,
+            reasoning: updatedDriver.reasoning,
+            evidence: updatedDriver.evidence,
+            agents: updatedDriver.agents,
+            version: updatedDriver.version,
+            versionHistory: updatedDriver.versionHistory,
+          });
 
-        if (result.success && result.forecast) {
-          // Update from backend response - no need to save locally
-          setActiveForecast(result.forecast);
-          console.log("Driver added to backend");
-        } else {
-          // Fall back to local update
-          throw new Error(result.error || "Failed to add driver to backend");
+          if (result.success && result.forecast) {
+            // Backend succeeded - use backend data
+            setActiveForecast(result.forecast);
+            backendSyncSucceeded = true;
+            console.log("Driver added to backend successfully");
+          }
+        } catch (err) {
+          console.log("Backend sync failed, will save locally:", err);
         }
-      } else {
-        // Local-only forecast or editing existing driver - update locally
+      }
+
+      // Always save locally if: local-only forecast, editing, or backend failed
+      if (!backendSyncSucceeded) {
         let updatedDrivers;
         if (existingIndex >= 0) {
           updatedDrivers = [...activeForecast.drivers];
@@ -1238,6 +1243,7 @@ export default function ForecastWorkspaceScreen() {
 
         setActiveForecast(updatedForecast);
         await saveForecast(updatedForecast);
+        console.log("Driver saved locally");
       }
 
       // Observe this action for ontology learning

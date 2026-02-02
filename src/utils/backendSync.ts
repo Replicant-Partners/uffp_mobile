@@ -262,14 +262,20 @@ export async function addDriverWithSync(
   forecastId: string,
   driverData: any,
 ): Promise<{ success: boolean; forecast?: any; error?: string }> {
-  // Skip if local-only ID
+  // For local-only forecasts, return success but indicate no backend sync
+  // The caller (saveConfiguredDriver) will handle local persistence
   if (forecastId.startsWith("local-")) {
-    console.log("[BackendSync] Skipping driver add for local-only forecast");
-    return { success: true };
+    console.log(
+      "[BackendSync] Local-only forecast - caller will persist locally",
+    );
+    return { success: false, error: "local-only" };
   }
 
   if (currentSyncMode === "local-only") {
-    return { success: true };
+    console.log(
+      "[BackendSync] Sync mode is local-only - caller will persist locally",
+    );
+    return { success: false, error: "local-only" };
   }
 
   try {
