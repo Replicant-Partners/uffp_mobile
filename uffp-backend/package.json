@@ -1,0 +1,21 @@
+{
+  "name": "uffp-backend",
+  "version": "1.0.0",
+  "description": "Backend for UFFP Mobile - Research Agents API",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "@vercel/kv": "^1.0.1",
+    "@vercel/node": "^5.5.28",
+    "uuid": "^9.0.1",
+    "@vercel/postgres": "^0.5.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "@types/uuid": "^9.0.8",
+    "typescript": "^5.3.3",
+    "vercel": "^33.7.1"
+  }
+}
