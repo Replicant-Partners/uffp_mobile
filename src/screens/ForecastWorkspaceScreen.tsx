@@ -760,9 +760,15 @@ export default function ForecastWorkspaceScreen() {
 
     if (driver.type === "binary") {
       if (driver.probability === undefined || driver.probability === null) {
-        errors.push("Binary drivers require a probability value");
+        errors.push(
+          "Binary drivers require a probability value. Use /p <value> to set it.",
+        );
       }
-      if (driver.probability < 0 || driver.probability > 100) {
+      if (
+        driver.probability !== undefined &&
+        driver.probability !== null &&
+        (driver.probability < 0 || driver.probability > 100)
+      ) {
         errors.push("Probability must be between 0 and 100");
       }
     } else if (driver.type === "continuous") {
