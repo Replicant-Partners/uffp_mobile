@@ -4705,11 +4705,14 @@ Type a command to get started!`;
         <View style={styles.fermiChatInputContainer}>
           <TextInput
             style={styles.fermiChatInput}
-            placeholder="Type @fermi for help, / for commands, or @ for agents"
+            placeholder="Type /help for commands or @fermi for coaching..."
             placeholderTextColor="#665c54"
             value={fermiChatInput}
             onChangeText={setFermiChatInput}
             editable={!fermiThinking}
+            multiline={true}
+            numberOfLines={3}
+            textAlignVertical="top"
             onSubmitEditing={async () => {
               if (fermiChatInput.trim()) {
                 console.log("[Fermi Chat] Sending message:", fermiChatInput);
@@ -5816,36 +5819,42 @@ const styles = StyleSheet.create({
   },
   fermiChatInputContainer: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     borderTopWidth: 1,
     borderTopColor: "#665c54",
-    padding: 8,
-    paddingBottom: 4,
+    padding: 12,
+    paddingBottom: 12,
     backgroundColor: "#1d2021",
-    minHeight: 48,
+    minHeight: 80,
   },
   fermiChatInput: {
     flex: 1,
     backgroundColor: "#3c3836",
     color: "#ebdbb2",
-    padding: 14,
+    padding: 12,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: "#ebdbb2",
-    fontSize: 15,
-    maxHeight: 80,
+    borderColor: "#665c54",
+    fontSize: 14,
+    maxHeight: 120,
     marginRight: 8,
-    minHeight: 40,
+    minHeight: 60,
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
   },
   fermiSendButton: {
     backgroundColor: "#504945",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 4,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    borderRadius: 6,
     justifyContent: "center",
     alignItems: "center",
-    minHeight: 36,
-    minWidth: 40,
+    minHeight: 60,
+    minWidth: 60,
   },
   fermiSendButtonDisabled: {
     backgroundColor: "#665c54",
