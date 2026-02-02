@@ -2848,6 +2848,147 @@ Type a command to get started!`;
     );
   };
 
+  // Get command hints for Fermi CLI (uses fermiChatInput instead of commandInput)
+  const getFermiCommandHints = () => {
+    const input = fermiChatInput;
+
+    // GLOBAL: Show agent autocomplete whenever @ is typed
+    if (input.includes("@")) {
+      const agentDescriptions: Record<string, string> = {
+        fermi: "🦊 Your forecasting coach - helps with everything!",
+        research_analyst: "Deep research with citations, quantitative focus",
+        sentiment_monitor: "Social listening and sentiment scoring",
+        competitive_intel: "Competitor tracking and benchmarking",
+        financial_analyst: "Financial statement analysis and modeling",
+        market_researcher: "Market sizing and industry analysis",
+        expert_synthesizer: "Synthesize expert opinions and predictions",
+      };
+
+      const atIndex = input.lastIndexOf("@");
+      const afterAt = input.substring(atIndex + 1).toLowerCase();
+
+      const allAgents = Object.keys(agentDescriptions).map((name) => ({
+        key: name,
+        label: "@" + name,
+        desc: agentDescriptions[name],
+      }));
+
+      if (afterAt.length > 0) {
+        return allAgents.filter((a) => a.key.startsWith(afterAt));
+      }
+
+      return allAgents;
+    }
+
+    // Show context-specific hints for driver configuration
+    if (driverBeingConfigured) {
+      const configHints = [
+        { key: "p", label: "/p", desc: "Set probabilities (p5 p50 p95)" },
+        {
+          key: "dist",
+          label: "/dist",
+          desc: "Set distribution (triangular|normal|lognormal)",
+        },
+        {
+          key: "direction",
+          label: "/direction",
+          desc: "Set direction (increases|decreases)",
+        },
+        { key: "type", label: "/type", desc: "Set type (continuous|binary)" },
+        { key: "evidence", label: "/evidence", desc: "Add manual evidence" },
+        { key: "save", label: "/save", desc: "Save driver" },
+        { key: "cancel", label: "/cancel", desc: "Cancel" },
+      ];
+
+      if (!input.startsWith("/")) {
+        return configHints;
+      }
+
+      const query = input.toLowerCase();
+
+      // Autocomplete for specific command values
+      if (query.startsWith("/dist ")) {
+        return [
+          {
+            key: "triangular",
+            label: "/dist triangular",
+            desc: "Triangular distribution",
+          },
+          { key: "normal", label: "/dist normal", desc: "Normal distribution" },
+          {
+            key: "lognormal",
+            label: "/dist lognormal",
+            desc: "Log-normal distribution",
+          },
+        ].filter((h) => h.label.includes(query));
+      }
+
+      if (query.startsWith("/direction ")) {
+        return [
+          {
+            key: "increases",
+            label: "/direction increases",
+            desc: "Increases probability",
+          },
+          {
+            key: "decreases",
+            label: "/direction decreases",
+            desc: "Decreases probability",
+          },
+        ].filter((h) => h.label.includes(query));
+      }
+
+      if (query.startsWith("/type ")) {
+        return [
+          {
+            key: "continuous",
+            label: "/type continuous",
+            desc: "Continuous driver",
+          },
+          { key: "binary", label: "/type binary", desc: "Binary driver" },
+        ].filter((h) => h.label.includes(query));
+      }
+
+      return configHints.filter(
+        (h) => h.label.includes(query) || h.desc.toLowerCase().includes(query),
+      );
+    }
+
+    // General command hints
+    if (!input.startsWith("/")) {
+      return [
+        { key: "question", label: "/question", desc: "Start a new forecast" },
+        { key: "help", label: "/help", desc: "Show all commands" },
+        { key: "list", label: "/list", desc: "View forecasts" },
+      ];
+    }
+
+    const query = input.toLowerCase();
+
+    const hints = [
+      { key: "question", label: "/question", desc: "Start a new forecast" },
+      { key: "help", label: "/help", desc: "Show all commands" },
+      {
+        key: "list",
+        label: "/list",
+        desc: "View forecasts (active/expired/all)",
+      },
+      { key: "leaderboard", label: "/leaderboard", desc: "Global rankings" },
+    ];
+
+    // Only show driver and simulate commands if there's an active forecast
+    if (activeForecast) {
+      hints.push(
+        { key: "driver", label: "/driver", desc: "Add a driver" },
+        { key: "simulate", label: "/simulate", desc: "Run simulation" },
+      );
+    }
+
+    return hints.filter(
+      (h) => h.label.includes(query) || h.desc.toLowerCase().includes(query),
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -4183,13 +4324,13 @@ Type a command to get started!`;
         </ScrollView>
 
         {/* Command Hints - Show above input when typing */}
-        {fermiChatInput.length > 0 && getCommandHints().length > 0 && (
+        {fermiChatInput.length > 0 && getFermiCommandHints().length > 0 && (
           <ScrollView
             style={styles.fermiCommandHints}
             horizontal
             showsHorizontalScrollIndicator={false}
           >
-            {getCommandHints()
+            {getFermiCommandHints()
               .slice(0, 5)
               .map((hint) => (
                 <TouchableOpacity
