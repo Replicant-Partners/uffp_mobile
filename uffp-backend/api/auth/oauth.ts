@@ -5,20 +5,17 @@ import { createClient } from "@vercel/postgres";
  * GET /api/auth/oauth?provider=google|github
  * Initiate OAuth flow - redirects to provider
  */
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Enable CORS
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader(
     "Access-Control-Allow-Methods",
-    "GET,OPTIONS,PATCH,DELETE,POST,PUT"
+    "GET,OPTIONS,PATCH,DELETE,POST,PUT",
   );
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization"
+    "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization",
   );
 
   if (req.method === "OPTIONS") {
@@ -36,6 +33,15 @@ export default async function handler(
   if (!code) {
     if (provider === "google") {
       const clientId = process.env.GOOGLE_CLIENT_ID;
+
+      if (!clientId) {
+        return res.status(500).json({
+          error: "OAuth not configured",
+          message:
+            "GOOGLE_CLIENT_ID environment variable is not set. Please configure OAuth credentials in Vercel settings.",
+        });
+      }
+
       const redirectUri = `${process.env.APP_URL || "https://uffp-backend.vercel.app"}/api/auth/oauth`;
       const scope = "openid profile email";
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=google`;
@@ -45,6 +51,15 @@ export default async function handler(
 
     if (provider === "github") {
       const clientId = process.env.GITHUB_CLIENT_ID;
+
+      if (!clientId) {
+        return res.status(500).json({
+          error: "OAuth not configured",
+          message:
+            "GITHUB_CLIENT_ID environment variable is not set. Please configure OAuth credentials in Vercel settings.",
+        });
+      }
+
       const redirectUri = `${process.env.APP_URL || "https://uffp-backend.vercel.app"}/api/auth/oauth`;
       const scope = "read:user user:email";
       const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=github`;
@@ -76,27 +91,33 @@ export default async function handler(
       const tokens = await tokenResponse.json();
 
       // Get user info
-      const userResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-        headers: { Authorization: `Bearer ${tokens.access_token}` },
-      });
+      const userResponse = await fetch(
+        "https://www.googleapis.com/oauth2/v2/userinfo",
+        {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        },
+      );
 
       userInfo = await userResponse.json();
       userInfo.provider = "google";
     } else if (state === "github") {
       // Exchange code for token
-      const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
+      const tokenResponse = await fetch(
+        "https://github.com/login/oauth/access_token",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            code: code as string,
+            client_id: process.env.GITHUB_CLIENT_ID!,
+            client_secret: process.env.GITHUB_CLIENT_SECRET!,
+            redirect_uri: `${process.env.APP_URL || "https://uffp-backend.vercel.app"}/api/auth/oauth`,
+          }),
         },
-        body: JSON.stringify({
-          code: code as string,
-          client_id: process.env.GITHUB_CLIENT_ID!,
-          client_secret: process.env.GITHUB_CLIENT_SECRET!,
-          redirect_uri: `${process.env.APP_URL || "https://uffp-backend.vercel.app"}/api/auth/oauth`,
-        }),
-      });
+      );
 
       const tokens = await tokenResponse.json();
 
@@ -112,14 +133,18 @@ export default async function handler(
 
       // Get email if not public
       if (!userInfo.email) {
-        const emailResponse = await fetch("https://api.github.com/user/emails", {
-          headers: {
-            Authorization: `Bearer ${tokens.access_token}`,
-            Accept: "application/json",
+        const emailResponse = await fetch(
+          "https://api.github.com/user/emails",
+          {
+            headers: {
+              Authorization: `Bearer ${tokens.access_token}`,
+              Accept: "application/json",
+            },
           },
-        });
+        );
         const emails = await emailResponse.json();
-        userInfo.email = emails.find((e: any) => e.primary)?.email || emails[0]?.email;
+        userInfo.email =
+          emails.find((e: any) => e.primary)?.email || emails[0]?.email;
       }
 
       userInfo.provider = "github";
@@ -162,8 +187,8 @@ export default async function handler(
         JSON.stringify({
           userId: user.id,
           email: user.email,
-          exp: Date.now() + 30 * 24 * 60 * 60 * 1000
-        })
+          exp: Date.now() + 30 * 24 * 60 * 60 * 1000,
+        }),
       ).toString("base64");
 
       // Return HTML that posts message to opener window
@@ -195,15 +220,34 @@ export default async function handler(
 
       res.setHeader("Content-Type", "text/html");
       return res.status(200).send(html);
-
     } finally {
       await client.end();
     }
   } catch (error: any) {
     console.error("OAuth error:", error);
-    return res.status(500).json({
-      success: false,
-      error: "OAuth authentication failed",
-    });
+
+    // Return user-friendly HTML error page
+    const errorHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Authentication Error</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; text-align: center; }
+            .error { color: #d32f2f; margin: 20px 0; }
+            pre { background: #f5f5f5; padding: 20px; text-align: left; overflow-x: auto; }
+          </style>
+        </head>
+        <body>
+          <h1>Authentication Failed</h1>
+          <div class="error">${error.message || "An unknown error occurred"}</div>
+          <pre>${JSON.stringify(error, null, 2)}</pre>
+          <p><button onclick="window.close()">Close this window</button></p>
+        </body>
+      </html>
+    `;
+
+    res.setHeader("Content-Type", "text/html");
+    return res.status(500).send(errorHtml);
   }
 }
