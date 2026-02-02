@@ -1531,14 +1531,12 @@ export default function ForecastWorkspaceScreen() {
       agentsText += `• Type @agent_name to attach to current driver\n`;
       agentsText += `• Ask @fermi which agent to use for your forecast\n`;
 
-      // Create clickable chips for popular agents
-      const agentSuggestions: CommandSuggestion[] = agentList
-        .slice(0, 6)
-        .map((agent) => ({
-          key: agent.name,
-          label: `@${agent.name}`,
-          description: agent.description,
-        }));
+      // Create clickable chips for all agents
+      const agentSuggestions: CommandSuggestion[] = agentList.map((agent) => ({
+        key: agent.name,
+        label: `@${agent.name}`,
+        description: agent.description,
+      }));
 
       await addFermiMessage("/agent-list", agentsText, agentSuggestions);
       setCommandInput("");
