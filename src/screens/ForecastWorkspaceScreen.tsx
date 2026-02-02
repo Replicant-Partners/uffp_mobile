@@ -1321,9 +1321,15 @@ export default function ForecastWorkspaceScreen() {
         desc: "Review forecast quality",
       });
 
+      const agentCount = updatedDriver.agents?.length || 0;
+      const agentInfo =
+        agentCount > 0
+          ? ` (with ${agentCount} agent${agentCount === 1 ? "" : "s"})`
+          : "";
+
       await addFermiMessage(
         "/save",
-        `✓ Driver saved: ${updatedDriver.name}\n\nForecast now has ${driverCount} driver(s).${driverCount >= 2 ? "\n\nReady to simulate!" : "\n\nConsider adding 1-2 more drivers for better calibration."}`,
+        `✓ Driver saved: ${updatedDriver.name}${agentInfo}\n\nForecast now has ${driverCount} driver(s).${driverCount >= 2 ? "\n\nReady to simulate!" : "\n\nConsider adding 1-2 more drivers for better calibration."}`,
         nextSteps,
       );
 
@@ -1784,9 +1790,13 @@ export default function ForecastWorkspaceScreen() {
 
         await addFermiMessage(
           "/save",
-          `✓ Agent @${agentConfig.name} added to driver "${driverBeingConfigured.name}"!\n\nYou can:\n• Add more agents with @<agent_name>\n• Save the driver with /save\n• Configure driver parameters`,
+          `✓ Agent @${agentConfig.name} attached to driver config\n\n⚠️ Not persisted yet - driver must be saved!\n\nNext steps:\n• Add more agents: @<agent_name>\n• Configure driver: /p, /dist, /direction\n• Save driver to persist: /save`,
           [
-            { key: "save-driver", label: "/save", description: "Save driver" },
+            {
+              key: "save-driver",
+              label: "/save",
+              description: "Save driver + agents",
+            },
             { key: "another", label: "@", description: "Add another agent" },
           ],
         );
