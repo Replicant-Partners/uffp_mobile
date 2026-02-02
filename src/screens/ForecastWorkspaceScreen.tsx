@@ -988,7 +988,11 @@ export default function ForecastWorkspaceScreen() {
             description: "Start new forecast",
           },
           { key: "list", label: "/list", description: "View forecasts" },
-          { key: "help", label: "/help", description: "Show all commands" },
+          {
+            key: "commands",
+            label: "/commands",
+            description: "Show all commands",
+          },
         );
       }
 
@@ -1489,8 +1493,8 @@ export default function ForecastWorkspaceScreen() {
   const processSingleCommand = async (trimmed: string) => {
     // GLOBAL COMMANDS - work in any context
 
-    // /help - always available, context-aware
-    if (trimmed === "/help" || trimmed === "/-h") {
+    // /commands - always available, context-aware command reference
+    if (trimmed === "/commands" || trimmed === "/help" || trimmed === "/-h") {
       const { getAvailableCommands } =
         await import("../services/fermiCommands");
       const commandContext = getCurrentContext();
@@ -1536,7 +1540,7 @@ export default function ForecastWorkspaceScreen() {
           description: cmd.description,
         }));
 
-      await addFermiMessage("/help", helpText, commandSuggestions);
+      await addFermiMessage(trimmed, helpText, commandSuggestions);
       setCommandInput("");
       return;
     }
@@ -2038,7 +2042,11 @@ export default function ForecastWorkspaceScreen() {
             label: "/question ",
             description: "Start a forecast",
           },
-          { key: "help", label: "/help", description: "Show all commands" },
+          {
+            key: "commands",
+            label: "/commands",
+            description: "Show all commands",
+          },
           {
             key: "agent-list",
             label: "/agent-list",
@@ -2845,8 +2853,8 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
-    // Handle /help command
-    if (trimmed === "/help") {
+    // Handle /commands command
+    if (trimmed === "/commands" || trimmed === "/help") {
       const helpText = `Available commands:
 
 /question <text> - Start a new forecast
@@ -3383,7 +3391,7 @@ Type a command to get started!`;
     if (!commandInput || !commandInput.startsWith("/")) {
       return [
         { key: "question", label: "/question", desc: "Start a new forecast" },
-        { key: "help", label: "/help", desc: "Show all commands" },
+        { key: "commands", label: "/commands", desc: "Show all commands" },
       ];
     }
 
@@ -3622,7 +3630,7 @@ Type a command to get started!`;
     if (!input.startsWith("/")) {
       return [
         { key: "question", label: "/question", desc: "Start a new forecast" },
-        { key: "help", label: "/help", desc: "Show all commands" },
+        { key: "commands", label: "/commands", desc: "Show all commands" },
         { key: "list", label: "/list", desc: "View forecasts" },
       ];
     }
@@ -3631,7 +3639,7 @@ Type a command to get started!`;
 
     const hints = [
       { key: "question", label: "/question", desc: "Start a new forecast" },
-      { key: "help", label: "/help", desc: "Show all commands" },
+      { key: "commands", label: "/commands", desc: "Show all commands" },
       {
         key: "list",
         label: "/list",
@@ -4985,8 +4993,8 @@ Type a command to get started!`;
                 <Text style={styles.fermiWelcomeText}>🦊 fermi@uffp ~ $</Text>
                 <Text style={styles.fermiWelcomeSubtext}>
                   Type /question to start a forecast{"\n"}
-                  Type /help to see all commands{"\n"}
-                  Type @fermi to get coaching
+                  Type /commands to see all commands{"\n"}
+                  Type @fermi for AI coaching
                 </Text>
               </View>
             )}
@@ -5014,6 +5022,7 @@ Type a command to get started!`;
                     const noArgCommands = [
                       "save",
                       "cancel",
+                      "commands",
                       "help",
                       "list",
                       "simulate",
@@ -5063,7 +5072,7 @@ Type a command to get started!`;
         <View style={styles.fermiChatInputContainer}>
           <TextInput
             style={styles.fermiChatInput}
-            placeholder="Type /help for commands or @fermi for coaching..."
+            placeholder="Type /commands for reference or @fermi for help..."
             placeholderTextColor="#665c54"
             value={fermiChatInput}
             onChangeText={setFermiChatInput}

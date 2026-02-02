@@ -40,14 +40,44 @@ export interface CommandSuggestion {
  * Command Registry - all available commands
  */
 export const COMMANDS: Record<string, Command> = {
-  // Help system
-  help: {
-    name: "help",
-    syntax: "/-h or /help [command]",
-    description: "Show all commands or help for specific command",
+  // Commands reference system
+  commands: {
+    name: "commands",
+    syntax: "/commands [command]",
+    description: "Show all commands or details for specific command",
     contexts: ["any"],
     category: "help",
-    examples: ["/-h", "/help", "/help /p"],
+    examples: ["/commands", "/commands /p"],
+    execute: async (args, state) => {
+      if (args.length > 0) {
+        // Help for specific command
+        const cmdName = args[0].replace("/", "");
+        const cmd = COMMANDS[cmdName];
+        if (cmd) {
+          return {
+            success: true,
+            message: `📖 ${cmd.syntax}\n\n${cmd.description}\n\n✨ Examples:\n${cmd.examples.map((e) => `  ${e}`).join("\n")}\n\n📍 Valid in: ${cmd.contexts.join(", ")}`,
+          };
+        }
+        return {
+          success: false,
+          message: `Unknown command: /${cmdName}`,
+        };
+      }
+      // Show all commands - handled by UI
+      return {
+        success: true,
+        message: "Showing all commands...",
+      };
+    },
+  },
+  help: {
+    name: "help",
+    syntax: "/help [command]",
+    description: "Alias for /commands (for muscle memory)",
+    contexts: ["any"],
+    category: "help",
+    examples: ["/help", "/help /p"],
     execute: async (args, state) => {
       if (args.length > 0) {
         // Help for specific command
@@ -623,8 +653,9 @@ export async function executeCommand(
   const cmdName = parts[0];
   const args = parts.slice(1);
 
-  // Special case: /-h is alias for /help
-  const resolvedName = cmdName === "-h" ? "help" : cmdName;
+  // Special case: /-h and /help are aliases for /commands
+  const resolvedName =
+    cmdName === "-h" || cmdName === "help" ? "commands" : cmdName;
 
   // Find command
   const cmd = COMMANDS[resolvedName];
