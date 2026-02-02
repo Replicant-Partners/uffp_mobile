@@ -1,5 +1,5 @@
 import { VercelRequest, VercelResponse } from "@vercel/node";
-import { createClient } from "@vercel/postgres";
+import { sql } from "@vercel/postgres";
 
 /**
  * GET /api/auth/oauth?provider=google|github
@@ -156,14 +156,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Create or find user in database
-    const client = createClient();
-    await client.connect();
-
     try {
       const email = userInfo.email.toLowerCase();
 
       // Check if user exists
-      const existingUser = await client.sql`
+      const existingUser = await sql`
         SELECT id, email, name, created_at FROM users
         WHERE email = ${email}
       `;
@@ -173,7 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         user = existingUser.rows[0];
       } else {
         // Create new user
-        const result = await client.sql`
+        const result = await sql`
           INSERT INTO users (email, password_hash, password_salt, name, created_at)
           VALUES (
             ${email},
@@ -225,10 +222,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       res.setHeader("Content-Type", "text/html");
       return res.status(200).send(html);
-    } finally {
-      await client.end();
-    }
-  } catch (error: any) {
+    } catch (error: any) {
     console.error("OAuth error:", error);
 
     // Return user-friendly HTML error page

@@ -1,5 +1,5 @@
 import { VercelRequest, VercelResponse } from "@vercel/node";
-import { createClient } from "@vercel/postgres";
+import { sql } from "@vercel/postgres";
 
 /**
  * POST /api/auth/login
@@ -19,20 +19,17 @@ import { createClient } from "@vercel/postgres";
  *   error?: string
  * }
  */
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Enable CORS
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader(
     "Access-Control-Allow-Methods",
-    "GET,OPTIONS,PATCH,DELETE,POST,PUT"
+    "GET,OPTIONS,PATCH,DELETE,POST,PUT",
   );
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization"
+    "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization",
   );
 
   if (req.method === "OPTIONS") {
@@ -54,12 +51,9 @@ export default async function handler(
     });
   }
 
-  const client = createClient();
-  await client.connect();
-
   try {
     // Find user
-    const result = await client.sql`
+    const result = await sql`
       SELECT id, email, name, password_hash, password_salt, created_at
       FROM users
       WHERE email = ${email.toLowerCase()}
@@ -89,7 +83,11 @@ export default async function handler(
 
     // Generate token
     const token = Buffer.from(
-      JSON.stringify({ userId: user.id, email: user.email, exp: Date.now() + 30 * 24 * 60 * 60 * 1000 })
+      JSON.stringify({
+        userId: user.id,
+        email: user.email,
+        exp: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      }),
     ).toString("base64");
 
     return res.status(200).json({
@@ -108,7 +106,5 @@ export default async function handler(
       success: false,
       error: "Login failed",
     });
-  } finally {
-    await client.end();
   }
 }

@@ -1,5 +1,5 @@
 import { VercelRequest, VercelResponse } from "@vercel/node";
-import { createClient } from "@vercel/postgres";
+import { sql } from "@vercel/postgres";
 
 /**
  * GET /api/auth/me
@@ -15,20 +15,17 @@ import { createClient } from "@vercel/postgres";
  *   error?: string
  * }
  */
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Enable CORS
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader(
     "Access-Control-Allow-Methods",
-    "GET,OPTIONS,PATCH,DELETE,POST,PUT"
+    "GET,OPTIONS,PATCH,DELETE,POST,PUT",
   );
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization"
+    "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization",
   );
 
   if (req.method === "OPTIONS") {
@@ -63,12 +60,9 @@ export default async function handler(
       });
     }
 
-    const client = createClient();
-    await client.connect();
-
     try {
       // Get user with stats
-      const userResult = await client.sql`
+      const userResult = await sql`
         SELECT id, email, name, created_at
         FROM users
         WHERE id = ${decoded.userId}
@@ -84,7 +78,7 @@ export default async function handler(
       const user = userResult.rows[0];
 
       // Get user stats
-      const statsResult = await client.sql`
+      const statsResult = await sql`
         SELECT
           COUNT(*)::int as forecast_count,
           AVG(brier_score)::float as avg_brier_score,
@@ -116,10 +110,7 @@ export default async function handler(
           },
         },
       });
-    } finally {
-      await client.end();
-    }
-  } catch (error: any) {
+    } catch (error: any) {
     console.error("Get user error:", error);
     return res.status(401).json({
       success: false,
