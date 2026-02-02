@@ -4939,23 +4939,20 @@ Type a command to get started!`;
                   </Text>
                   <Text style={styles.fermiMessageText}>{messageText}</Text>
 
-                  {/* Render clickable suggestions */}
+                  {/* Render clickable command shortcuts */}
                   {suggestions.length > 0 && (
                     <View style={styles.suggestionChipsContainer}>
                       {suggestions.map((suggestion, sidx) => {
-                        // Support both old format (command/description) and new format (label/description)
                         const commandText =
                           (suggestion as any).label ||
                           (suggestion as any).command ||
                           "";
-                        const descText = suggestion.description || "";
 
                         return (
                           <TouchableOpacity
                             key={sidx}
                             style={styles.suggestionChip}
                             onPress={async () => {
-                              // Execute the command
                               setFermiChatInput(commandText);
                               if (commandText.startsWith("/")) {
                                 await processSingleCommand(commandText);
@@ -4966,9 +4963,6 @@ Type a command to get started!`;
                           >
                             <Text style={styles.suggestionChipText}>
                               {commandText}
-                            </Text>
-                            <Text style={styles.suggestionChipDesc}>
-                              {descText}
                             </Text>
                           </TouchableOpacity>
                         );
@@ -5006,19 +5000,15 @@ Type a command to get started!`;
           )}
         </ScrollView>
 
-        {/* Command Hints - Show above input when typing */}
+        {/* Terminal-style Autocomplete - Show above input when typing */}
         {fermiChatInput.length > 0 && getFermiCommandHints().length > 0 && (
-          <ScrollView
-            style={styles.fermiCommandHints}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-          >
+          <View style={styles.fermiAutocompleteList}>
             {getFermiCommandHints()
-              .slice(0, 12)
-              .map((hint) => (
+              .slice(0, 8)
+              .map((hint, idx) => (
                 <TouchableOpacity
                   key={hint.key}
-                  style={styles.fermiHintChip}
+                  style={styles.fermiAutocompleteItem}
                   onPress={async () => {
                     // Auto-execute commands that don't need arguments
                     const noArgCommands = [
@@ -5055,10 +5045,18 @@ Type a command to get started!`;
                     }
                   }}
                 >
-                  <Text style={styles.fermiHintChipLabel}>{hint.label}</Text>
+                  <Text style={styles.fermiAutocompleteNumber}>{idx + 1}</Text>
+                  <Text style={styles.fermiAutocompleteLabel}>
+                    {hint.label}
+                  </Text>
+                  {hint.desc && (
+                    <Text style={styles.fermiAutocompleteDesc}>
+                      {hint.desc}
+                    </Text>
+                  )}
                 </TouchableOpacity>
               ))}
-          </ScrollView>
+          </View>
         )}
 
         {/* Chat Input */}
@@ -6150,25 +6148,22 @@ const styles = StyleSheet.create({
           ? "monospace"
           : "Courier New, monospace",
   },
-  fermiCommandHints: {
-    flexDirection: "row",
-    backgroundColor: "#282828",
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+  fermiAutocompleteList: {
+    backgroundColor: "#1d2021",
     borderTopWidth: 1,
     borderTopColor: "#3c3836",
+    maxHeight: 200,
   },
-  fermiHintChip: {
-    backgroundColor: "#3c3836",
-    borderWidth: 1,
-    borderColor: "#665c54",
-    borderRadius: 2,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginRight: 4,
+  fermiAutocompleteItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#3c3836",
   },
-  fermiHintChipLabel: {
-    color: "#d5c4a1",
+  fermiAutocompleteNumber: {
+    color: "#928374",
     fontSize: 10,
     fontFamily:
       Platform.OS === "ios"
@@ -6176,6 +6171,29 @@ const styles = StyleSheet.create({
         : Platform.OS === "android"
           ? "monospace"
           : "Courier New, monospace",
+    width: 20,
+  },
+  fermiAutocompleteLabel: {
+    color: "#fabd2f",
+    fontSize: 11,
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
+    minWidth: 120,
+  },
+  fermiAutocompleteDesc: {
+    color: "#928374",
+    fontSize: 10,
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
+    flex: 1,
   },
   fermiChatInputContainer: {
     flexDirection: "row",
@@ -6244,27 +6262,26 @@ const styles = StyleSheet.create({
   suggestionChipsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
-    marginTop: 12,
+    gap: 6,
+    marginTop: 8,
   },
   suggestionChip: {
-    backgroundColor: "#3c3836",
+    backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: "#665c54",
     borderRadius: 2,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    flexDirection: "column",
   },
   suggestionChipText: {
     color: "#fabd2f",
     fontSize: 10,
-    fontWeight: "500",
-    marginBottom: 1,
-  },
-  suggestionChipDesc: {
-    color: "#928374",
-    fontSize: 8,
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
   },
   fermiCollapsedTab: {
     position: "absolute",
