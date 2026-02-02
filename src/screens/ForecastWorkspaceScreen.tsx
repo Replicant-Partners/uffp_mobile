@@ -568,12 +568,48 @@ export default function ForecastWorkspaceScreen() {
             context.question = activeForecast.question;
             context.drivers = activeForecast.drivers;
             context.probability = activeForecast.probability;
+            context.conversationHistory = activeForecast.fermiConversation || [];
           }
 
           // Add driver context if configuring
           if (driverBeingConfigured) {
             context.currentDriver = driverBeingConfigured;
           }
+
+          // Add agent context if configuring
+          if (agentBeingConfigured) {
+            context.currentAgent = agentBeingConfigured;
+          }
+
+          // Add available commands based on context
+          const { getAvailableCommands } = await import("../services/fermiCommands");
+          const commandContext = getCurrentContext();
+          const availableCommands = getAvailableCommands(commandContext);
+          context.availableCommands = availableCommands.map(cmd => ({
+            name: cmd.name,
+            syntax: cmd.syntax,
+            description: cmd.description,
+            category: cmd.category,
+            examples: cmd.examples,
+          }));
+
+          // Add available agents
+          context.availableAgents = [
+            { name: "research_analyst", description: "Deep research with citations, quantitative focus" },
+            { name: "sentiment_monitor", description: "Social listening and sentiment scoring" },
+            { name: "competitive_intel", description: "Competitor tracking and benchmarking" },
+            { name: "financial_analyst", description: "Financial statement analysis and modeling" },
+            { name: "market_researcher", description: "Market sizing and industry analysis" },
+            { name: "expert_synthesizer", description: "Synthesize expert opinions and predictions" },
+          ];
+
+          // Add domain ontology for forecasting understanding
+          context.domainConcepts = {
+            distributions: ["triangular", "normal", "lognormal"],
+            driverTypes: ["continuous", "binary"],
+            directions: ["increases", "decreases"],
+            methodology: "Fermi estimation + Monte Carlo simulation + research agents for calibrated probabilistic forecasts",
+          };
 
           // Call AI backend
           const response = await researchService.chatWithCoach(userQuery, context);
