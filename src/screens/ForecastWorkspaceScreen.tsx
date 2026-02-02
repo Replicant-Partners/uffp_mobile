@@ -3709,6 +3709,39 @@ export default function ForecastWorkspaceScreen() {
           return driverHints;
         }
       }
+
+      // Autocomplete for /remove agent
+      if (query.startsWith("/remove agent ") && driverBeingConfigured) {
+        const partial = query.replace("/remove agent ", "").toLowerCase();
+
+        if (
+          driverBeingConfigured.agents &&
+          driverBeingConfigured.agents.length > 0
+        ) {
+          const agentHints = driverBeingConfigured.agents.map((a: any) => ({
+            key: a.name,
+            label: `/remove agent ${a.name}`,
+            desc: `Remove: @${a.name}`,
+          }));
+
+          if (partial.length > 0) {
+            return agentHints.filter((h: any) =>
+              h.key.toLowerCase().includes(partial),
+            );
+          }
+
+          return agentHints;
+        }
+      }
+    }
+
+    // Show /confirm if pending confirmation
+    if (pendingConfirmation) {
+      hints.push({
+        key: "confirm",
+        label: "/confirm",
+        desc: `Confirm: ${pendingConfirmation.message}`,
+      });
     }
 
     return hints.filter(
