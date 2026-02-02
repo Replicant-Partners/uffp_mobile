@@ -2626,6 +2626,22 @@ export default function ForecastWorkspaceScreen() {
       }
 
       setCommandInput("");
+
+      // Check if driver already exists - if so, enter edit mode
+      const existingDriver = activeForecast.drivers?.find(
+        (d: any) => d.name.toLowerCase() === driverName.toLowerCase(),
+      );
+
+      if (existingDriver) {
+        // Edit mode - load existing driver into config
+        setDriverBeingConfigured({ ...existingDriver });
+        setError(
+          `📝 Editing driver: ${existingDriver.name}\n\nModify with /p, /dist, /direction, or add agents with @agent_name.\nType /save when done or /cancel to discard changes.`,
+        );
+        return;
+      }
+
+      // Create new driver with AI analysis
       setLoading(true);
       setProcessingAction("Analyzing custom driver...");
 
@@ -2672,6 +2688,83 @@ export default function ForecastWorkspaceScreen() {
         setProcessingAction("");
       }
       return;
+    }
+
+    // Handle /remove command - remove driver or agent
+    if (trimmed.startsWith("/remove ")) {
+      if (!activeForecast) {
+        setError("No active forecast. Type /question first.");
+        setCommandInput("");
+        return;
+      }
+
+      const removeTarget = trimmed.replace("/remove ", "").trim();
+
+      if (removeTarget.startsWith("driver ")) {
+        const driverName = removeTarget.replace("driver ", "").trim();
+        const driverIndex = activeForecast.drivers?.findIndex(
+          (d: any) => d.name.toLowerCase() === driverName.toLowerCase(),
+        );
+
+        if (driverIndex === -1 || driverIndex === undefined) {
+          setError(`Driver "${driverName}" not found.`);
+          setCommandInput("");
+          return;
+        }
+
+        // Remove driver
+        const updatedDrivers = [...(activeForecast.drivers || [])];
+        const removedDriver = updatedDrivers.splice(driverIndex, 1)[0];
+
+        const updatedForecast = {
+          ...activeForecast,
+          drivers: updatedDrivers,
+          updatedAt: new Date().toISOString(),
+        };
+
+        setActiveForecast(updatedForecast);
+        saveForecast(updatedForecast);
+        setCommandInput("");
+        setError(`✓ Removed driver: ${removedDriver.name}`);
+        return;
+      } else if (removeTarget.startsWith("agent ")) {
+        const agentName = removeTarget.replace("agent ", "").trim();
+
+        if (!driverBeingConfigured) {
+          setError(
+            "No driver being configured. Enter driver config mode first with /driver <name>",
+          );
+          setCommandInput("");
+          return;
+        }
+
+        const agentIndex = driverBeingConfigured.agents?.findIndex(
+          (a: any) => a.name.toLowerCase() === agentName.toLowerCase(),
+        );
+
+        if (agentIndex === -1 || agentIndex === undefined) {
+          setError(`Agent "${agentName}" not found on this driver.`);
+          setCommandInput("");
+          return;
+        }
+
+        // Remove agent from driver
+        const updatedAgents = [...(driverBeingConfigured.agents || [])];
+        const removedAgent = updatedAgents.splice(agentIndex, 1)[0];
+
+        setDriverBeingConfigured({
+          ...driverBeingConfigured,
+          agents: updatedAgents,
+        });
+
+        setCommandInput("");
+        setError(`✓ Removed agent: ${removedAgent.name}`);
+        return;
+      } else {
+        setError("Usage: /remove driver <name> or /remove agent <name>");
+        setCommandInput("");
+        return;
+      }
     }
 
     // Handle /question command
@@ -3427,7 +3520,7 @@ export default function ForecastWorkspaceScreen() {
     // Add forecast-specific commands when there's an active forecast
     if (activeForecast) {
       hints.push(
-        { key: "driver", label: "/driver", desc: "Add a driver" },
+        { key: "driver", label: "/driver", desc: "Add or edit a driver" },
         { key: "simulate", label: "/simulate", desc: "Run simulation" },
         { key: "review", label: "/review", desc: "Analyze forecast quality" },
         {
@@ -3435,7 +3528,32 @@ export default function ForecastWorkspaceScreen() {
           label: "/decompose",
           desc: "Break down the question",
         },
+        { key: "remove", label: "/remove", desc: "Remove driver or agent" },
       );
+
+      // Autocomplete existing driver names for /driver and /remove
+      if (query.startsWith("/driver ") || query.startsWith("/remove driver ")) {
+        const prefix = query.startsWith("/driver ")
+          ? "/driver "
+          : "/remove driver ";
+        const partial = query.replace(prefix, "").toLowerCase();
+
+        if (activeForecast.drivers && activeForecast.drivers.length > 0) {
+          const driverHints = activeForecast.drivers.map((d: any) => ({
+            key: d.name,
+            label: `${prefix}${d.name}`,
+            desc: `Edit: ${d.name} (${d.type})`,
+          }));
+
+          if (partial.length > 0) {
+            return driverHints.filter((h: any) =>
+              h.key.toLowerCase().includes(partial),
+            );
+          }
+
+          return driverHints;
+        }
+      }
     }
 
     return hints.filter(
