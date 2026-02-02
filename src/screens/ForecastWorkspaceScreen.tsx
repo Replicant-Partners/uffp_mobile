@@ -547,7 +547,11 @@ export default function ForecastWorkspaceScreen() {
       const queryText = userQuery || "help";
 
       // If user provides actual text (not just @fermi), use AI backend
-      if (userQuery && userQuery.length > 0 && !userQuery.startsWith("@fermi")) {
+      if (
+        userQuery &&
+        userQuery.length > 0 &&
+        !userQuery.startsWith("@fermi")
+      ) {
         try {
           // Build context for AI
           const context: any = {
@@ -555,12 +559,12 @@ export default function ForecastWorkspaceScreen() {
             stage: driverBeingConfigured
               ? "driver_config"
               : agentBeingConfigured
-              ? "agent_config"
-              : activeForecast?.probability !== undefined
-              ? "simulation_results"
-              : activeForecast
-              ? "active_forecast"
-              : "no_forecast",
+                ? "agent_config"
+                : activeForecast?.probability !== undefined
+                  ? "simulation_results"
+                  : activeForecast
+                    ? "active_forecast"
+                    : "no_forecast",
           };
 
           // Add forecast details if available
@@ -568,7 +572,8 @@ export default function ForecastWorkspaceScreen() {
             context.question = activeForecast.question;
             context.drivers = activeForecast.drivers;
             context.probability = activeForecast.probability;
-            context.conversationHistory = activeForecast.fermiConversation || [];
+            context.conversationHistory =
+              activeForecast.fermiConversation || [];
           }
 
           // Add driver context if configuring
@@ -582,10 +587,11 @@ export default function ForecastWorkspaceScreen() {
           }
 
           // Add available commands based on context
-          const { getAvailableCommands } = await import("../services/fermiCommands");
+          const { getAvailableCommands } =
+            await import("../services/fermiCommands");
           const commandContext = getCurrentContext();
           const availableCommands = getAvailableCommands(commandContext);
-          context.availableCommands = availableCommands.map(cmd => ({
+          context.availableCommands = availableCommands.map((cmd) => ({
             name: cmd.name,
             syntax: cmd.syntax,
             description: cmd.description,
@@ -595,17 +601,51 @@ export default function ForecastWorkspaceScreen() {
 
           // Add available agents
           context.availableAgents = [
-            { name: "research_analyst", description: "Deep research with citations, quantitative focus" },
-            { name: "sentiment_monitor", description: "Social listening and sentiment scoring" },
-            { name: "competitive_intel", description: "Competitor tracking and benchmarking" },
-            { name: "financial_analyst", description: "Financial statement analysis and modeling" },
-            { name: "market_researcher", description: "Market sizing and industry analysis" },
-            { name: "expert_synthesizer", description: "Synthesize expert opinions and predictions" },
-            { name: "regulatory_monitor", description: "Track regulatory and policy changes" },
-            { name: "growth_signals", description: "Monitor user adoption and growth metrics" },
-            { name: "hiring_tracker", description: "Track hiring trends and team growth" },
-            { name: "pricing_intel", description: "Monitor pricing and cost trends" },
-            { name: "technology_validator", description: "Validate technology feasibility and launch readiness" },
+            {
+              name: "research_analyst",
+              description: "Deep research with citations, quantitative focus",
+            },
+            {
+              name: "sentiment_monitor",
+              description: "Social listening and sentiment scoring",
+            },
+            {
+              name: "competitive_intel",
+              description: "Competitor tracking and benchmarking",
+            },
+            {
+              name: "financial_analyst",
+              description: "Financial statement analysis and modeling",
+            },
+            {
+              name: "market_researcher",
+              description: "Market sizing and industry analysis",
+            },
+            {
+              name: "expert_synthesizer",
+              description: "Synthesize expert opinions and predictions",
+            },
+            {
+              name: "regulatory_monitor",
+              description: "Track regulatory and policy changes",
+            },
+            {
+              name: "growth_signals",
+              description: "Monitor user adoption and growth metrics",
+            },
+            {
+              name: "hiring_tracker",
+              description: "Track hiring trends and team growth",
+            },
+            {
+              name: "pricing_intel",
+              description: "Monitor pricing and cost trends",
+            },
+            {
+              name: "technology_validator",
+              description:
+                "Validate technology feasibility and launch readiness",
+            },
           ];
 
           // Add domain ontology for forecasting understanding
@@ -613,22 +653,32 @@ export default function ForecastWorkspaceScreen() {
             distributions: ["triangular", "normal", "lognormal"],
             driverTypes: ["continuous", "binary"],
             directions: ["increases", "decreases"],
-            methodology: "Fermi estimation + Monte Carlo simulation + research agents for calibrated probabilistic forecasts",
+            methodology:
+              "Fermi estimation + Monte Carlo simulation + research agents for calibrated probabilistic forecasts",
           };
 
           // Add important context constraints
           context.systemConstraints = {
-            agentUsage: "Research agents (except @fermi) can only be attached to drivers during driver configuration. @fermi can be invoked anytime for coaching.",
-            workflow: "forecast → drivers → agents attached to drivers → simulation",
+            agentUsage:
+              "Research agents (except @fermi) can only be attached to drivers during driver configuration. @fermi can be invoked anytime for coaching.",
+            workflow:
+              "forecast → drivers → agents attached to drivers → simulation",
           };
 
           // Call AI backend
-          const response = await researchService.chatWithCoach(userQuery, context);
+          const response = await researchService.chatWithCoach(
+            userQuery,
+            context,
+          );
 
           // Parse suggestions from response if provided
           const suggestions: CommandSuggestion[] = response.suggestions || [];
 
-          await addFermiMessage(queryText, response.message || response.response, suggestions);
+          await addFermiMessage(
+            queryText,
+            response.message || response.response,
+            suggestions,
+          );
           return;
         } catch (error) {
           console.error("[Fermi AI] Failed to get AI response:", error);
@@ -891,6 +941,12 @@ export default function ForecastWorkspaceScreen() {
           guidance += `3. Set direction (increases/decreases likelihood)\n`;
           guidance += `4. Run simulation to see probability\n\n`;
           guidance += `🦊 Tip: Start with 2-4 key drivers. You can always add more!\n`;
+
+          suggestions.push({
+            key: "driver",
+            label: "/driver ",
+            description: "Add first driver",
+          });
         } else {
           guidance += `1. You have ${activeForecast.drivers.length} driver(s) - need more?\n`;
           guidance += `2. Review driver configurations - are ranges realistic?\n`;
@@ -898,12 +954,16 @@ export default function ForecastWorkspaceScreen() {
           guidance += `4. Ready to simulate? Type /simulate\n`;
 
           suggestions.push(
-            { key: "simulate", label: "/simulate", description: "Run simulation" },
-            { key: "driver", label: "/driver ", description: "Add another driver" },
-          );
-        } else {
-          suggestions.push(
-            { key: "driver", label: "/driver ", description: "Add first driver" },
+            {
+              key: "simulate",
+              label: "/simulate",
+              description: "Run simulation",
+            },
+            {
+              key: "driver",
+              label: "/driver ",
+              description: "Add another driver",
+            },
           );
         }
       } else {
@@ -922,7 +982,11 @@ export default function ForecastWorkspaceScreen() {
         guidance += `• Mention me (@fermi) anytime for help!\n`;
 
         suggestions.push(
-          { key: "question", label: "/question ", description: "Start new forecast" },
+          {
+            key: "question",
+            label: "/question ",
+            description: "Start new forecast",
+          },
           { key: "list", label: "/list", description: "View forecasts" },
           { key: "help", label: "/help", description: "Show all commands" },
         );
@@ -1427,13 +1491,14 @@ export default function ForecastWorkspaceScreen() {
 
     // /help - always available, context-aware
     if (trimmed === "/help" || trimmed === "/-h") {
-      const { getAvailableCommands } = await import("../services/fermiCommands");
+      const { getAvailableCommands } =
+        await import("../services/fermiCommands");
       const commandContext = getCurrentContext();
       const availableCommands = getAvailableCommands(commandContext);
 
       // Group by category
       const byCategory: Record<string, typeof availableCommands> = {};
-      availableCommands.forEach(cmd => {
+      availableCommands.forEach((cmd) => {
         if (!byCategory[cmd.category]) byCategory[cmd.category] = [];
         byCategory[cmd.category].push(cmd);
       });
@@ -1452,7 +1517,7 @@ export default function ForecastWorkspaceScreen() {
       for (const [category, cmds] of Object.entries(byCategory)) {
         const emoji = categoryEmoji[category] || "•";
         helpText += `${emoji} ${category.toUpperCase()}\n`;
-        cmds.forEach(cmd => {
+        cmds.forEach((cmd) => {
           helpText += `  ${cmd.syntax}\n  → ${cmd.description}\n\n`;
         });
       }
@@ -1463,9 +1528,10 @@ export default function ForecastWorkspaceScreen() {
       // Create clickable suggestions for most common commands
       const commandSuggestions: CommandSuggestion[] = availableCommands
         .slice(0, 6)
-        .map(cmd => ({
+        .map((cmd) => ({
           key: cmd.name,
-          label: cmd.syntax.split(" ")[0] + (cmd.syntax.includes("<") ? " " : ""),
+          label:
+            cmd.syntax.split(" ")[0] + (cmd.syntax.includes("<") ? " " : ""),
           description: cmd.description,
         }));
 
@@ -1477,23 +1543,67 @@ export default function ForecastWorkspaceScreen() {
     // /agent-list - list all available research agents
     if (trimmed === "/agent-list") {
       const agentList = [
-        { name: "research_analyst", description: "Deep research with citations, quantitative focus", icon: "📊" },
-        { name: "sentiment_monitor", description: "Social listening and sentiment scoring", icon: "💭" },
-        { name: "competitive_intel", description: "Competitor tracking and benchmarking", icon: "🔍" },
-        { name: "financial_analyst", description: "Financial statement analysis and modeling", icon: "💰" },
-        { name: "market_researcher", description: "Market sizing and industry analysis", icon: "📈" },
-        { name: "expert_synthesizer", description: "Synthesize expert opinions and predictions", icon: "🎓" },
-        { name: "regulatory_monitor", description: "Track regulatory and policy changes", icon: "⚖️" },
-        { name: "growth_signals", description: "Monitor user adoption and growth metrics", icon: "📱" },
-        { name: "hiring_tracker", description: "Track hiring trends and team growth", icon: "👥" },
-        { name: "pricing_intel", description: "Monitor pricing and cost trends", icon: "💵" },
-        { name: "technology_validator", description: "Validate technology feasibility and launch readiness", icon: "🔧" },
+        {
+          name: "research_analyst",
+          description: "Deep research with citations, quantitative focus",
+          icon: "📊",
+        },
+        {
+          name: "sentiment_monitor",
+          description: "Social listening and sentiment scoring",
+          icon: "💭",
+        },
+        {
+          name: "competitive_intel",
+          description: "Competitor tracking and benchmarking",
+          icon: "🔍",
+        },
+        {
+          name: "financial_analyst",
+          description: "Financial statement analysis and modeling",
+          icon: "💰",
+        },
+        {
+          name: "market_researcher",
+          description: "Market sizing and industry analysis",
+          icon: "📈",
+        },
+        {
+          name: "expert_synthesizer",
+          description: "Synthesize expert opinions and predictions",
+          icon: "🎓",
+        },
+        {
+          name: "regulatory_monitor",
+          description: "Track regulatory and policy changes",
+          icon: "⚖️",
+        },
+        {
+          name: "growth_signals",
+          description: "Monitor user adoption and growth metrics",
+          icon: "📱",
+        },
+        {
+          name: "hiring_tracker",
+          description: "Track hiring trends and team growth",
+          icon: "👥",
+        },
+        {
+          name: "pricing_intel",
+          description: "Monitor pricing and cost trends",
+          icon: "💵",
+        },
+        {
+          name: "technology_validator",
+          description: "Validate technology feasibility and launch readiness",
+          icon: "🔧",
+        },
       ];
 
       let agentsText = `🤖 Available Research Agents (${agentList.length})\n\n`;
       agentsText += `All agents use Claude Sonnet 4.5\n\n`;
 
-      agentList.forEach(agent => {
+      agentList.forEach((agent) => {
         agentsText += `${agent.icon} @${agent.name}\n`;
         agentsText += `   ${agent.description}\n\n`;
       });
@@ -1503,11 +1613,13 @@ export default function ForecastWorkspaceScreen() {
       agentsText += `• Ask @fermi which agent to use for your forecast\n`;
 
       // Create clickable chips for popular agents
-      const agentSuggestions: CommandSuggestion[] = agentList.slice(0, 6).map(agent => ({
-        key: agent.name,
-        label: `@${agent.name}`,
-        description: agent.description,
-      }));
+      const agentSuggestions: CommandSuggestion[] = agentList
+        .slice(0, 6)
+        .map((agent) => ({
+          key: agent.name,
+          label: `@${agent.name}`,
+          description: agent.description,
+        }));
 
       await addFermiMessage("/agent-list", agentsText, agentSuggestions);
       setCommandInput("");
@@ -1891,7 +2003,12 @@ export default function ForecastWorkspaceScreen() {
     }
 
     // Handle @agent mentions outside of driver config context
-    if (trimmed.startsWith("@") && !trimmed.includes("/") && !driverBeingConfigured && !agentBeingConfigured) {
+    if (
+      trimmed.startsWith("@") &&
+      !trimmed.includes("/") &&
+      !driverBeingConfigured &&
+      !agentBeingConfigured
+    ) {
       let agentName = trimmed.substring(1).trim();
       const spaceIndex = agentName.indexOf(" ");
       const parenIndex = agentName.indexOf("(");
@@ -1915,9 +2032,17 @@ export default function ForecastWorkspaceScreen() {
         `@${agentName}`,
         `⚠️ Agents can only be attached to drivers\n\nTo use @${agentName}:\n1. Start a forecast: /question <your question>\n2. Add a driver: /driver <driver name>\n3. While configuring the driver, type @${agentName}\n\nOr ask @fermi for help!`,
         [
-          { key: "question", label: "/question ", description: "Start a forecast" },
+          {
+            key: "question",
+            label: "/question ",
+            description: "Start a forecast",
+          },
           { key: "help", label: "/help", description: "Show all commands" },
-          { key: "agent-list", label: "/agent-list", description: "See all agents" },
+          {
+            key: "agent-list",
+            label: "/agent-list",
+            description: "See all agents",
+          },
         ],
       );
       setCommandInput("");
@@ -3078,7 +3203,8 @@ Type a command to get started!`;
         growth_signals: "Monitor user adoption and growth metrics",
         hiring_tracker: "Track hiring trends and team growth",
         pricing_intel: "Monitor pricing and cost trends",
-        technology_validator: "Validate technology feasibility and launch readiness",
+        technology_validator:
+          "Validate technology feasibility and launch readiness",
       };
 
       // Extract the part after @ for filtering
@@ -3361,7 +3487,8 @@ Type a command to get started!`;
         growth_signals: "Monitor user adoption and growth metrics",
         hiring_tracker: "Track hiring trends and team growth",
         pricing_intel: "Monitor pricing and cost trends",
-        technology_validator: "Validate technology feasibility and launch readiness",
+        technology_validator:
+          "Validate technology feasibility and launch readiness",
       };
 
       const atIndex = input.lastIndexOf("@");
