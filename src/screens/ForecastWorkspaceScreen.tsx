@@ -1505,6 +1505,8 @@ export default function ForecastWorkspaceScreen() {
 
       // Build rich help text
       let helpText = `📚 Available Commands (${commandContext})\n\n`;
+      helpText += `🦊 @fermi — Ask me anything about forecasting!\n`;
+      helpText += `   Example: "@fermi help me set p values for this driver"\n\n`;
 
       const categoryEmoji: Record<string, string> = {
         forecast: "🎯",
@@ -1523,7 +1525,6 @@ export default function ForecastWorkspaceScreen() {
       }
 
       helpText += `💡 Tip: Type command + space to see autocomplete\n`;
-      helpText += `🦊 For help: @fermi <your question>\n`;
 
       // Create clickable suggestions for most common commands
       const commandSuggestions: CommandSuggestion[] = availableCommands
@@ -5013,7 +5014,7 @@ Type a command to get started!`;
             showsHorizontalScrollIndicator={false}
           >
             {getFermiCommandHints()
-              .slice(0, 5)
+              .slice(0, 12)
               .map((hint) => (
                 <TouchableOpacity
                   key={hint.key}
@@ -6161,14 +6162,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#3c3836",
     borderWidth: 1,
     borderColor: "#665c54",
-    borderRadius: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginRight: 6,
+    borderRadius: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginRight: 4,
   },
   fermiHintChipLabel: {
     color: "#d5c4a1",
-    fontSize: 11,
+    fontSize: 10,
     fontFamily:
       Platform.OS === "ios"
         ? "Menlo"
@@ -6250,20 +6251,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#3c3836",
     borderWidth: 1,
     borderColor: "#665c54",
-    borderRadius: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    borderRadius: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     flexDirection: "column",
   },
   suggestionChipText: {
     color: "#fabd2f",
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "500",
     marginBottom: 1,
   },
   suggestionChipDesc: {
     color: "#928374",
-    fontSize: 9,
+    fontSize: 8,
   },
   fermiCollapsedTab: {
     position: "absolute",
