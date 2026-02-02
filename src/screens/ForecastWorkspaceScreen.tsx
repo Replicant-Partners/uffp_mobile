@@ -1300,31 +1300,6 @@ export default function ForecastWorkspaceScreen() {
       );
 
       setError("");
-    } catch (err: any) {
-      console.error("Failed to save driver:", err);
-      // Fall back to local save
-      let updatedDrivers;
-      const existingIndex = activeForecast.drivers.findIndex(
-        (d: any) => d.id === driverBeingConfigured.id,
-      );
-
-      if (existingIndex >= 0) {
-        updatedDrivers = [...activeForecast.drivers];
-        updatedDrivers[existingIndex] = updatedDriver;
-      } else {
-        updatedDrivers = [...activeForecast.drivers, updatedDriver];
-      }
-
-      const updatedForecast = {
-        ...activeForecast,
-        drivers: updatedDrivers,
-        updatedAt: new Date().toISOString(),
-      };
-
-      setActiveForecast(updatedForecast);
-      await saveForecast(updatedForecast);
-      setDriverBeingConfigured(null);
-      setError("Driver saved locally (backend sync failed)");
     } finally {
       setProcessingAction("");
     }
