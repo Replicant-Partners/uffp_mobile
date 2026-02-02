@@ -42,7 +42,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
+      console.log("[OAuth Debug] Client ID:", clientId);
+      console.log("[OAuth Debug] Client ID length:", clientId.length);
+
       const redirectUri = `${process.env.APP_URL || "https://uffp-backend.vercel.app"}/api/auth/oauth`;
+      console.log("[OAuth Debug] Redirect URI:", redirectUri);
+
       const scope = "openid profile email";
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=google`;
 
