@@ -1,7 +1,9 @@
 const API_BASE_URL =
   typeof __DEV__ !== "undefined" && __DEV__
     ? "http://localhost:3000"
-    : "https://uffp-backend.vercel.app";
+    : typeof window !== "undefined" && window.location
+      ? window.location.origin
+      : "https://uffp-mobile.vercel.app";
 
 export interface ResearchRequest {
   agentId: string;

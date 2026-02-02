@@ -11,8 +11,8 @@ import {
   saveSimulation,
   getUserStats,
   getLeaderboard,
-} from '../lib/database';
-import { coach } from '../lib/coach';
+} from '../../lib/database';
+import { coach } from '../../lib/coach';
 import { setCorsHeaders } from './cors';
 
 /**

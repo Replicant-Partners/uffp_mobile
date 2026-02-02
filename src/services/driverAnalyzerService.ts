@@ -5,7 +5,10 @@
 
 // Use backend proxy to avoid CORS issues
 const BACKEND_URL =
-  process.env.EXPO_PUBLIC_BACKEND_URL || "https://uffp-backend.vercel.app";
+  process.env.EXPO_PUBLIC_BACKEND_URL ||
+  (typeof window !== "undefined" && window.location
+    ? window.location.origin
+    : "https://uffp-mobile.vercel.app");
 const API_URL = `${BACKEND_URL}/api/analyze-driver`;
 
 interface DriverRecommendation {
