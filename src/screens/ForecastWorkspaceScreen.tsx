@@ -561,7 +561,12 @@ export default function ForecastWorkspaceScreen() {
             setShowForecastList(result.updateState.showList);
           }
           if (result.updateState.save) {
-            await saveConfiguredDriver();
+            // Check if we're saving an agent or a driver
+            if (agentBeingConfigured) {
+              await saveConfiguredAgent();
+            } else {
+              await saveConfiguredDriver();
+            }
           }
           if (result.updateState.cancel) {
             if (agentBeingConfigured) setAgentBeingConfigured(null);
@@ -595,6 +600,27 @@ export default function ForecastWorkspaceScreen() {
                 ? { ...prev, direction: result.updateState.direction }
                 : null,
             );
+          }
+
+          // Handle agent configuration
+          if (result.updateState.configureAgent) {
+            setAgentBeingConfigured({
+              name: result.updateState.configureAgent,
+            });
+          }
+          if (result.updateState.query) {
+            setAgentBeingConfigured((prev) =>
+              prev ? { ...prev, query: result.updateState.query } : null,
+            );
+          }
+          if (result.updateState.schedule) {
+            setAgentBeingConfigured((prev) =>
+              prev ? { ...prev, schedule: result.updateState.schedule } : null,
+            );
+          }
+          if (result.updateState.runAgent) {
+            // TODO: Implement agent execution
+            console.log("[Agent] Running agent research...");
           }
         }
 
@@ -900,6 +926,40 @@ export default function ForecastWorkspaceScreen() {
     }
 
     return changes;
+  };
+
+  const saveConfiguredAgent = async () => {
+    if (!agentBeingConfigured || !driverBeingConfigured) return;
+
+    // Validate agent has required fields
+    if (!agentBeingConfigured.query) {
+      setError("Agent must have a research query. Use /query to set it.");
+      return;
+    }
+
+    // Create agent object
+    const newAgent = {
+      id: Date.now().toString(),
+      name: agentBeingConfigured.name,
+      query: agentBeingConfigured.query,
+      schedule: agentBeingConfigured.schedule || "on-demand",
+      threshold: agentBeingConfigured.threshold,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Add agent to the current driver
+    const updatedDriver = {
+      ...driverBeingConfigured,
+      agents: [...(driverBeingConfigured.agents || []), newAgent],
+    };
+
+    setDriverBeingConfigured(updatedDriver);
+    setAgentBeingConfigured(null);
+
+    // Show success message
+    setError(
+      `✓ Agent @${newAgent.name} added to driver "${updatedDriver.name}"`,
+    );
   };
 
   const saveConfiguredDriver = async (force: boolean = false) => {
@@ -2880,6 +2940,42 @@ Type a command to get started!`;
       return allAgents;
     }
 
+    // Show context-specific hints for agent configuration
+    if (agentBeingConfigured) {
+      const agentHints = [
+        { key: "query", label: "/query", desc: "Set research query" },
+        {
+          key: "schedule",
+          label: "/schedule",
+          desc: "Set schedule (daily|weekly|on-demand)",
+        },
+        { key: "save", label: "/save", desc: "Save agent to driver" },
+        { key: "cancel", label: "/cancel", desc: "Cancel" },
+      ];
+
+      if (!input.startsWith("/")) {
+        return agentHints;
+      }
+
+      const query = input.toLowerCase();
+
+      if (query.startsWith("/schedule ")) {
+        return [
+          { key: "daily", label: "/schedule daily", desc: "Update daily" },
+          { key: "weekly", label: "/schedule weekly", desc: "Update weekly" },
+          {
+            key: "on-demand",
+            label: "/schedule on-demand",
+            desc: "Manual updates",
+          },
+        ].filter((h) => h.label.includes(query));
+      }
+
+      return agentHints.filter(
+        (h) => h.label.includes(query) || h.desc.toLowerCase().includes(query),
+      );
+    }
+
     // Show context-specific hints for driver configuration
     if (driverBeingConfigured) {
       const configHints = [
@@ -2895,6 +2991,7 @@ Type a command to get started!`;
           desc: "Set direction (increases|decreases)",
         },
         { key: "type", label: "/type", desc: "Set type (continuous|binary)" },
+        { key: "agent", label: "/agent", desc: "Add research agent" },
         { key: "evidence", label: "/evidence", desc: "Add manual evidence" },
         { key: "save", label: "/save", desc: "Save driver" },
         { key: "cancel", label: "/cancel", desc: "Cancel" },

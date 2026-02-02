@@ -416,6 +416,163 @@ export const COMMANDS: Record<string, Command> = {
       };
     },
   },
+
+  // Agent commands
+  agent: {
+    name: "agent",
+    syntax: "/agent @<agent_name>",
+    description: "Attach a research agent to the current driver",
+    contexts: ["driver_config"],
+    category: "agent",
+    examples: ["/agent @research_analyst", "/agent @market_researcher"],
+    execute: async (args, state) => {
+      const agentName = args.join(" ").trim();
+
+      if (!agentName) {
+        return {
+          success: false,
+          message:
+            "Please specify an agent name (e.g., /agent @research_analyst)",
+          suggestions: [
+            {
+              command: "/agent @research_analyst",
+              description: "Deep research with citations",
+              clickable: true,
+            },
+            {
+              command: "/agent @market_researcher",
+              description: "Market sizing and analysis",
+              clickable: true,
+            },
+            {
+              command: "/agent @financial_analyst",
+              description: "Financial modeling",
+              clickable: true,
+            },
+          ],
+        };
+      }
+
+      // Remove @ prefix if present
+      const cleanName = agentName.startsWith("@")
+        ? agentName.slice(1)
+        : agentName;
+
+      return {
+        success: true,
+        message: `Great! Attaching @${cleanName} to this driver.\n\nWhat should the agent research? Provide a specific query.`,
+        updateState: { configureAgent: cleanName },
+        suggestions: [
+          {
+            command: "/query <your research question>",
+            description: "Set what to research",
+            clickable: false,
+          },
+        ],
+      };
+    },
+  },
+
+  query: {
+    name: "query",
+    syntax: "/query <research question>",
+    description: "Set the research query for an agent",
+    contexts: ["agent_config"],
+    category: "agent",
+    examples: ["/query What is the market size for electric vehicles in 2025?"],
+    execute: async (args, state) => {
+      const query = args.join(" ").trim();
+
+      if (!query) {
+        return {
+          success: false,
+          message: "Please provide a research query for the agent",
+        };
+      }
+
+      return {
+        success: true,
+        message: `Perfect! Agent will research: "${query}"\n\nHow often should it update? (daily, weekly, or on-demand)`,
+        updateState: { query },
+        suggestions: [
+          {
+            command: "/schedule daily",
+            description: "Update every day",
+            clickable: true,
+          },
+          {
+            command: "/schedule weekly",
+            description: "Update every week",
+            clickable: true,
+          },
+          {
+            command: "/schedule on-demand",
+            description: "Manual updates only",
+            clickable: true,
+          },
+        ],
+      };
+    },
+  },
+
+  schedule: {
+    name: "schedule",
+    syntax: "/schedule <daily|weekly|on-demand>",
+    description: "Set how often the agent should update",
+    contexts: ["agent_config"],
+    category: "agent",
+    examples: ["/schedule daily", "/schedule on-demand"],
+    execute: async (args, state) => {
+      const schedule = args[0];
+      const validSchedules = ["daily", "weekly", "on-demand"];
+
+      if (!validSchedules.includes(schedule)) {
+        return {
+          success: false,
+          message: "Schedule must be: daily, weekly, or on-demand",
+          suggestions: validSchedules.map((s) => ({
+            command: `/schedule ${s}`,
+            description: s === "on-demand" ? "Manual updates" : `Update ${s}`,
+            clickable: true,
+          })),
+        };
+      }
+
+      return {
+        success: true,
+        message: `Set to ${schedule} updates. Agent is ready!`,
+        updateState: { schedule },
+        suggestions: [
+          {
+            command: "/save",
+            description: "Save agent to driver",
+            clickable: true,
+          },
+          {
+            command: "/run",
+            description: "Run agent now",
+            clickable: true,
+          },
+        ],
+      };
+    },
+  },
+
+  run: {
+    name: "run",
+    syntax: "/run [@agent_name]",
+    description: "Execute agent research immediately",
+    contexts: ["driver_config", "agent_config"],
+    category: "agent",
+    examples: ["/run", "/run @research_analyst"],
+    execute: async (args, state) => {
+      return {
+        success: true,
+        message: "Running agent research... This may take a moment.",
+        updateState: { runAgent: true },
+      };
+    },
+  },
 };
 
 /**
