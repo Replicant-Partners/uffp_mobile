@@ -1761,10 +1761,13 @@ export default function ForecastWorkspaceScreen() {
 
         const currentAgents = driverBeingConfigured.agents || [];
         const agentConfig = {
+          id: Date.now().toString(),
           name: agentBeingConfigured.name,
           query: agentBeingConfigured.query,
           schedule: agentBeingConfigured.schedule || "on-demand",
-          threshold: agentBeingConfigured.threshold || 10,
+          threshold: agentBeingConfigured.threshold,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         };
 
         // Check for duplicates
@@ -2443,18 +2446,32 @@ export default function ForecastWorkspaceScreen() {
             },
           });
 
-          // Add evidence to driver
-          const newEvidence = {
-            type: "research",
-            source: agentName,
+          // Create ResearchSnapshot and add to researchResults
+          const researchSnapshot = {
+            id: Date.now().toString(),
+            agentId: agentName,
+            promptId: "market_tam_sizing",
+            variables: {
+              MARKET_SEGMENT: agentToRun.query,
+              GEOGRAPHY: "United States",
+            },
             summary: result.result?.summary || "Research completed",
-            timestamp: new Date().toISOString(),
-            fullResult: result.result,
+            keyFindings: result.result?.keyFindings || [],
+            sources: result.result?.sources || [],
+            confidence: result.result?.confidence || "medium",
+            fullResponse: JSON.stringify(result.result),
+            cost: result.cost || 0,
+            tokensUsed: result.tokensUsed || 0,
+            executedAt: new Date(),
+            attachedToDriverId: driverBeingConfigured.id,
           };
 
           setDriverBeingConfigured({
             ...driverBeingConfigured,
-            evidence: [...(driverBeingConfigured.evidence || []), newEvidence],
+            researchResults: [
+              ...(driverBeingConfigured.researchResults || []),
+              researchSnapshot,
+            ],
           });
 
           await addFermiMessage(
@@ -4586,6 +4603,90 @@ export default function ForecastWorkspaceScreen() {
                       : `P(${driver.probability != null ? driver.probability + "%" : "not set"})`}{" "}
                     · {driver.direction}
                   </Text>
+                  {driver.agents && driver.agents.length > 0 && (
+                    <View style={styles.agentsSection}>
+                      <Text style={styles.evidenceLabel}>
+                        🤖 Agents ({driver.agents.length}):
+                      </Text>
+                      {driver.agents.map((agent: any, idx: number) => (
+                        <View key={idx} style={styles.agentItem}>
+                          <Text style={styles.agentName}>@{agent.name}</Text>
+                          <Text style={styles.agentQuery} numberOfLines={2}>
+                            {agent.query}
+                          </Text>
+                          <Text style={styles.agentSchedule}>
+                            Schedule: {agent.schedule}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                  {driver.researchResults &&
+                    driver.researchResults.length > 0 && (
+                      <View style={styles.evidenceSection}>
+                        <Text style={styles.evidenceLabel}>
+                          🔬 Research Results ({driver.researchResults.length}):
+                        </Text>
+                        {driver.researchResults.map(
+                          (result: any, idx: number) => {
+                            const resultKey = `${driver.id}-research-${idx}`;
+                            const isExpanded = expandedEvidence.has(resultKey);
+
+                            return (
+                              <TouchableOpacity
+                                key={idx}
+                                style={styles.evidenceItem}
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  const newExpanded = new Set(expandedEvidence);
+                                  if (isExpanded) {
+                                    newExpanded.delete(resultKey);
+                                  } else {
+                                    newExpanded.add(resultKey);
+                                  }
+                                  setExpandedEvidence(newExpanded);
+                                }}
+                              >
+                                <View style={styles.evidenceHeader}>
+                                  <Text style={styles.evidenceSource}>
+                                    @{result.agentId} ·{" "}
+                                    {new Date(
+                                      result.executedAt,
+                                    ).toLocaleDateString()}
+                                  </Text>
+                                  <Text style={styles.expandIndicator}>
+                                    {isExpanded ? "▼" : "▶"}
+                                  </Text>
+                                </View>
+                                <Text
+                                  style={styles.evidenceSummary}
+                                  numberOfLines={isExpanded ? undefined : 2}
+                                >
+                                  {result.summary}
+                                </Text>
+                                {isExpanded && (
+                                  <View style={styles.fullResultSection}>
+                                    <Text style={styles.evidenceLabel}>
+                                      Key Findings:
+                                    </Text>
+                                    {result.keyFindings?.map(
+                                      (finding: string, i: number) => (
+                                        <Text key={i} style={styles.keyFinding}>
+                                          • {finding}
+                                        </Text>
+                                      ),
+                                    )}
+                                    <Text style={styles.evidenceLabel}>
+                                      Confidence: {result.confidence}
+                                    </Text>
+                                  </View>
+                                )}
+                              </TouchableOpacity>
+                            );
+                          },
+                        )}
+                      </View>
+                    )}
                   {driver.evidence && driver.evidence.length > 0 && (
                     <View style={styles.evidenceSection}>
                       <Text style={styles.evidenceLabel}>

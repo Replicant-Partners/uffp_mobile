@@ -108,10 +108,11 @@ export function mapLocalToBackend(localForecast: any): any {
  * Map backend forecast to local SavedForecast format
  */
 export function mapBackendToLocal(backendForecast: any): any {
-  // Map drivers and convert researchResults back to agents for frontend
+  // Map drivers - keep both agents and researchResults as separate fields
   const drivers = (backendForecast.drivers || []).map((driver: any) => ({
     ...driver,
-    agents: driver.researchResults || driver.agents || [],
+    agents: driver.agents || [],
+    researchResults: driver.researchResults || [],
   }));
 
   return {
@@ -287,13 +288,15 @@ export async function addDriverWithSync(
   try {
     console.log(`[BackendSync] Adding driver to forecast ${forecastId}...`);
 
-    // Map agents → researchResults for backend
+    // Backend expects both agents and researchResults
+    // Keep both fields - they serve different purposes:
+    // - agents: configuration (what to research, when)
+    // - researchResults: outputs (point-in-time research snapshots)
     const backendDriverData = {
       ...driverData,
-      researchResults: driverData.agents || [],
+      agents: driverData.agents || [],
+      researchResults: driverData.researchResults || [],
     };
-    // Remove agents field to avoid confusion
-    delete backendDriverData.agents;
 
     const result = await researchService.addDriver(
       forecastId,
