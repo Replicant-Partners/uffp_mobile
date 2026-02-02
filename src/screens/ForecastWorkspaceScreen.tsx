@@ -689,6 +689,26 @@ export default function ForecastWorkspaceScreen() {
               context.contextualInsights = insights;
               context.coachingNote = `IMPORTANT: Share ${insights.length} proactive insight(s) with the user to improve their forecast quality.`;
             }
+
+            // Check if decomposition would help
+            const { shouldSuggestDecomposition, suggestCalibrationExercise } =
+              await import("../services/fermiDecomposition");
+            const decompCheck = shouldSuggestDecomposition(activeForecast);
+            if (decompCheck.suggest) {
+              context.decompositionSuggestion = {
+                reason: decompCheck.reason,
+                command:
+                  "Type /decompose to see strategies for breaking this down",
+              };
+            }
+
+            // Add calibration tip if relevant
+            const calibrationTip = suggestCalibrationExercise(
+              activeForecast.question,
+            );
+            if (calibrationTip) {
+              context.calibrationTip = calibrationTip;
+            }
           }
 
           // Call AI backend
@@ -2986,6 +3006,62 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
+    // Handle /decompose command - suggest strategies for breaking down the question
+    if (trimmed === "/decompose") {
+      if (!activeForecast) {
+        setError("No active forecast to decompose. Type /question first.");
+        setCommandInput("");
+        return;
+      }
+
+      setCommandInput("");
+      setFermiChatExpanded(true);
+      setFermiThinking(true);
+
+      try {
+        const { suggestDecompositions, generateDecompositionTemplate } =
+          await import("../services/fermiDecomposition");
+
+        const suggestions = suggestDecompositions(activeForecast.question);
+
+        let decompMessage = `🎯 **Decomposition Strategies for:**\n_"${activeForecast.question}"_\n\n`;
+        decompMessage += `Here are ${suggestions.length} recommended approaches to break down this forecast:\n\n`;
+
+        suggestions.forEach((suggestion, i) => {
+          decompMessage += `### ${i + 1}. ${suggestion.strategy.name}\n\n`;
+          decompMessage += `${suggestion.reasoning}\n\n`;
+          decompMessage += `**Key factors to consider:** ${suggestion.applicableFactors.join(", ")}\n\n`;
+          decompMessage += `**Approach:**\n`;
+          suggestion.strategy.steps.forEach((step, j) => {
+            decompMessage += `${j + 1}. ${step}\n`;
+          });
+
+          if (suggestion.strategy.example) {
+            decompMessage += `\n_Example: ${suggestion.strategy.example}_\n`;
+          }
+
+          decompMessage += `\n`;
+        });
+
+        decompMessage += `---\n\n`;
+        decompMessage += `💡 **Next steps:**\n`;
+        decompMessage += `• Pick a strategy that fits your question\n`;
+        decompMessage += `• Use /driver to create drivers for each step\n`;
+        decompMessage += `• Ask me for help refining any step\n`;
+
+        await addFermiMessage("/decompose", decompMessage);
+      } catch (error) {
+        console.error("[Decompose] Failed:", error);
+        await addFermiMessage(
+          "/decompose",
+          "❌ Failed to generate decomposition suggestions. Please try again.",
+        );
+      } finally {
+        setFermiThinking(false);
+      }
+      return;
+    }
+
     // Handle numbered driver selection (e.g., "1", "2", "3")
     if (/^\d+$/.test(trimmed)) {
       const index = parseInt(trimmed, 10) - 1; // Convert to 0-indexed
@@ -3664,6 +3740,11 @@ Type a command to get started!`;
         { key: "simulate", label: "/simulate", desc: "Run simulation" },
         { key: "run", label: "/run @agent", desc: "Execute research agent" },
         { key: "review", label: "/review", desc: "Analyze forecast quality" },
+        {
+          key: "decompose",
+          label: "/decompose",
+          desc: "Break down the question",
+        },
       );
 
       // Show expire command if forecast has a probability and isn't resolved yet
