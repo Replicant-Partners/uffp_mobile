@@ -1468,8 +1468,8 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
-    // /agents - list all available research agents
-    if (trimmed === "/agents") {
+    // /agent-list - list all available research agents
+    if (trimmed === "/agent-list") {
       const agentList = [
         { name: "research_analyst", description: "Deep research with citations, quantitative focus", icon: "📊" },
         { name: "sentiment_monitor", description: "Social listening and sentiment scoring", icon: "💭" },
@@ -1503,7 +1503,7 @@ export default function ForecastWorkspaceScreen() {
         description: agent.description,
       }));
 
-      await addFermiMessage("/agents", agentsText, agentSuggestions);
+      await addFermiMessage("/agent-list", agentsText, agentSuggestions);
       setCommandInput("");
       return;
     }

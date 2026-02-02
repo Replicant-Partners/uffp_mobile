@@ -574,13 +574,13 @@ export const COMMANDS: Record<string, Command> = {
     },
   },
 
-  agents: {
-    name: "agents",
-    syntax: "/agents",
+  "agent-list": {
+    name: "agent-list",
+    syntax: "/agent-list",
     description: "List all available research agents",
     contexts: ["any"],
     category: "help",
-    examples: ["/agents"],
+    examples: ["/agent-list"],
     execute: async (args, state) => {
       return {
         success: true,
