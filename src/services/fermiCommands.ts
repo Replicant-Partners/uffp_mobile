@@ -573,6 +573,21 @@ export const COMMANDS: Record<string, Command> = {
       };
     },
   },
+
+  agents: {
+    name: "agents",
+    syntax: "/agents",
+    description: "List all available research agents",
+    contexts: ["any"],
+    category: "help",
+    examples: ["/agents"],
+    execute: async (args, state) => {
+      return {
+        success: true,
+        message: "Listing all available research agents...",
+      };
+    },
+  },
 };
 
 /**

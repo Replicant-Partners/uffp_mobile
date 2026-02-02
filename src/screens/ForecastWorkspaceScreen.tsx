@@ -1468,6 +1468,46 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
+    // /agents - list all available research agents
+    if (trimmed === "/agents") {
+      const agentList = [
+        { name: "research_analyst", description: "Deep research with citations, quantitative focus", icon: "📊" },
+        { name: "sentiment_monitor", description: "Social listening and sentiment scoring", icon: "💭" },
+        { name: "competitive_intel", description: "Competitor tracking and benchmarking", icon: "🔍" },
+        { name: "financial_analyst", description: "Financial statement analysis and modeling", icon: "💰" },
+        { name: "market_researcher", description: "Market sizing and industry analysis", icon: "📈" },
+        { name: "expert_synthesizer", description: "Synthesize expert opinions and predictions", icon: "🎓" },
+        { name: "regulatory_monitor", description: "Track regulatory and policy changes", icon: "⚖️" },
+        { name: "growth_signals", description: "Monitor user adoption and growth metrics", icon: "📱" },
+        { name: "hiring_tracker", description: "Track hiring trends and team growth", icon: "👥" },
+        { name: "pricing_intel", description: "Monitor pricing and cost trends", icon: "💵" },
+        { name: "technology_validator", description: "Validate technology feasibility and launch readiness", icon: "🔧" },
+      ];
+
+      let agentsText = `🤖 Available Research Agents (${agentList.length})\n\n`;
+      agentsText += `All agents use Claude Sonnet 4.5\n\n`;
+
+      agentList.forEach(agent => {
+        agentsText += `${agent.icon} @${agent.name}\n`;
+        agentsText += `   ${agent.description}\n\n`;
+      });
+
+      agentsText += `💡 Usage:\n`;
+      agentsText += `• Type @agent_name to attach to current driver\n`;
+      agentsText += `• Ask @fermi which agent to use for your forecast\n`;
+
+      // Create clickable chips for popular agents
+      const agentSuggestions: CommandSuggestion[] = agentList.slice(0, 6).map(agent => ({
+        key: agent.name,
+        label: `@${agent.name}`,
+        description: agent.description,
+      }));
+
+      await addFermiMessage("/agents", agentsText, agentSuggestions);
+      setCommandInput("");
+      return;
+    }
+
     // /cancel - exit any config mode
     if (trimmed === "/cancel") {
       if (agentBeingConfigured) {
