@@ -1060,8 +1060,25 @@ export default function ForecastWorkspaceScreen() {
     if (!driverBeingConfigured || !activeForecast) return;
 
     // Validate configuration
+    console.log(
+      "[SaveDriver] Validating driver:",
+      JSON.stringify({
+        name: driverBeingConfigured.name,
+        type: driverBeingConfigured.type,
+        probability: driverBeingConfigured.probability,
+        hasAgents: !!driverBeingConfigured.agents,
+        agentCount: driverBeingConfigured.agents?.length || 0,
+      }),
+    );
+
     const validation = validateDriverConfig(driverBeingConfigured);
     if (!validation.valid) {
+      console.error(
+        "[SaveDriver] Validation failed:",
+        validation.errors,
+        "Driver object:",
+        driverBeingConfigured,
+      );
       setError(`Cannot save: ${validation.errors.join(", ")}`);
       return;
     }
