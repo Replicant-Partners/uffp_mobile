@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   ScrollView,
+  Image,
 } from "react-native";
 import { authService } from "../services/authService";
 
@@ -93,7 +94,11 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.content}>
-          <Text style={styles.logo}>🔮 UFFP</Text>
+          <Image
+            source={require("../../assets/tealeaves2.png")}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
           <Text style={styles.subtitle}>Universal Forecasting Platform</Text>
 
           <View style={styles.card}>
@@ -226,6 +231,12 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     width: "100%",
     alignSelf: "center",
+  },
+  logoImage: {
+    width: 200,
+    height: 200,
+    alignSelf: "center",
+    marginBottom: 16,
   },
   logo: {
     fontSize: 48,
