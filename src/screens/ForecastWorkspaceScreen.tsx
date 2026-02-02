@@ -3561,6 +3561,7 @@ Type a command to get started!`;
         { key: "grounding", label: "/grounding", desc: "Set grounding type" },
         { key: "setprob", label: "/setprob", desc: "Set probability (0-100)" },
         { key: "simulate", label: "/simulate", desc: "Run simulation" },
+        { key: "run", label: "/run @agent", desc: "Execute research agent" },
       );
 
       // Show expire command if forecast has a probability and isn't resolved yet
