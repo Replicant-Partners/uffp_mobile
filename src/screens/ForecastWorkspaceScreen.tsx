@@ -3620,6 +3620,7 @@ Type a command to get started!`;
           label: "@fermi",
           desc: "🦊 Ask your forecasting coach",
         },
+        { key: "run", label: "/run @agent", desc: "Execute agent research" },
         { key: "save", label: "/save", desc: "Save driver" },
         { key: "cancel", label: "/cancel", desc: "Cancel" },
       );
@@ -4281,6 +4282,19 @@ Type a command to get started!`;
         {agentBeingConfigured && (
           <View style={styles.configSection}>
             <Text style={styles.sectionLabel}>Configuring Agent</Text>
+            {driverBeingConfigured && (
+              <View style={styles.driverContextCard}>
+                <Text style={styles.driverContextLabel}>For Driver:</Text>
+                <Text style={styles.driverContextName}>
+                  {driverBeingConfigured.name}
+                </Text>
+                {driverBeingConfigured.aiRecommendation?.reasoning && (
+                  <Text style={styles.driverContextDesc}>
+                    {driverBeingConfigured.aiRecommendation.reasoning}
+                  </Text>
+                )}
+              </View>
+            )}
             <View style={styles.agentConfigCard}>
               <Text style={styles.agentName}>@{agentBeingConfigured.name}</Text>
               <Text style={styles.agentDetails}>
@@ -5798,6 +5812,33 @@ const styles = StyleSheet.create({
   agentDetails: {
     fontSize: 12,
     color: "#928374",
+  },
+  driverContextCard: {
+    backgroundColor: "#32302f",
+    padding: 12,
+    borderRadius: 6,
+    marginBottom: 8,
+    borderLeftWidth: 2,
+    borderLeftColor: "#83a598",
+  },
+  driverContextLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#928374",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  driverContextName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#83a598",
+    marginBottom: 4,
+  },
+  driverContextDesc: {
+    fontSize: 11,
+    color: "#a89984",
+    fontStyle: "italic",
   },
   sectionLabel: {
     fontSize: 11,
