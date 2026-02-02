@@ -1246,6 +1246,39 @@ export default function ForecastWorkspaceScreen() {
       }
 
       setDriverBeingConfigured(null);
+
+      // Show next-step suggestions
+      const driverCount = activeForecast.drivers.length;
+      const nextSteps = [];
+
+      if (driverCount < 3) {
+        nextSteps.push({
+          key: "driver",
+          label: "/driver ",
+          desc: "Add another driver",
+        });
+      }
+
+      if (driverCount >= 2) {
+        nextSteps.push({
+          key: "simulate",
+          label: "/simulate",
+          desc: "Run simulation",
+        });
+      }
+
+      nextSteps.push({
+        key: "review",
+        label: "/review",
+        desc: "Review forecast quality",
+      });
+
+      await addFermiMessage(
+        "/save",
+        `✓ Driver saved: ${updatedDriver.name}\n\nForecast now has ${driverCount} driver(s).${driverCount >= 2 ? "\n\nReady to simulate!" : "\n\nConsider adding 1-2 more drivers for better calibration."}`,
+        nextSteps,
+      );
+
       setError("");
     } catch (err: any) {
       console.error("Failed to save driver:", err);
