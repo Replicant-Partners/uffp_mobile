@@ -892,7 +892,7 @@ export default function ForecastWorkspaceScreen() {
           guidance = `🦊 @fermi — Concept Explanation\n\n`;
           guidance += `📖 ${userQuery}:\n\n`;
           guidance += conceptMatch;
-          guidance += `\n\n💬 Ask me about other concepts or type /help for commands!`;
+          guidance += `\n\n💬 Ask me about other concepts or type /commands for commands!`;
           await addFermiMessage(queryText, guidance);
           return;
         }
@@ -1052,7 +1052,7 @@ export default function ForecastWorkspaceScreen() {
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
       await addFermiMessage(
         userQuery || "help",
-        `🦊 Oops! Something went wrong: ${errorMsg}\n\nTry asking again or type /help for commands.`,
+        `🦊 Oops! Something went wrong: ${errorMsg}\n\nTry asking again or type /commands for commands.`,
       );
     }
   };
@@ -1603,7 +1603,7 @@ export default function ForecastWorkspaceScreen() {
     // GLOBAL COMMANDS - work in any context
 
     // /commands - always available, context-aware command reference
-    if (trimmed === "/commands" || trimmed === "/help" || trimmed === "/-h") {
+    if (trimmed === "/commands" || trimmed === "/-h") {
       const { getAvailableCommands } =
         await import("../services/fermiCommands");
       const commandContext = getCurrentContext();
@@ -3262,47 +3262,6 @@ export default function ForecastWorkspaceScreen() {
         setLoading(false);
         setProcessingAction("");
       }
-      return;
-    }
-
-    // Handle /commands command
-    if (trimmed === "/commands" || trimmed === "/help") {
-      const helpText = `Available commands:
-
-/question <text> - Start a new forecast
-/list [all|active|expired] - Show forecasts
-/driver <name> - Add a driver
-/simulate - Run simulation
-/external <reference class> - Set external view
-/premortem - Enable premortem mode
-@fermi - Get coaching help
-
-Type a command to get started!`;
-
-      // Create clickable command suggestions
-      const commandSuggestions: CommandSuggestion[] = [
-        {
-          key: "question",
-          label: "/question ",
-          description: "Start new forecast",
-        },
-        { key: "list", label: "/list", description: "Show forecasts" },
-        { key: "driver", label: "/driver ", description: "Add a driver" },
-        { key: "simulate", label: "/simulate", description: "Run simulation" },
-        {
-          key: "external",
-          label: "/external ",
-          description: "Set external view",
-        },
-        {
-          key: "premortem",
-          label: "/premortem",
-          description: "Enable premortem",
-        },
-      ];
-
-      await addFermiMessage("/help", helpText, commandSuggestions);
-      setCommandInput("");
       return;
     }
 

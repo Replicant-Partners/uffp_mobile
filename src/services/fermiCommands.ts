@@ -71,58 +71,6 @@ export const COMMANDS: Record<string, Command> = {
       };
     },
   },
-  help: {
-    name: "help",
-    syntax: "/help [command]",
-    description: "Alias for /commands (for muscle memory)",
-    contexts: ["any"],
-    category: "help",
-    examples: ["/help", "/help /p"],
-    execute: async (args, state) => {
-      if (args.length > 0) {
-        // Help for specific command
-        const cmdName = args[0].replace("/", "");
-        const cmd = COMMANDS[cmdName];
-        if (cmd) {
-          return {
-            success: true,
-            message: `📖 ${cmd.syntax}\n\n${cmd.description}\n\n✨ Examples:\n${cmd.examples.map((e) => `  ${e}`).join("\n")}\n\n📍 Valid in: ${cmd.contexts.join(", ")}`,
-          };
-        } else {
-          return {
-            success: false,
-            message: `Command '${args[0]}' not found. Type /-h to see all commands.`,
-          };
-        }
-      }
-
-      // Show all commands grouped by category
-      const { context } = state;
-      const available = Object.values(COMMANDS).filter(
-        (cmd) => cmd.contexts.includes("any") || cmd.contexts.includes(context),
-      );
-
-      const byCategory: Record<string, Command[]> = {};
-      available.forEach((cmd) => {
-        if (!byCategory[cmd.category]) byCategory[cmd.category] = [];
-        byCategory[cmd.category].push(cmd);
-      });
-
-      let message = `📚 Available Commands (context: ${context})\n\n`;
-
-      for (const [category, cmds] of Object.entries(byCategory)) {
-        message += `**${category.toUpperCase()}**\n`;
-        cmds.forEach((cmd) => {
-          message += `  ${cmd.syntax} - ${cmd.description}\n`;
-        });
-        message += "\n";
-      }
-
-      message += `💡 Tip: Click any command to use it, or type /help <command> for details`;
-
-      return { success: true, message };
-    },
-  },
 
   // Forecast commands
   question: {
