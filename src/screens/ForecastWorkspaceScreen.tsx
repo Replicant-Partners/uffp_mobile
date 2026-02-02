@@ -1414,30 +1414,49 @@ export default function ForecastWorkspaceScreen() {
   const processSingleCommand = async (trimmed: string) => {
     // GLOBAL COMMANDS - work in any context
 
-    // /help - always available
+    // /help - always available, context-aware
     if (trimmed === "/help" || trimmed === "/-h") {
-      const helpText = `Available commands:
+      const { getAvailableCommands } = await import("../services/fermiCommands");
+      const commandContext = getCurrentContext();
+      const availableCommands = getAvailableCommands(commandContext);
 
-/question <text> - Start a new forecast
-/list [all|active|expired] - Show forecasts
-/driver <name> - Add a driver
-/simulate - Run simulation
-/external <reference class> - Set external view
-/premortem - Enable premortem mode
-@fermi - Get coaching help
+      // Group by category
+      const byCategory: Record<string, typeof availableCommands> = {};
+      availableCommands.forEach(cmd => {
+        if (!byCategory[cmd.category]) byCategory[cmd.category] = [];
+        byCategory[cmd.category].push(cmd);
+      });
 
-Type a command to get started!`;
+      // Build rich help text
+      let helpText = `📚 Available Commands (${commandContext})\n\n`;
 
-      const commandSuggestions: CommandSuggestion[] = [
-        {
-          key: "question",
-          label: "/question ",
-          description: "Start new forecast",
-        },
-        { key: "list", label: "/list", description: "Show forecasts" },
-        { key: "driver", label: "/driver ", description: "Add a driver" },
-        { key: "simulate", label: "/simulate", description: "Run simulation" },
-      ];
+      const categoryEmoji: Record<string, string> = {
+        forecast: "🎯",
+        driver: "📊",
+        agent: "🤖",
+        help: "❓",
+        system: "⚙️",
+      };
+
+      for (const [category, cmds] of Object.entries(byCategory)) {
+        const emoji = categoryEmoji[category] || "•";
+        helpText += `${emoji} ${category.toUpperCase()}\n`;
+        cmds.forEach(cmd => {
+          helpText += `  ${cmd.syntax}\n  → ${cmd.description}\n\n`;
+        });
+      }
+
+      helpText += `💡 Tip: Type command + space to see autocomplete\n`;
+      helpText += `🦊 For help: @fermi <your question>\n`;
+
+      // Create clickable suggestions for most common commands
+      const commandSuggestions: CommandSuggestion[] = availableCommands
+        .slice(0, 6)
+        .map(cmd => ({
+          key: cmd.name,
+          label: cmd.syntax.split(" ")[0] + (cmd.syntax.includes("<") ? " " : ""),
+          description: cmd.description,
+        }));
 
       await addFermiMessage("/help", helpText, commandSuggestions);
       setCommandInput("");
