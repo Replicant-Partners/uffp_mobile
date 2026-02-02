@@ -108,6 +108,12 @@ export function mapLocalToBackend(localForecast: any): any {
  * Map backend forecast to local SavedForecast format
  */
 export function mapBackendToLocal(backendForecast: any): any {
+  // Map drivers and convert researchResults back to agents for frontend
+  const drivers = (backendForecast.drivers || []).map((driver: any) => ({
+    ...driver,
+    agents: driver.researchResults || driver.agents || [],
+  }));
+
   return {
     id: backendForecast.id,
     question: backendForecast.question,
@@ -115,7 +121,7 @@ export function mapBackendToLocal(backendForecast: any): any {
     timeframe: backendForecast.timeframe,
     grounding: backendForecast.grounding,
     probability: backendForecast.probability,
-    drivers: backendForecast.drivers || [],
+    drivers,
     simulations: backendForecast.simulations || [], // IMPORTANT: Map simulations array for charts
     createdAt: backendForecast.createdAt,
     updatedAt: backendForecast.updatedAt,
