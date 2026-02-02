@@ -190,11 +190,20 @@ class ResearchService {
       forecastId?: string;
       stage?: string;
       conversationHistory?: any[];
+      [key: string]: any;
     },
   ): Promise<any> {
+    // Extract stage and conversationHistory, rest goes into context
+    const { stage, conversationHistory, ...contextData } = context || {};
+
     const response = await this.makeRequest("/coach/chat", {
       method: "POST",
-      body: JSON.stringify({ message, ...context }),
+      body: JSON.stringify({
+        stage: stage || "review",
+        context: contextData,
+        userMessage: message,
+        conversationHistory: conversationHistory || [],
+      }),
     });
     return response.json();
   }
