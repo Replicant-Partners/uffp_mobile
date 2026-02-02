@@ -124,7 +124,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
       );
 
-      const tokens = await tokenResponse.json();
+      const tokens: any = await tokenResponse.json();
 
       // Get user info
       const userResponse = await fetch("https://api.github.com/user", {
@@ -147,7 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             },
           },
         );
-        const emails = await emailResponse.json();
+        const emails: any = await emailResponse.json();
         userInfo.email =
           emails.find((e: any) => e.primary)?.email || emails[0]?.email;
       }
@@ -222,7 +222,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       res.setHeader("Content-Type", "text/html");
       return res.status(200).send(html);
-    } catch (error: any) {
+    } catch (dbError: any) {
+      console.error("Database error:", dbError);
+      return res.status(500).json({
+        success: false,
+        error: "Database error during OAuth",
+      });
+    }
+  } catch (error: any) {
     console.error("OAuth error:", error);
 
     // Return user-friendly HTML error page

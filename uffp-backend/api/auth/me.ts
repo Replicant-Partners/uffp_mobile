@@ -110,7 +110,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           },
         },
       });
-    } catch (error: any) {
+    } catch (dbError: any) {
+      console.error("Database error:", dbError);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to fetch user data",
+      });
+    }
+  } catch (error: any) {
     console.error("Get user error:", error);
     return res.status(401).json({
       success: false,
