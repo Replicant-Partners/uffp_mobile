@@ -3871,7 +3871,6 @@ export default function ForecastWorkspaceScreen() {
         { key: "decompose", label: "/decompose", desc: "Break down the question" },
       );
     }
-    }
 
     return hints.filter(
       (h) => h.label.includes(query) || h.desc.toLowerCase().includes(query),
