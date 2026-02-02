@@ -1359,6 +1359,36 @@ export default function ForecastWorkspaceScreen() {
   };
 
   const processSingleCommand = async (trimmed: string) => {
+    // Check for unsaved changes before allowing navigation commands
+    const navigationCommands = [
+      "/question",
+      "/list",
+      "/driver",
+      "/simulate",
+      "/review",
+      "/decompose",
+      "/expire",
+    ];
+    const isNavigationCommand = navigationCommands.some((cmd) =>
+      trimmed.startsWith(cmd),
+    );
+
+    if (
+      (driverBeingConfigured || agentBeingConfigured) &&
+      isNavigationCommand
+    ) {
+      const configType = agentBeingConfigured ? "agent" : "driver";
+      const configName = agentBeingConfigured
+        ? agentBeingConfigured.name
+        : driverBeingConfigured?.name;
+
+      setError(
+        `⚠️ You have unsaved ${configType} configuration: "${configName}"\n\nType /save to commit changes, or /cancel to discard.`,
+      );
+      setCommandInput("");
+      return;
+    }
+
     // GLOBAL COMMANDS - work in any context
 
     // /commands - always available, context-aware command reference
@@ -1942,13 +1972,7 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
-      // /cancel - cancel agent config
-      if (trimmed === "/cancel") {
-        setAgentBeingConfigured(null);
-        setCommandInput("");
-        setError("");
-        return;
-      }
+      // Note: /cancel is handled by global handler above which shows confirmation
     }
 
     // Handle @agent mentions outside of driver config context
@@ -2287,12 +2311,7 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
-      // /cancel - cancel driver configuration
-      if (trimmed === "/cancel") {
-        cancelDriverConfiguration();
-        setCommandInput("");
-        return;
-      }
+      // Note: /cancel is handled by global handler above which shows confirmation
     }
 
     // Handle /privacy command - set forecast privacy level
