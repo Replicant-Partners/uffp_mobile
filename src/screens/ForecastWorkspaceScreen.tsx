@@ -4845,11 +4845,65 @@ export default function ForecastWorkspaceScreen() {
                     </View>
                   </View>
                 )}
+
+              {/* Evidence Display in Driver Config */}
+              {driverBeingConfigured.evidence &&
+                driverBeingConfigured.evidence.length > 0 && (
+                  <View style={styles.evidenceSection}>
+                    <Text style={styles.evidenceLabel}>
+                      📚 Evidence ({driverBeingConfigured.evidence.length}):
+                    </Text>
+                    {driverBeingConfigured.evidence.map(
+                      (ev: any, idx: number) => {
+                        const evidenceKey = `config-${idx}`;
+                        const isExpanded = expandedEvidence.has(evidenceKey);
+
+                        return (
+                          <TouchableOpacity
+                            key={idx}
+                            style={styles.evidenceItem}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              const newExpanded = new Set(expandedEvidence);
+                              if (isExpanded) {
+                                newExpanded.delete(evidenceKey);
+                              } else {
+                                newExpanded.add(evidenceKey);
+                              }
+                              setExpandedEvidence(newExpanded);
+                            }}
+                          >
+                            <View style={styles.evidenceHeader}>
+                              <Text style={styles.evidenceSource}>
+                                @{ev.source} ·{" "}
+                                {new Date(ev.timestamp).toLocaleDateString()}
+                              </Text>
+                              <Text style={styles.expandIndicator}>
+                                {isExpanded ? "▼" : "▶"}
+                              </Text>
+                            </View>
+                            <Text
+                              style={styles.evidenceSummary}
+                              numberOfLines={isExpanded ? undefined : 2}
+                            >
+                              {ev.summary}
+                            </Text>
+                            {ev.linkPreview && (
+                              <LinkPreviewCard preview={ev.linkPreview} />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      },
+                    )}
+                  </View>
+                )}
+
               <Text style={styles.configHint}>
                 {driverBeingConfigured.type === "continuous"
                   ? "Commands: /type (continuous|binary) · /dist (triangular|normal|lognormal) · /p <p5> <p50> <p95> · /direction (increases|decreases)"
                   : "Commands: /type (continuous|binary) · /prob <0-100>"}
-                {"\n"}Type @ to add research agent · /save to finish
+                {"\n"}Type @ to add research agent · /evidence to add evidence ·
+                /save to finish
               </Text>
             </View>
           </View>
