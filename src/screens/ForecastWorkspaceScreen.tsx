@@ -4068,9 +4068,15 @@ export default function ForecastWorkspaceScreen() {
                 `💡 This gives us a starting point based on ${newForecast.externalView.source || "historical analysis"}. ` +
                 `As you add drivers and evidence, we'll refine this estimate.\n\n` +
                 `**Next steps:**\n` +
+                `• Use \`/decompose\` to break down the question into key factors\n` +
                 `• Use \`/driver\` to add your first driver\n` +
                 `• Use \`/base-rate\` if you want to override with your own research`,
               [
+                {
+                  key: "decompose",
+                  label: "/decompose",
+                  desc: "Break down question",
+                },
                 {
                   key: "driver",
                   label: "/driver ",
@@ -4090,9 +4096,15 @@ export default function ForecastWorkspaceScreen() {
               `✓ **Forecast created!**\n\n` +
                 `Your forecast "${newForecast.question}" is ready.\n\n` +
                 `**Next steps:**\n` +
+                `• Use \`/decompose\` to break down the question into key factors\n` +
                 `• Use \`/driver\` to decompose this into key drivers\n` +
                 `• Use \`/base-rate\` to add an external view base rate`,
               [
+                {
+                  key: "decompose",
+                  label: "/decompose",
+                  desc: "Break down question",
+                },
                 {
                   key: "driver",
                   label: "/driver ",
