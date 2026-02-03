@@ -1136,6 +1136,187 @@ const scenarios: TestScenario[] = [
       return { valid: true };
     },
   },
+
+  {
+    name: "Evidence with link previews persists across reload",
+    description:
+      "When evidence with link preview is added to a driver, both evidence and linkPreview fields must persist when reloading from backend via mapBackendToLocal",
+    setup: () => ({
+      command: "/evidence https://example.com This is relevant evidence",
+      forecastId: "fct_abc123",
+      driverId: "drv_xyz789",
+      evidenceBefore: [],
+      evidenceAfter: [
+        {
+          type: "url",
+          source: "user",
+          summary: "https://example.com This is relevant evidence",
+          timestamp: new Date().toISOString(),
+          linkPreview: {
+            url: "https://example.com",
+            title: "Example Domain",
+            description: "This domain is for use in illustrative examples",
+            image: "https://example.com/image.png",
+            favicon: "https://example.com/favicon.ico",
+            fetchedAt: new Date().toISOString(),
+          },
+        },
+      ],
+      // Backend save called
+      backendSyncCalled: true,
+      backendResponse: {
+        success: true,
+        forecast: {
+          id: "fct_abc123",
+          question: "Test",
+          drivers: [
+            {
+              id: "drv_xyz789",
+              name: "Test Driver",
+              type: "binary",
+              probability: 0.5,
+              evidence: [
+                {
+                  type: "url",
+                  source: "user",
+                  summary: "https://example.com This is relevant evidence",
+                  timestamp: new Date().toISOString(),
+                  linkPreview: {
+                    url: "https://example.com",
+                    title: "Example Domain",
+                    description:
+                      "This domain is for use in illustrative examples",
+                    image: "https://example.com/image.png",
+                    favicon: "https://example.com/favicon.ico",
+                    fetchedAt: new Date().toISOString(),
+                  },
+                },
+              ],
+              agents: [],
+              researchResults: [],
+            },
+          ],
+        },
+        fromBackend: true,
+      },
+      // After reload via mapBackendToLocal
+      forecastAfterReload: {
+        id: "fct_abc123",
+        question: "Test",
+        drivers: [
+          {
+            id: "drv_xyz789",
+            name: "Test Driver",
+            type: "binary",
+            probability: 0.5,
+            evidence: [
+              {
+                type: "url",
+                source: "user",
+                summary: "https://example.com This is relevant evidence",
+                timestamp: new Date().toISOString(),
+                linkPreview: {
+                  url: "https://example.com",
+                  title: "Example Domain",
+                  description:
+                    "This domain is for use in illustrative examples",
+                  image: "https://example.com/image.png",
+                  favicon: "https://example.com/favicon.ico",
+                  fetchedAt: new Date().toISOString(),
+                },
+              },
+            ],
+            agents: [],
+            researchResults: [],
+          },
+        ],
+      },
+    }),
+    validate: (state) => {
+      const {
+        backendSyncCalled,
+        backendResponse,
+        forecastAfterReload,
+        driverId,
+      } = state;
+
+      // Check backend was called
+      if (!backendSyncCalled) {
+        return {
+          valid: false,
+          error: `Evidence addition did not sync to backend. Evidence will be lost on reload.`,
+        };
+      }
+
+      // Check backend saved evidence with linkPreview
+      const driverInBackend = backendResponse.forecast.drivers?.find(
+        (d: any) => d.id === driverId,
+      );
+
+      if (!driverInBackend) {
+        return {
+          valid: false,
+          error: `Driver not found in backend response`,
+        };
+      }
+
+      if (!driverInBackend.evidence || driverInBackend.evidence.length === 0) {
+        return {
+          valid: false,
+          error: `Evidence not saved to backend. Bug: updateDriverWithSync not including evidence field.`,
+        };
+      }
+
+      const evidenceInBackend = driverInBackend.evidence[0];
+      if (!evidenceInBackend.linkPreview) {
+        return {
+          valid: false,
+          error: `Evidence saved but linkPreview field missing in backend. Link preview card will not render.`,
+        };
+      }
+
+      // Check mapBackendToLocal preserved evidence and linkPreview
+      const driverAfterReload = forecastAfterReload.drivers?.find(
+        (d: any) => d.id === driverId,
+      );
+
+      if (!driverAfterReload) {
+        return {
+          valid: false,
+          error: `Driver not found after reload`,
+        };
+      }
+
+      if (
+        !driverAfterReload.evidence ||
+        driverAfterReload.evidence.length === 0
+      ) {
+        return {
+          valid: false,
+          error: `Evidence lost after reload! Bug: mapBackendToLocal() not mapping evidence field. This was the actual bug - missing "evidence: driver.evidence || []" in backendSync.ts`,
+        };
+      }
+
+      const evidenceAfterReload = driverAfterReload.evidence[0];
+      if (!evidenceAfterReload.linkPreview) {
+        return {
+          valid: false,
+          error: `Evidence reloaded but linkPreview field missing! Bug: mapBackendToLocal() not preserving nested linkPreview object in evidence array.`,
+        };
+      }
+
+      // Verify linkPreview has required fields
+      const lp = evidenceAfterReload.linkPreview;
+      if (!lp.url || !lp.title) {
+        return {
+          valid: false,
+          error: `linkPreview missing required fields (url, title). Link preview card will fail to render.`,
+        };
+      }
+
+      return { valid: true };
+    },
+  },
 ];
 
 // Run tests

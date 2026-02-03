@@ -645,18 +645,36 @@ export default function ForecastWorkspaceScreen() {
             stage: coachStage,
           };
 
+          // Helper to format driver for coach (convert probabilities to %)
+          const formatDriverForCoach = (driver: any) => {
+            const formatted = { ...driver };
+            if (driver.type === "binary" && driver.probability != null) {
+              formatted.probabilityPercent = Math.round(
+                driver.probability * 100,
+              );
+              formatted.probabilityDisplay = `${formatted.probabilityPercent}%`;
+            }
+            return formatted;
+          };
+
           // Add forecast details if available
           if (activeForecast) {
             context.question = activeForecast.question;
-            context.drivers = activeForecast.drivers;
-            context.probability = activeForecast.probability;
+            // Format drivers with percentage display
+            context.drivers = activeForecast.drivers?.map(formatDriverForCoach);
+            if (activeForecast.probability != null) {
+              context.probabilityPercent = Math.round(
+                activeForecast.probability * 100,
+              );
+              context.probabilityDisplay = `${context.probabilityPercent}%`;
+            }
             context.conversationHistory =
               activeForecast.fermiConversation || [];
           }
 
           // Add driver context if configuring
           if (driverBeingConfigured) {
-            context.currentDriver = driverBeingConfigured;
+            context.currentDriver = formatDriverForCoach(driverBeingConfigured);
           }
 
           // Add agent context if configuring
