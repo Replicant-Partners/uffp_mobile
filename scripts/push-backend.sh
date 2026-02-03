@@ -199,7 +199,15 @@ for file in "${CHANGED_FILES[@]}"; do
 
     # Copy file
     cp "$mobile_file" "$backend_file"
-    echo -e "${GREEN}✓${NC} Copied: $file"
+
+    # Fix import paths for api/ files (mobile uses ../../lib, backend uses ../lib)
+    if [[ "$file" == api/* ]]; then
+      sed -i 's|from "../../lib/|from "../lib/|g' "$backend_file"
+      sed -i "s|from '../../lib/|from '../lib/|g" "$backend_file"
+      echo -e "${GREEN}✓${NC} Copied and fixed imports: $file"
+    else
+      echo -e "${GREEN}✓${NC} Copied: $file"
+    fi
   fi
 done
 

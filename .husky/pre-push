@@ -31,9 +31,9 @@ if [ -n "$BACKEND_FILES_CHANGED" ]; then
   echo ""
 
   # Give user a chance to abort
-  read -p "Continue with push? [y/N] " -n 1 -r
-  echo
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+  printf "Continue with push? [y/N] "
+  read -r REPLY
+  if [ "$REPLY" != "y" ] && [ "$REPLY" != "Y" ]; then
     echo "Push aborted."
     exit 1
   fi
