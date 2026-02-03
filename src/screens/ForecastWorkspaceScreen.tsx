@@ -1153,8 +1153,14 @@ export default function ForecastWorkspaceScreen() {
    * Auto-save driver changes immediately (matches chip behavior)
    * Used by driver configuration commands like /p, /dist, /direction
    */
-  const updateDriverInForecast = (updatedDriver: any) => {
+  const updateDriverInForecast = async (updatedDriver: any) => {
     if (!activeForecast) return;
+
+    console.log(
+      "[updateDriverInForecast] Starting update for driver:",
+      updatedDriver.id,
+      updatedDriver.name,
+    );
 
     const existingIndex = activeForecast.drivers?.findIndex(
       (d: any) => d.id === updatedDriver.id,
@@ -1176,11 +1182,55 @@ export default function ForecastWorkspaceScreen() {
       updatedAt: new Date().toISOString(),
     };
 
+    // Update local state immediately (optimistic update)
     setActiveForecast(updatedForecast);
     setSavedForecasts((prev) =>
       prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
     );
-    saveForecast(updatedForecast);
+
+    // Sync to backend if not local-only forecast
+    if (!activeForecast.id.startsWith("local-")) {
+      console.log(
+        "[updateDriverInForecast] Syncing to backend:",
+        activeForecast.id,
+      );
+      try {
+        const { updateDriverWithSync } = await import("../utils/backendSync");
+        const result = await updateDriverWithSync(
+          activeForecast.id,
+          updatedDriver.id,
+          updatedDriver,
+        );
+
+        if (result.success && result.forecast) {
+          // Backend succeeded - update with backend data
+          console.log("[updateDriverInForecast] Backend sync successful");
+          setActiveForecast(result.forecast);
+          setSavedForecasts((prev) =>
+            prev.map((f) =>
+              f.id === result.forecast.id ? result.forecast : f,
+            ),
+          );
+        } else {
+          console.warn(
+            "[updateDriverInForecast] Backend sync returned no forecast",
+          );
+        }
+      } catch (err) {
+        console.error("[updateDriverInForecast] Backend sync failed:", err);
+        // Optimistic update already applied, user sees change
+        // But show warning that it's not persisted
+        showToast("⚠️ Changes saved locally but not synced to backend");
+      }
+    } else {
+      console.log(
+        "[updateDriverInForecast] Skipping backend sync for local-only forecast",
+      );
+    }
+
+    // Always save to local storage as backup
+    await saveForecast(updatedForecast);
+    console.log("[updateDriverInForecast] Complete");
   };
 
   const saveConfiguredDriver = async (force: boolean = false) => {
@@ -2112,7 +2162,7 @@ export default function ForecastWorkspaceScreen() {
         };
 
         setDriverBeingConfigured(updatedDriver);
-        updateDriverInForecast(updatedDriver);
+        await updateDriverInForecast(updatedDriver);
 
         // Clear agent config and show success
         setAgentBeingConfigured(null);
@@ -2391,7 +2441,7 @@ export default function ForecastWorkspaceScreen() {
             updated.probability = 0.5;
           }
           setDriverBeingConfigured(updated);
-          updateDriverInForecast(updated);
+          await updateDriverInForecast(updated);
           setCommandInput("");
           setError("");
           showToast(`✓ Driver type set to: ${type}`);
@@ -2414,7 +2464,7 @@ export default function ForecastWorkspaceScreen() {
             probability: probPercent / 100, // Convert 0-100 to 0-1
           };
           setDriverBeingConfigured(updated);
-          updateDriverInForecast(updated);
+          await updateDriverInForecast(updated);
           setCommandInput("");
           setError("");
           showToast(`✓ Probability set to: ${probPercent}%`);
@@ -2434,7 +2484,7 @@ export default function ForecastWorkspaceScreen() {
         if (["triangular", "normal", "lognormal"].includes(distribution)) {
           const updated = { ...driverBeingConfigured, distribution };
           setDriverBeingConfigured(updated);
-          updateDriverInForecast(updated);
+          await updateDriverInForecast(updated);
           setCommandInput("");
           setError("");
           showToast(`✓ Distribution set to: ${distribution}`);
@@ -2481,7 +2531,7 @@ export default function ForecastWorkspaceScreen() {
               p95,
             };
             setDriverBeingConfigured(updated);
-            updateDriverInForecast(updated);
+            await updateDriverInForecast(updated);
             setCommandInput("");
             setError("");
             showToast(`✓ Updated p-values: ${p5}, ${p50}, ${p95}`);
@@ -2500,7 +2550,7 @@ export default function ForecastWorkspaceScreen() {
         if (direction === "increases" || direction === "decreases") {
           const updated = { ...driverBeingConfigured, direction };
           setDriverBeingConfigured(updated);
-          updateDriverInForecast(updated);
+          await updateDriverInForecast(updated);
           setCommandInput("");
           setError("");
           showToast(`✓ Direction set to: ${direction}`);
@@ -2681,7 +2731,7 @@ export default function ForecastWorkspaceScreen() {
         };
 
         setDriverBeingConfigured(updatedDriver);
-        updateDriverInForecast(updatedDriver);
+        await updateDriverInForecast(updatedDriver);
         setCommandInput("");
 
         const previewMsg = linkPreview
@@ -3990,7 +4040,7 @@ export default function ForecastWorkspaceScreen() {
         };
 
         setDriverBeingConfigured(updatedDriver);
-        updateDriverInForecast(updatedDriver);
+        await updateDriverInForecast(updatedDriver);
 
         setCommandInput("");
         showToast(`✓ Removed agent: ${removedAgent.name}`);
@@ -4031,7 +4081,7 @@ export default function ForecastWorkspaceScreen() {
         };
 
         setDriverBeingConfigured(updatedDriver);
-        updateDriverInForecast(updatedDriver);
+        await updateDriverInForecast(updatedDriver);
 
         setCommandInput("");
         const evidenceSummary =
@@ -4078,7 +4128,7 @@ export default function ForecastWorkspaceScreen() {
         };
 
         setDriverBeingConfigured(updatedDriver);
-        updateDriverInForecast(updatedDriver);
+        await updateDriverInForecast(updatedDriver);
 
         setCommandInput("");
         const researchSummary =
