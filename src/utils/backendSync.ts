@@ -473,6 +473,56 @@ export async function resolveForecastWithSync(
 }
 
 /**
+ * Update existing driver with backend sync
+ */
+export async function updateDriverWithSync(
+  forecastId: string,
+  driverId: string,
+  updates: any,
+): Promise<{
+  success: boolean;
+  forecast?: any;
+  error?: string;
+}> {
+  // Skip if local-only ID
+  if (forecastId.startsWith("local-")) {
+    console.log("[BackendSync] Skipping driver update for local-only forecast");
+    return { success: false, error: "Cannot sync local-only forecasts" };
+  }
+
+  try {
+    console.log(
+      `[BackendSync] Updating driver ${driverId} in forecast ${forecastId}...`,
+    );
+    const response = await researchService.makeRequest(
+      "/forecasts?action=updateDriver",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          forecastId,
+          driverId,
+          updates,
+        }),
+      },
+    );
+
+    const result = await response.json();
+
+    if (result.success && result.forecast) {
+      const forecast = mapBackendToLocal(result.forecast);
+      console.log(`[BackendSync] Driver updated successfully`);
+      return { success: true, forecast };
+    }
+
+    throw new Error("Backend response invalid");
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error("[BackendSync] Driver update failed:", errorMsg);
+    return { success: false, error: errorMsg };
+  }
+}
+
+/**
  * Set base rate with backend sync
  */
 export async function setBaseRateWithSync(

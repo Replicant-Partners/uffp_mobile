@@ -1298,68 +1298,105 @@ export default function ForecastWorkspaceScreen() {
     setDriverBeingConfigured(updatedDriver); // Update with version info
 
     try {
-      // Try backend sync for backend forecasts (new drivers only)
+      // Try backend sync for backend forecasts (both new and existing drivers)
       let backendSyncSucceeded = false;
+      const shouldSyncToBackend =
+        activeForecast.id && !activeForecast.id.startsWith("local-");
+
       console.log("[SaveDriver] Backend sync check:", {
         isNewDriver,
         forecastId: activeForecast.id,
         isLocalForecast: activeForecast.id?.startsWith("local-"),
-        willAttemptBackendSync:
-          isNewDriver &&
-          activeForecast.id &&
-          !activeForecast.id.startsWith("local-"),
+        willAttemptBackendSync: shouldSyncToBackend,
       });
 
-      if (
-        isNewDriver &&
-        activeForecast.id &&
-        !activeForecast.id.startsWith("local-")
-      ) {
+      if (shouldSyncToBackend) {
         console.log(
-          "[SaveDriver] Attempting backend sync for driver:",
+          `[SaveDriver] Attempting backend sync for ${isNewDriver ? "new" : "existing"} driver:`,
           updatedDriver.name,
         );
         try {
-          // Ensure driver has an ID before sending to backend
-          if (!updatedDriver.id) {
-            updatedDriver.id = idGenerators.driver();
-            console.log(
-              "[SaveDriver] Generated ID for new driver:",
+          if (isNewDriver) {
+            // ADD new driver
+            // Ensure driver has an ID before sending to backend
+            if (!updatedDriver.id) {
+              updatedDriver.id = idGenerators.driver();
+              console.log(
+                "[SaveDriver] Generated ID for new driver:",
+                updatedDriver.id,
+              );
+            }
+
+            const { addDriverWithSync } = await import("../utils/backendSync");
+            const result = await addDriverWithSync(activeForecast.id, {
+              id: updatedDriver.id,
+              name: updatedDriver.name,
+              type: updatedDriver.type,
+              probability: updatedDriver.probability,
+              p5: updatedDriver.p5,
+              p50: updatedDriver.p50,
+              p95: updatedDriver.p95,
+              distribution: updatedDriver.distribution,
+              direction: updatedDriver.direction,
+              reasoning: updatedDriver.reasoning,
+              evidence: updatedDriver.evidence,
+              agents: updatedDriver.agents,
+              version: updatedDriver.version,
+              versionHistory: updatedDriver.versionHistory,
+            });
+
+            if (result.success && result.forecast) {
+              // Backend succeeded - use backend data
+              setActiveForecast(result.forecast);
+
+              // Update savedForecasts so driver appears in /list
+              setSavedForecasts((prev) =>
+                prev.map((f) =>
+                  f.id === result.forecast.id ? result.forecast : f,
+                ),
+              );
+
+              backendSyncSucceeded = true;
+              console.log("Driver added to backend successfully");
+            }
+          } else {
+            // UPDATE existing driver
+            const { updateDriverWithSync } =
+              await import("../utils/backendSync");
+            const result = await updateDriverWithSync(
+              activeForecast.id,
               updatedDriver.id,
-            );
-          }
-
-          const { addDriverWithSync } = await import("../utils/backendSync");
-          const result = await addDriverWithSync(activeForecast.id, {
-            id: updatedDriver.id,
-            name: updatedDriver.name,
-            type: updatedDriver.type,
-            probability: updatedDriver.probability,
-            p5: updatedDriver.p5,
-            p50: updatedDriver.p50,
-            p95: updatedDriver.p95,
-            distribution: updatedDriver.distribution,
-            direction: updatedDriver.direction,
-            reasoning: updatedDriver.reasoning,
-            evidence: updatedDriver.evidence,
-            agents: updatedDriver.agents,
-            version: updatedDriver.version,
-            versionHistory: updatedDriver.versionHistory,
-          });
-
-          if (result.success && result.forecast) {
-            // Backend succeeded - use backend data
-            setActiveForecast(result.forecast);
-
-            // Update savedForecasts so driver appears in /list
-            setSavedForecasts((prev) =>
-              prev.map((f) =>
-                f.id === result.forecast.id ? result.forecast : f,
-              ),
+              {
+                name: updatedDriver.name,
+                type: updatedDriver.type,
+                probability: updatedDriver.probability,
+                p5: updatedDriver.p5,
+                p50: updatedDriver.p50,
+                p95: updatedDriver.p95,
+                distribution: updatedDriver.distribution,
+                direction: updatedDriver.direction,
+                reasoning: updatedDriver.reasoning,
+                evidence: updatedDriver.evidence,
+                agents: updatedDriver.agents,
+                version: updatedDriver.version,
+                versionHistory: updatedDriver.versionHistory,
+              },
             );
 
-            backendSyncSucceeded = true;
-            console.log("Driver added to backend successfully");
+            if (result.success && result.forecast) {
+              // Backend succeeded - use backend data
+              setActiveForecast(result.forecast);
+
+              // Update savedForecasts so updates appear in /list
+              setSavedForecasts((prev) =>
+                prev.map((f) =>
+                  f.id === result.forecast.id ? result.forecast : f,
+                ),
+              );
+
+              backendSyncSucceeded = true;
+              console.log("Driver updated on backend successfully");
+            }
           }
         } catch (err) {
           console.log("Backend sync failed, will save locally:", err);
