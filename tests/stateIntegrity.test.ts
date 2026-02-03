@@ -66,9 +66,9 @@ const scenarios: TestScenario[] = [
   },
 
   {
-    name: "Backend driver sync updates activeForecast",
+    name: "Backend driver sync updates activeForecast AND savedForecasts",
     description:
-      "When a driver is synced to backend, the activeForecast must be updated with the backend response",
+      "When a driver is synced to backend, BOTH activeForecast and savedForecasts must be updated so driver appears in current view AND in /list",
     setup: () => ({
       driverBeingConfigured: {
         name: "Test Driver",
@@ -107,12 +107,38 @@ const scenarios: TestScenario[] = [
           },
         ],
       },
+      savedForecastsBefore: [
+        {
+          id: "fct_abc123",
+          question: "Test",
+          drivers: [],
+        },
+      ],
+      savedForecastsAfter: [
+        {
+          id: "fct_abc123",
+          question: "Test",
+          drivers: [
+            {
+              id: "drv_xyz789",
+              name: "Test Driver",
+              type: "binary",
+              probability: 0.5,
+            },
+          ],
+        },
+      ],
     }),
     validate: (state) => {
-      const { backendResponse, activeForecastAfter, driverBeingConfigured } =
-        state;
+      const {
+        backendResponse,
+        activeForecastAfter,
+        savedForecastsAfter,
+        driverBeingConfigured,
+      } = state;
 
       if (backendResponse.success && backendResponse.forecast) {
+        // Check activeForecast
         const driverInActiveForecast = activeForecastAfter.drivers?.find(
           (d: any) => d.name === driverBeingConfigured.name,
         );
@@ -120,7 +146,30 @@ const scenarios: TestScenario[] = [
         if (!driverInActiveForecast) {
           return {
             valid: false,
-            error: `Driver "${driverBeingConfigured.name}" synced to backend but activeForecast not updated. UI will not show the driver.`,
+            error: `Driver "${driverBeingConfigured.name}" synced to backend but activeForecast not updated. User will not see driver in current view.`,
+          };
+        }
+
+        // Check savedForecasts (CRITICAL - this was the bug)
+        const forecastInSaved = savedForecastsAfter.find(
+          (f: any) => f.id === backendResponse.forecast.id,
+        );
+
+        if (!forecastInSaved) {
+          return {
+            valid: false,
+            error: `Driver synced but forecast ${backendResponse.forecast.id} not in savedForecasts. Driver will disappear when user navigates to /list.`,
+          };
+        }
+
+        const driverInSavedForecast = forecastInSaved.drivers?.find(
+          (d: any) => d.name === driverBeingConfigured.name,
+        );
+
+        if (!driverInSavedForecast) {
+          return {
+            valid: false,
+            error: `Driver "${driverBeingConfigured.name}" synced to backend and in activeForecast, but NOT in savedForecasts. Driver will not appear in /list. This is the bug we just fixed!`,
           };
         }
       }
