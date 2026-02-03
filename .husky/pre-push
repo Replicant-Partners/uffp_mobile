@@ -1,0 +1,40 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Pre-push hook to check backend sync status
+
+# Colors
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# Get list of files being pushed
+FILES_CHANGED=$(git diff --name-only origin/master...HEAD)
+
+# Check if any backend files changed
+BACKEND_FILES_CHANGED=$(echo "$FILES_CHANGED" | grep -E '^(api|lib)/' || true)
+
+if [ -n "$BACKEND_FILES_CHANGED" ]; then
+  echo ""
+  echo -e "${YELLOW}⚠ WARNING: Backend files were modified!${NC}"
+  echo ""
+  echo "Changed backend files:"
+  echo "$BACKEND_FILES_CHANGED" | sed 's/^/  - /'
+  echo ""
+  echo -e "${RED}IMPORTANT: These changes must also be pushed to uffp-backend repo!${NC}"
+  echo ""
+  echo "After this push completes, run:"
+  echo "  ./scripts/push-backend.sh"
+  echo ""
+  echo "Or verify sync status:"
+  echo "  ./scripts/verify-backend-sync.sh"
+  echo ""
+
+  # Give user a chance to abort
+  read -p "Continue with push? [y/N] " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Push aborted."
+    exit 1
+  fi
+fi
