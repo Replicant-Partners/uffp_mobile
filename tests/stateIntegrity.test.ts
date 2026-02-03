@@ -876,6 +876,266 @@ const scenarios: TestScenario[] = [
       return { valid: true };
     },
   },
+
+  {
+    name: "Base rate changes sync to backend",
+    description:
+      "When /base-rate is used, changes must sync to backend via setBaseRateWithSync so they persist across reloads",
+    setup: () => ({
+      command: "/base-rate 45",
+      forecastId: "fct_abc123",
+      backendSyncCalled: true, // setBaseRateWithSync should be called
+      backendResponse: {
+        success: true,
+        forecast: {
+          id: "fct_abc123",
+          question: "Test",
+          externalView: {
+            referenceClass: "Tech startups",
+            baseRate: 0.45,
+            generatedBy: "user",
+          },
+          grounding: "external",
+        },
+      },
+      savedForecastsAfter: [
+        {
+          id: "fct_abc123",
+          question: "Test",
+          externalView: {
+            referenceClass: "Tech startups",
+            baseRate: 0.45,
+            generatedBy: "user",
+          },
+          grounding: "external",
+        },
+      ],
+    }),
+    validate: (state) => {
+      const {
+        backendSyncCalled,
+        backendResponse,
+        savedForecastsAfter,
+        forecastId,
+      } = state;
+
+      // Check that backend sync was called
+      if (!backendSyncCalled) {
+        return {
+          valid: false,
+          error: `Base rate change did not call backend sync. Changes will disappear on reload!`,
+        };
+      }
+
+      // Check backend response has updated base rate
+      if (backendResponse.success && backendResponse.forecast) {
+        if (backendResponse.forecast.externalView?.baseRate !== 0.45) {
+          return {
+            valid: false,
+            error: `Backend sync called but base rate not updated in backend. Expected 0.45, got ${backendResponse.forecast.externalView?.baseRate}`,
+          };
+        }
+      }
+
+      // Check savedForecasts updated with backend data
+      const forecastInSaved = savedForecastsAfter.find(
+        (f: any) => f.id === forecastId,
+      );
+      if (!forecastInSaved) {
+        return {
+          valid: false,
+          error: `Forecast not found in savedForecasts after base rate update`,
+        };
+      }
+
+      if (forecastInSaved.externalView?.baseRate !== 0.45) {
+        return {
+          valid: false,
+          error: `Base rate updated on backend but savedForecasts not synced with backend data. Changes will be lost on reload!`,
+        };
+      }
+
+      return { valid: true };
+    },
+  },
+
+  {
+    name: "External view (reference class) syncs to backend",
+    description:
+      "When /external is used to set reference class, changes must sync to backend so they persist across reloads",
+    setup: () => ({
+      command: "/external SaaS companies in Series B",
+      forecastId: "fct_abc123",
+      backendSyncCalled: true, // setBaseRateWithSync should be called
+      backendResponse: {
+        success: true,
+        forecast: {
+          id: "fct_abc123",
+          question: "Test",
+          externalView: {
+            referenceClass: "SaaS companies in Series B",
+            baseRate: 0.5,
+          },
+          grounding: "external",
+        },
+      },
+      savedForecastsAfter: [
+        {
+          id: "fct_abc123",
+          question: "Test",
+          externalView: {
+            referenceClass: "SaaS companies in Series B",
+            baseRate: 0.5,
+          },
+          grounding: "external",
+        },
+      ],
+    }),
+    validate: (state) => {
+      const {
+        backendSyncCalled,
+        backendResponse,
+        savedForecastsAfter,
+        forecastId,
+      } = state;
+
+      // Check that backend sync was called
+      if (!backendSyncCalled) {
+        return {
+          valid: false,
+          error: `External view change did not call backend sync. Changes will disappear on reload!`,
+        };
+      }
+
+      // Check backend response has updated reference class
+      if (backendResponse.success && backendResponse.forecast) {
+        if (
+          backendResponse.forecast.externalView?.referenceClass !==
+          "SaaS companies in Series B"
+        ) {
+          return {
+            valid: false,
+            error: `Backend sync called but reference class not updated. Expected "SaaS companies in Series B", got "${backendResponse.forecast.externalView?.referenceClass}"`,
+          };
+        }
+      }
+
+      // Check savedForecasts updated with backend data
+      const forecastInSaved = savedForecastsAfter.find(
+        (f: any) => f.id === forecastId,
+      );
+      if (!forecastInSaved) {
+        return {
+          valid: false,
+          error: `Forecast not found in savedForecasts after external view update`,
+        };
+      }
+
+      if (
+        forecastInSaved.externalView?.referenceClass !==
+        "SaaS companies in Series B"
+      ) {
+        return {
+          valid: false,
+          error: `Reference class updated on backend but savedForecasts not synced. Changes will be lost on reload!`,
+        };
+      }
+
+      return { valid: true };
+    },
+  },
+
+  {
+    name: "Driver removal syncs to backend",
+    description:
+      "When /remove driver is used, deletion must sync to backend via removeDriverWithSync so it persists across reloads",
+    setup: () => ({
+      command: "/remove driver Market Conditions",
+      forecastId: "fct_abc123",
+      driverId: "drv_xyz789",
+      backendSyncCalled: true, // removeDriverWithSync should be called
+      backendResponse: {
+        success: true,
+        forecast: {
+          id: "fct_abc123",
+          question: "Test",
+          drivers: [], // Driver removed
+        },
+      },
+      forecastBefore: {
+        id: "fct_abc123",
+        question: "Test",
+        drivers: [
+          {
+            id: "drv_xyz789",
+            name: "Market Conditions",
+            type: "binary",
+            probability: 0.5,
+          },
+        ],
+      },
+      savedForecastsAfter: [
+        {
+          id: "fct_abc123",
+          question: "Test",
+          drivers: [], // Driver removed
+        },
+      ],
+    }),
+    validate: (state) => {
+      const {
+        backendSyncCalled,
+        backendResponse,
+        savedForecastsAfter,
+        forecastId,
+        driverId,
+      } = state;
+
+      // Check that backend sync was called
+      if (!backendSyncCalled) {
+        return {
+          valid: false,
+          error: `Driver removal did not call backend sync. Driver will reappear on reload (zombie driver bug)!`,
+        };
+      }
+
+      // Check backend response has driver removed
+      if (backendResponse.success && backendResponse.forecast) {
+        const driverStillInBackend = backendResponse.forecast.drivers?.find(
+          (d: any) => d.id === driverId,
+        );
+        if (driverStillInBackend) {
+          return {
+            valid: false,
+            error: `Backend sync called but driver still in backend response. Driver will reappear on reload!`,
+          };
+        }
+      }
+
+      // Check savedForecasts updated with backend data (no driver)
+      const forecastInSaved = savedForecastsAfter.find(
+        (f: any) => f.id === forecastId,
+      );
+      if (!forecastInSaved) {
+        return {
+          valid: false,
+          error: `Forecast not found in savedForecasts after driver removal`,
+        };
+      }
+
+      const driverStillInSaved = forecastInSaved.drivers?.find(
+        (d: any) => d.id === driverId,
+      );
+      if (driverStillInSaved) {
+        return {
+          valid: false,
+          error: `Driver removed from backend but still in savedForecasts. Driver will reappear on reload (zombie driver)!`,
+        };
+      }
+
+      return { valid: true };
+    },
+  },
 ];
 
 // Run tests
