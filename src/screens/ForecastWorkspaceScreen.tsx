@@ -1289,11 +1289,25 @@ export default function ForecastWorkspaceScreen() {
     try {
       // Try backend sync for backend forecasts (new drivers only)
       let backendSyncSucceeded = false;
+      console.log("[SaveDriver] Backend sync check:", {
+        isNewDriver,
+        forecastId: activeForecast.id,
+        isLocalForecast: activeForecast.id?.startsWith("local-"),
+        willAttemptBackendSync:
+          isNewDriver &&
+          activeForecast.id &&
+          !activeForecast.id.startsWith("local-"),
+      });
+
       if (
         isNewDriver &&
         activeForecast.id &&
         !activeForecast.id.startsWith("local-")
       ) {
+        console.log(
+          "[SaveDriver] Attempting backend sync for driver:",
+          updatedDriver.name,
+        );
         try {
           const { addDriverWithSync } = await import("../utils/backendSync");
           const result = await addDriverWithSync(activeForecast.id, {
