@@ -2035,6 +2035,16 @@ export default function ForecastWorkspaceScreen() {
           );
           return;
         }
+
+        // Only allow /query during agent configuration, not after agent is saved
+        if (!agentBeingConfigured || !agentBeingConfigured.name) {
+          await addFermiMessage(
+            "/query",
+            "❌ /query is only for configuring new agents.\n\nTo run an existing agent: /run @agent_name",
+          );
+          return;
+        }
+
         setAgentBeingConfigured({ ...agentBeingConfigured, query });
         setCommandInput("");
         setError("");
@@ -2067,6 +2077,16 @@ export default function ForecastWorkspaceScreen() {
       // /schedule <daily|weekly|on-demand>
       if (trimmed.startsWith("/schedule ")) {
         const schedule = trimmed.replace("/schedule ", "").trim();
+
+        // Only allow /schedule during agent configuration, not after agent is saved
+        if (!agentBeingConfigured || !agentBeingConfigured.name) {
+          await addFermiMessage(
+            "/schedule",
+            "❌ /schedule is only for configuring new agents.\n\nTo modify an existing agent, remove and re-add it.",
+          );
+          return;
+        }
+
         if (["daily", "weekly", "on-demand"].includes(schedule)) {
           setAgentBeingConfigured({ ...agentBeingConfigured, schedule });
           setCommandInput("");
