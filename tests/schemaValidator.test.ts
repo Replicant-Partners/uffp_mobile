@@ -592,6 +592,55 @@ function runTests() {
     failed++;
   }
 
+  // Test 17: Evidence must have IDs
+  console.log("✓ Test 17: Evidence items must have IDs");
+  const forecastWithMissingEvidenceId: any = {
+    ...validForecast,
+    drivers: [
+      {
+        id: "drv_test123",
+        name: "Test Driver",
+        type: "binary",
+        direction: "increases",
+        probability: 0.5,
+        agents: [],
+        researchResults: [],
+        evidence: [
+          {
+            // Missing id field - should cause validation error
+            type: "url",
+            content: "https://example.com",
+            source: "Test",
+            confidence: "high",
+            attachedTo: "driver",
+            attachedToId: "drv_test123",
+            timestamp: new Date().toISOString(),
+          },
+        ],
+        version: { major: 1, minor: 0 },
+        versionHistory: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ],
+  };
+
+  const result17 = validateForecast(forecastWithMissingEvidenceId);
+  console.log(formatValidationResults(result17));
+  if (
+    !result17.valid &&
+    result17.errors.some(
+      (e) => e.entity === "Evidence" && e.field === "id" && e.rule === "REQUIRED_FIELD"
+    )
+  ) {
+    console.log("✅ PASSED: Missing evidence ID detected\n");
+    passed++;
+  } else {
+    console.log("❌ FAILED: Missing evidence ID not detected\n");
+    console.log("Errors:", result17.errors);
+    failed++;
+  }
+
   // Summary
   console.log("\n" + "=".repeat(60));
   console.log(`\n📊 Test Summary: ${passed} passed, ${failed} failed\n`);
