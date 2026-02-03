@@ -2553,7 +2553,7 @@ export default function ForecastWorkspaceScreen() {
           }
         }
 
-        setDriverBeingConfigured({
+        const updatedDriver = {
           ...driverBeingConfigured,
           evidence: [
             ...(driverBeingConfigured.evidence || []),
@@ -2566,7 +2566,10 @@ export default function ForecastWorkspaceScreen() {
               linkPreview,
             },
           ],
-        });
+        };
+
+        setDriverBeingConfigured(updatedDriver);
+        updateDriverInForecast(updatedDriver);
         setCommandInput("");
 
         const previewMsg = linkPreview
