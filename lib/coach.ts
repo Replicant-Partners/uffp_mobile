@@ -1,6 +1,6 @@
 /**
  * AI Coach Agent
- * 
+ *
  * Makes forecast creation easy by:
  * - Parsing natural language questions
  * - Suggesting drivers automatically
@@ -9,7 +9,13 @@
  */
 
 interface CoachPromptContext {
-  stage: 'initial' | 'base_rate' | 'drivers' | 'quantify' | 'evidence' | 'review';
+  stage:
+    | "initial"
+    | "base_rate"
+    | "drivers"
+    | "quantify"
+    | "evidence"
+    | "review";
   question?: string;
   domain?: string;
   baseRate?: any;
@@ -20,7 +26,7 @@ interface CoachPromptContext {
 interface CoachResponse {
   message: string;
   suggestions?: {
-    type: 'driver' | 'research' | 'baseRate' | 'evidence';
+    type: "driver" | "research" | "baseRate" | "evidence";
     data: any;
   }[];
   nextStage?: string;
@@ -88,14 +94,14 @@ Now parse: "${userInput}"`;
     return parsed;
   } catch (e) {
     // Fallback if AI parsing fails
-    console.error('[parseQuestion] AI parsing failed, using fallback:', e);
+    console.error("[parseQuestion] AI parsing failed, using fallback:", e);
     return {
-      question: userInput.includes('?') ? userInput : userInput + '?',
-      domain: 'general',
+      question: userInput.includes("?") ? userInput : userInput + "?",
+      domain: "general",
       timeframe: undefined,
       suggestedDrivers: [],
       suggestedResearch: [],
-      confidence: 0.5
+      confidence: 0.5,
     };
   }
 }
@@ -106,19 +112,19 @@ Now parse: "${userInput}"`;
 export async function generateBaseRate(
   question: string,
   domain?: string,
-  timeframe?: string
+  timeframe?: string,
 ): Promise<{
   referenceClass: string;
   baseRate: number;
   source: string;
-  confidence: 'high' | 'medium' | 'low';
+  confidence: "high" | "medium" | "low";
   reasoning: string;
 }> {
   const prompt = `You are an expert forecaster analyzing base rates for predictions.
 
 Question: "${question}"
-Domain: ${domain || 'general'}
-Timeframe: ${timeframe || 'unspecified'}
+Domain: ${domain || "general"}
+Timeframe: ${timeframe || "unspecified"}
 
 Your task: Identify an appropriate reference class and estimate the historical base rate.
 
@@ -185,8 +191,8 @@ Respond in this exact JSON format:
     const parsed = JSON.parse(response);
 
     // Validate the response
-    if (!parsed.referenceClass || typeof parsed.baseRate !== 'number') {
-      throw new Error('Invalid base rate response');
+    if (!parsed.referenceClass || typeof parsed.baseRate !== "number") {
+      throw new Error("Invalid base rate response");
     }
 
     // Ensure baseRate is in valid range
@@ -197,17 +203,17 @@ Respond in this exact JSON format:
     return parsed;
   } catch (e) {
     // Fallback base rate if parsing fails
-    console.error('Failed to parse base rate:', e);
+    console.error("Failed to parse base rate:", e);
     return {
       referenceClass: `General historical cases similar to: ${question}`,
-      baseRate: 0.30,
-      source: 'General historical analysis',
-      confidence: 'low',
-      reasoning: 'Unable to find specific historical data. Using conservative 30% base rate as starting point.'
+      baseRate: 0.3,
+      source: "General historical analysis",
+      confidence: "low",
+      reasoning:
+        "Unable to find specific historical data. Using conservative 30% base rate as starting point.",
     };
   }
 }
-
 
 export async function coachBaseRate(context: {
   question: string;
@@ -215,8 +221,8 @@ export async function coachBaseRate(context: {
   conversationHistory?: { role: string; content: string }[];
 }): Promise<CoachResponse> {
   const history = context.conversationHistory || [];
-  const historyText = history.map(m => `${m.role}: ${m.content}`).join('\n');
-  
+  const historyText = history.map((m) => `${m.role}: ${m.content}`).join("\n");
+
   const prompt = `You are a Superforecaster coach helping someone find a good base rate.
 
 Question: "${context.question}"
@@ -242,11 +248,11 @@ Weather: "For precipitation forecasts, consider: 'days with similar atmospheric 
 Respond conversationally. Keep it short (2-3 sentences). Ask ONE clear question.`;
 
   const response = await callCoachAgent(prompt);
-  
+
   return {
     message: response,
     suggestions: generateBaseRateSuggestions(context.domain),
-    nextStage: 'drivers'
+    nextStage: "drivers",
   };
 }
 
@@ -261,13 +267,13 @@ export async function coachDriverDecomposition(context: {
   conversationHistory?: { role: string; content: string }[];
 }): Promise<CoachResponse> {
   const history = context.conversationHistory || [];
-  const historyText = history.map(m => `${m.role}: ${m.content}`).join('\n');
-  
+  const historyText = history.map((m) => `${m.role}: ${m.content}`).join("\n");
+
   const prompt = `You are a Superforecaster coach helping decompose a forecast into independent drivers.
 
 Question: "${context.question}"
 Domain: ${context.domain}
-${context.baseRate ? `Base rate: ${context.baseRate.successRate}% (${context.baseRate.referenceClass})` : ''}
+${context.baseRate ? `Base rate: ${context.baseRate.successRate}% (${context.baseRate.referenceClass})` : ""}
 
 Conversation so far:
 ${historyText}
@@ -313,17 +319,17 @@ Format your response like:
 ..."`;
 
   const response = await callCoachAgent(prompt);
-  
+
   // Parse suggested drivers from response
   const drivers = extractDriversFromResponse(response, context.question);
-  
+
   return {
     message: response,
-    suggestions: drivers.map(d => ({
-      type: 'driver' as const,
-      data: d
+    suggestions: drivers.map((d) => ({
+      type: "driver" as const,
+      data: d,
     })),
-    nextStage: 'quantify'
+    nextStage: "quantify",
   };
 }
 
@@ -340,8 +346,8 @@ export async function coachDriverQuantification(context: {
   conversationHistory?: { role: string; content: string }[];
 }): Promise<CoachResponse> {
   const history = context.conversationHistory || [];
-  const historyText = history.map(m => `${m.role}: ${m.content}`).join('\n');
-  
+  const historyText = history.map((m) => `${m.role}: ${m.content}`).join("\n");
+
   const prompt = `You are a Superforecaster coach helping quantify a driver.
 
 Question: "${context.question}"
@@ -358,7 +364,7 @@ Your job:
 Keep it conversational and brief (2-3 sentences).
 
 Example:
-"For '${context.driver.name}', let's estimate the probability. 
+"For '${context.driver.name}', let's estimate the probability.
 
 📊 Available research:
 • Run 'Technology Validator' to assess feasibility
@@ -370,20 +376,20 @@ P5: 60% | P50: 75% | P95: 90%
 Or just give a single probability like: 75%"`;
 
   const response = await callCoachAgent(prompt);
-  
+
   // Suggest relevant research
   const researchSuggestions = suggestResearchForDriver(
     context.driver.name,
-    context.domain
+    context.domain,
   );
-  
+
   return {
     message: response,
-    suggestions: researchSuggestions.map(r => ({
-      type: 'research' as const,
-      data: r
+    suggestions: researchSuggestions.map((r) => ({
+      type: "research" as const,
+      data: r,
     })),
-    nextStage: 'evidence'
+    nextStage: "evidence",
   };
 }
 
@@ -393,20 +399,27 @@ Or just give a single probability like: 75%"`;
 export async function coachReview(context: {
   question: string;
   baseRate?: any;
-  drivers: any[];
-  evidence: any[];
+  drivers?: any[];
+  evidence?: any[];
+  conversationHistory?: { role: string; content: string }[];
 }): Promise<CoachResponse> {
-  const driversText = context.drivers.map((d, i) => 
-    `${i + 1}. ${d.name}: ${d.probability ? d.probability + '%' : `P5: ${d.p5}%, P50: ${d.p50}%, P95: ${d.p95}%`}`
-  ).join('\n');
-  
-  const evidenceCount = context.evidence.length;
-  
+  const drivers = context.drivers || [];
+  const evidence = context.evidence || [];
+
+  const driversText = drivers
+    .map(
+      (d, i) =>
+        `${i + 1}. ${d.name}: ${d.probability ? d.probability + "%" : `P5: ${d.p5}%, P50: ${d.p50}%, P95: ${d.p95}%`}`,
+    )
+    .join("\n");
+
+  const evidenceCount = evidence.length;
+
   const prompt = `You are a Superforecaster coach reviewing a complete forecast.
 
 Question: "${context.question}"
 
-Base rate: ${context.baseRate ? `${context.baseRate.successRate}% (${context.baseRate.referenceClass})` : 'Not set'}
+Base rate: ${context.baseRate ? `${context.baseRate.successRate}% (${context.baseRate.referenceClass})` : "Not set"}
 
 Drivers:
 ${driversText}
@@ -422,18 +435,18 @@ Your job:
 Keep response brief (3-4 sentences). Be encouraging!
 
 Example:
-"Great work! You have ${context.drivers.length} drivers and ${evidenceCount} pieces of evidence. The drivers look independent and well-reasoned. 
+"Great work! You have ${context.drivers.length} drivers and ${evidenceCount} pieces of evidence. The drivers look independent and well-reasoned.
 
 ⚠️ One suggestion: Consider adding evidence for '${context.drivers[0]?.name}' to strengthen your forecast.
 
 Ready to run the Monte Carlo simulation? This will combine your drivers into a final probability."`;
 
   const response = await callCoachAgent(prompt);
-  
+
   return {
     message: response,
     suggestions: [],
-    nextStage: 'simulation'
+    nextStage: "simulation",
   };
 }
 
@@ -442,19 +455,19 @@ Ready to run the Monte Carlo simulation? This will combine your drivers into a f
 async function callCoachAgent(prompt: string): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    throw new Error('ANTHROPIC_API_KEY not configured');
+    throw new Error("ANTHROPIC_API_KEY not configured");
   }
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: "claude-sonnet-4-20250514",
         max_tokens: 2000,
         temperature: 0.7,
         system: `You are an expert Superforecaster coach. You help users create high-quality probability forecasts using the Tetlock methodology. You are:
@@ -467,7 +480,7 @@ async function callCoachAgent(prompt: string): Promise<string> {
 Keep responses brief (2-4 sentences usually). Ask ONE clear question at a time.`,
         messages: [
           {
-            role: 'user',
+            role: "user",
             content: prompt,
           },
         ],
@@ -476,21 +489,33 @@ Keep responses brief (2-4 sentences usually). Ask ONE clear question at a time.`
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[callCoachAgent] API error ${response.status}:`, errorText);
-      throw new Error(`Coach API error: ${response.status} - ${errorText.substring(0, 200)}`);
+      console.error(
+        `[callCoachAgent] API error ${response.status}:`,
+        errorText,
+      );
+      throw new Error(
+        `Coach API error: ${response.status} - ${errorText.substring(0, 200)}`,
+      );
     }
 
-    const data = await response.json() as any;
-    
+    const data = (await response.json()) as any;
+
     // Validate response structure
-    if (!data.content || !Array.isArray(data.content) || data.content.length === 0) {
-      console.error('[callCoachAgent] Unexpected API response structure:', JSON.stringify(data).substring(0, 500));
-      throw new Error('Unexpected API response structure');
+    if (
+      !data.content ||
+      !Array.isArray(data.content) ||
+      data.content.length === 0
+    ) {
+      console.error(
+        "[callCoachAgent] Unexpected API response structure:",
+        JSON.stringify(data).substring(0, 500),
+      );
+      throw new Error("Unexpected API response structure");
     }
-    
+
     return data.content[0].text;
   } catch (error: any) {
-    console.error('[callCoachAgent] Error:', error.message);
+    console.error("[callCoachAgent] Error:", error.message);
     throw error;
   }
 }
@@ -499,49 +524,49 @@ function generateBaseRateSuggestions(domain: string): any[] {
   const suggestions: Record<string, any[]> = {
     finance: [
       {
-        type: 'baseRate',
+        type: "baseRate",
         data: {
-          referenceClass: 'Small cap stocks doubling in 1 year',
-          estimatedRate: 0.08
-        }
+          referenceClass: "Small cap stocks doubling in 1 year",
+          estimatedRate: 0.08,
+        },
       },
       {
-        type: 'baseRate',
+        type: "baseRate",
         data: {
-          referenceClass: 'Tech stocks reaching analyst targets',
-          estimatedRate: 0.35
-        }
-      }
+          referenceClass: "Tech stocks reaching analyst targets",
+          estimatedRate: 0.35,
+        },
+      },
     ],
     technology: [
       {
-        type: 'baseRate',
+        type: "baseRate",
         data: {
-          referenceClass: 'New product launches succeeding',
-          estimatedRate: 0.40
-        }
-      }
+          referenceClass: "New product launches succeeding",
+          estimatedRate: 0.4,
+        },
+      },
     ],
     weather: [
       {
-        type: 'baseRate',
+        type: "baseRate",
         data: {
-          referenceClass: 'Rainy days this month historically',
-          estimatedRate: 0.30
-        }
-      }
+          referenceClass: "Rainy days this month historically",
+          estimatedRate: 0.3,
+        },
+      },
     ],
-    general: []
+    general: [],
   };
-  
+
   return suggestions[domain] || suggestions.general;
 }
 
 function extractDriversFromResponse(response: string, question: string): any[] {
   // Simple extraction - look for numbered lists
-  const lines = response.split('\n');
+  const lines = response.split("\n");
   const drivers: any[] = [];
-  
+
   for (const line of lines) {
     // Match patterns like "1. **Driver Name** - description"
     const match = line.match(/^\d+\.\s+\*\*([^*]+)\*\*\s*-\s*(.+)/);
@@ -549,57 +574,98 @@ function extractDriversFromResponse(response: string, question: string): any[] {
       drivers.push({
         name: match[1].trim(),
         description: match[2].trim(),
-        type: 'binary'
+        type: "binary",
       });
     }
   }
-  
+
   // If no matches, return some defaults based on question
   if (drivers.length === 0) {
     return [
-      { name: 'Primary factor', type: 'binary' },
-      { name: 'Secondary factor', type: 'binary' },
-      { name: 'External factor', type: 'binary' }
+      { name: "Primary factor", type: "binary" },
+      { name: "Secondary factor", type: "binary" },
+      { name: "External factor", type: "binary" },
     ];
   }
-  
+
   return drivers;
 }
 
 function suggestResearchForDriver(driverName: string, domain: string): any[] {
   const lower = driverName.toLowerCase();
   const suggestions: any[] = [];
-  
+
   // Match research agents to driver keywords
-  if (lower.includes('market') || lower.includes('demand') || lower.includes('size')) {
-    suggestions.push({ agentId: 'market_researcher', promptId: 'market_tam_sizing' });
+  if (
+    lower.includes("market") ||
+    lower.includes("demand") ||
+    lower.includes("size")
+  ) {
+    suggestions.push({
+      agentId: "market_researcher",
+      promptId: "market_tam_sizing",
+    });
   }
-  
-  if (lower.includes('sentiment') || lower.includes('opinion') || lower.includes('perception')) {
-    suggestions.push({ agentId: 'sentiment_monitor', promptId: 'sentiment_tracking' });
+
+  if (
+    lower.includes("sentiment") ||
+    lower.includes("opinion") ||
+    lower.includes("perception")
+  ) {
+    suggestions.push({
+      agentId: "sentiment_monitor",
+      promptId: "sentiment_tracking",
+    });
   }
-  
-  if (lower.includes('competitor') || lower.includes('competition')) {
-    suggestions.push({ agentId: 'competitive_intel', promptId: 'competitor_benchmarking' });
+
+  if (lower.includes("competitor") || lower.includes("competition")) {
+    suggestions.push({
+      agentId: "competitive_intel",
+      promptId: "competitor_benchmarking",
+    });
   }
-  
-  if (lower.includes('technical') || lower.includes('technology') || lower.includes('feasibility')) {
-    suggestions.push({ agentId: 'technology_validator', promptId: 'technology_validation' });
+
+  if (
+    lower.includes("technical") ||
+    lower.includes("technology") ||
+    lower.includes("feasibility")
+  ) {
+    suggestions.push({
+      agentId: "technology_validator",
+      promptId: "technology_validation",
+    });
   }
-  
-  if (lower.includes('regulatory') || lower.includes('policy') || lower.includes('legal')) {
-    suggestions.push({ agentId: 'regulatory_monitor', promptId: 'regulatory_impact' });
+
+  if (
+    lower.includes("regulatory") ||
+    lower.includes("policy") ||
+    lower.includes("legal")
+  ) {
+    suggestions.push({
+      agentId: "regulatory_monitor",
+      promptId: "regulatory_impact",
+    });
   }
-  
-  if (lower.includes('financial') || lower.includes('revenue') || lower.includes('profit')) {
-    suggestions.push({ agentId: 'financial_analyst', promptId: 'financial_fundamentals' });
+
+  if (
+    lower.includes("financial") ||
+    lower.includes("revenue") ||
+    lower.includes("profit")
+  ) {
+    suggestions.push({
+      agentId: "financial_analyst",
+      promptId: "financial_fundamentals",
+    });
   }
-  
+
   // Default fallback
   if (suggestions.length === 0) {
-    suggestions.push({ agentId: 'research_analyst', promptId: 'market_tam_sizing' });
+    suggestions.push({
+      agentId: "research_analyst",
+      promptId: "market_tam_sizing",
+    });
   }
-  
+
   return suggestions;
 }
 
@@ -609,5 +675,5 @@ export const coach = {
   coachBaseRate,
   coachDriverDecomposition,
   coachDriverQuantification,
-  coachReview
+  coachReview,
 };
