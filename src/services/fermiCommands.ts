@@ -678,6 +678,364 @@ export const COMMANDS: Record<string, Command> = {
       };
     },
   },
+
+  // Additional driver commands
+  prob: {
+    name: "prob",
+    syntax: "/prob <percentage>",
+    description: "Set probability for binary driver (0-100)",
+    contexts: ["driver_config"],
+    category: "driver",
+    examples: ["/prob 75", "/prob 20"],
+    execute: async (args, state) => {
+      const prob = parseFloat(args[0]);
+      if (isNaN(prob) || prob < 0 || prob > 100) {
+        return {
+          success: false,
+          message: "Probability must be between 0 and 100",
+        };
+      }
+      return {
+        success: true,
+        message: `Set probability to ${prob}%`,
+        updateState: { probability: prob / 100 },
+      };
+    },
+  },
+
+  type: {
+    name: "type",
+    syntax: "/type <continuous|binary>",
+    description: "Set driver type",
+    contexts: ["driver_config"],
+    category: "driver",
+    examples: ["/type continuous", "/type binary"],
+    execute: async (args, state) => {
+      const type = args[0];
+      if (type !== "continuous" && type !== "binary") {
+        return {
+          success: false,
+          message: "Type must be 'continuous' or 'binary'",
+        };
+      }
+      return {
+        success: true,
+        message: `Set driver type to ${type}`,
+        updateState: { type },
+      };
+    },
+  },
+
+  evidence: {
+    name: "evidence",
+    syntax: "/evidence <description> [url]",
+    description: "Add evidence to current driver",
+    contexts: ["driver_config"],
+    category: "driver",
+    examples: [
+      "/evidence Market research shows 40% growth",
+      "/evidence Q3 earnings beat expectations https://example.com",
+    ],
+    execute: async (args, state) => {
+      const text = args.join(" ");
+      if (!text) {
+        return {
+          success: false,
+          message: "Please provide evidence description",
+        };
+      }
+      return {
+        success: true,
+        message: "Evidence added to driver",
+        updateState: { addEvidence: text },
+      };
+    },
+  },
+
+  remove: {
+    name: "remove",
+    syntax: "/remove <driver|agent> <name>",
+    description: "Remove a driver or agent from forecast",
+    contexts: ["forecast_active", "driver_config"],
+    category: "system",
+    examples: ["/remove driver Market size", "/remove agent research_analyst"],
+    execute: async (args, state) => {
+      const type = args[0];
+      const name = args.slice(1).join(" ");
+      if (!type || !name) {
+        return {
+          success: false,
+          message: "Usage: /remove <driver|agent> <name>",
+        };
+      }
+      return {
+        success: true,
+        message: `Removed ${type}: ${name}`,
+        updateState: { remove: { type, name } },
+      };
+    },
+  },
+
+  "base-rate": {
+    name: "base-rate",
+    syntax: "/base-rate <percentage> <reference class>",
+    description: "Set base rate for external view",
+    contexts: ["forecast_active"],
+    category: "forecast",
+    examples: [
+      "/base-rate 15 Tech stocks reaching 200% in 2 years",
+      "/base-rate 60 FDA Phase 3 approvals",
+    ],
+    execute: async (args, state) => {
+      const rate = parseFloat(args[0]);
+      const referenceClass = args.slice(1).join(" ");
+      if (isNaN(rate) || !referenceClass) {
+        return {
+          success: false,
+          message: "Usage: /base-rate <percentage> <reference class>",
+        };
+      }
+      return {
+        success: true,
+        message: `Set base rate: ${rate}% for "${referenceClass}"`,
+        updateState: { baseRate: rate / 100, referenceClass },
+      };
+    },
+  },
+
+  external: {
+    name: "external",
+    syntax: "/external <reference class description>",
+    description: "Set reference class for external view",
+    contexts: ["forecast_active"],
+    category: "forecast",
+    examples: [
+      "/external Similar companies in the sector",
+      "/external Historical FDA approvals for this drug class",
+    ],
+    execute: async (args, state) => {
+      const referenceClass = args.join(" ");
+      if (!referenceClass) {
+        return {
+          success: false,
+          message: "Please provide a reference class description",
+        };
+      }
+      return {
+        success: true,
+        message: `Set reference class: "${referenceClass}"`,
+        updateState: { referenceClass },
+      };
+    },
+  },
+
+  expire: {
+    name: "expire",
+    syntax: "/expire <yes|no> [reasoning]",
+    description: "Resolve forecast with outcome",
+    contexts: ["forecast_active"],
+    category: "forecast",
+    examples: [
+      "/expire yes Stock reached target",
+      "/expire no Failed to meet milestone",
+    ],
+    execute: async (args, state) => {
+      const outcome = args[0];
+      const reasoning = args.slice(1).join(" ");
+      if (outcome !== "yes" && outcome !== "no") {
+        return {
+          success: false,
+          message: "Outcome must be 'yes' or 'no'",
+        };
+      }
+      return {
+        success: true,
+        message: `Resolving forecast as ${outcome}${reasoning ? `: ${reasoning}` : ""}`,
+        updateState: { resolve: { outcome, reasoning } },
+      };
+    },
+  },
+
+  grounding: {
+    name: "grounding",
+    syntax: "/grounding <source>",
+    description: "Set grounding source for forecast",
+    contexts: ["forecast_active"],
+    category: "forecast",
+    examples: [
+      "/grounding Company financial reports",
+      "/grounding Industry analyst consensus",
+    ],
+    execute: async (args, state) => {
+      const source = args.join(" ");
+      if (!source) {
+        return {
+          success: false,
+          message: "Please provide a grounding source",
+        };
+      }
+      return {
+        success: true,
+        message: `Set grounding source: "${source}"`,
+        updateState: { grounding: source },
+      };
+    },
+  },
+
+  privacy: {
+    name: "privacy",
+    syntax: "/privacy <public|private|unlisted>",
+    description: "Set forecast privacy level",
+    contexts: ["forecast_active"],
+    category: "system",
+    examples: ["/privacy private", "/privacy public"],
+    execute: async (args, state) => {
+      const level = args[0];
+      const valid = ["public", "private", "unlisted"];
+      if (!valid.includes(level)) {
+        return {
+          success: false,
+          message: "Privacy must be: public, private, or unlisted",
+        };
+      }
+      return {
+        success: true,
+        message: `Set privacy to ${level}`,
+        updateState: { privacy: level },
+      };
+    },
+  },
+
+  tags: {
+    name: "tags",
+    syntax: "/tags <tag1,tag2,tag3>",
+    description: "Set tags for forecast",
+    contexts: ["forecast_active"],
+    category: "system",
+    examples: ["/tags finance,tech,growth", "/tags important"],
+    execute: async (args, state) => {
+      const tags = args
+        .join(" ")
+        .split(",")
+        .map((t) => t.trim());
+      return {
+        success: true,
+        message: `Tags set: ${tags.join(", ")}`,
+        updateState: { tags },
+      };
+    },
+  },
+
+  threshold: {
+    name: "threshold",
+    syntax: "/threshold <number>",
+    description: "Set confidence threshold for agent updates",
+    contexts: ["agent_config"],
+    category: "agent",
+    examples: ["/threshold 80", "/threshold 95"],
+    execute: async (args, state) => {
+      const threshold = parseFloat(args[0]);
+      if (isNaN(threshold) || threshold < 0 || threshold > 100) {
+        return {
+          success: false,
+          message: "Threshold must be between 0 and 100",
+        };
+      }
+      return {
+        success: true,
+        message: `Set confidence threshold to ${threshold}%`,
+        updateState: { threshold: threshold / 100 },
+      };
+    },
+  },
+
+  setprob: {
+    name: "setprob",
+    syntax: "/setprob <probability>",
+    description: "Manually set forecast probability (testing)",
+    contexts: ["forecast_active"],
+    category: "system",
+    examples: ["/setprob 0.75", "/setprob 0.25"],
+    execute: async (args, state) => {
+      const prob = parseFloat(args[0]);
+      if (isNaN(prob) || prob < 0 || prob > 1) {
+        return {
+          success: false,
+          message: "Probability must be between 0 and 1",
+        };
+      }
+      return {
+        success: true,
+        message: `Set forecast probability to ${(prob * 100).toFixed(1)}%`,
+        updateState: { probability: prob },
+      };
+    },
+  },
+
+  confirm: {
+    name: "confirm",
+    syntax: "/confirm",
+    description: "Confirm pending action",
+    contexts: ["any"],
+    category: "system",
+    examples: ["/confirm"],
+    execute: async (args, state) => {
+      return {
+        success: true,
+        message: "Action confirmed",
+        updateState: { confirm: true },
+      };
+    },
+  },
+
+  premortem: {
+    name: "premortem",
+    syntax: "/premortem",
+    description: "Run premortem analysis on forecast",
+    contexts: ["forecast_active"],
+    category: "forecast",
+    examples: ["/premortem"],
+    execute: async (args, state) => {
+      return {
+        success: true,
+        message:
+          "Running premortem analysis... Imagine this forecast fails - what are the most likely reasons?",
+        updateState: { showPremortem: true },
+      };
+    },
+  },
+
+  history: {
+    name: "history",
+    syntax: "/history",
+    description: "Show command history",
+    contexts: ["any"],
+    category: "system",
+    examples: ["/history"],
+    execute: async (args, state) => {
+      return {
+        success: true,
+        message: "Showing command history...",
+        updateState: { showHistory: true },
+      };
+    },
+  },
+
+  leaderboard: {
+    name: "leaderboard",
+    syntax: "/leaderboard",
+    description: "Show forecasting leaderboard",
+    contexts: ["any"],
+    category: "system",
+    examples: ["/leaderboard"],
+    execute: async (args, state) => {
+      return {
+        success: true,
+        message: "Showing leaderboard...",
+        updateState: { showLeaderboard: true },
+      };
+    },
+  },
 };
 
 /**

@@ -4827,42 +4827,20 @@ export default function ForecastWorkspaceScreen() {
 
     const query = input.toLowerCase();
 
-    const hints = [
-      { key: "question", label: "/question", desc: "Start a new forecast" },
-      { key: "commands", label: "/commands", desc: "Show all commands" },
-      {
-        key: "list",
-        label: "/list",
-        desc: "View forecasts (active/expired/all)",
-      },
-      { key: "leaderboard", label: "/leaderboard", desc: "Global rankings" },
-      {
-        key: "agent-list",
-        label: "/agent-list",
-        desc: "List all research agents",
-      },
-    ];
+    // Dynamically load available commands from registry
+    const { getAvailableCommands } = require("../services/fermiCommands");
+    const commandContext = getCurrentContext();
+    const availableCommands = getAvailableCommands(commandContext);
 
-    // Add forecast-specific commands when there's an active forecast
+    // Convert to autocomplete hint format
+    const hints = availableCommands.map((cmd: any) => ({
+      key: cmd.name,
+      label: cmd.syntax.split(" ")[0],
+      desc: cmd.description,
+    }));
+
+    // Autocomplete existing driver names for /driver and /remove
     if (activeForecast) {
-      hints.push(
-        { key: "driver", label: "/driver", desc: "Add or edit a driver" },
-        { key: "simulate", label: "/simulate", desc: "Run simulation" },
-        { key: "review", label: "/review", desc: "Analyze forecast quality" },
-        {
-          key: "decompose",
-          label: "/decompose",
-          desc: "Break down the question",
-        },
-        {
-          key: "base-rate",
-          label: "/base-rate",
-          desc: "Set base rate percentage (0-100)",
-        },
-        { key: "remove", label: "/remove", desc: "Remove driver or agent" },
-      );
-
-      // Autocomplete existing driver names for /driver and /remove
       if (query.startsWith("/driver ") || query.startsWith("/remove driver ")) {
         const prefix = query.startsWith("/driver ")
           ? "/driver "
