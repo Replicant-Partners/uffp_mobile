@@ -15,17 +15,110 @@ This guide shows you how to build a comprehensive regression testing system that
 ## Why You Need This
 
 **The Problem:**
-- Mobile app uses `Driver` interface with field `direction`
-- Backend deploys without `direction` field
+- Frontend uses `User` interface with field `email` (example - customize for your domain)
+- Backend deploys without `email` field
 - Production breaks 💥
 
 **The Solution:**
-- 12 automated tests run on every commit
+- Automated tests run on every commit
 - Tests verify schema consistency
 - Commits blocked if schemas don't match
-- Both repos stay in sync automatically
+- Multiple repos stay in sync automatically
+
+## Visual Overview
+
+```mermaid
+flowchart TD
+    Start([Developer Makes Schema Change]) --> Edit[Edit Type Definition]
+    Edit --> Commit{Try to Commit}
+    
+    Commit --> Hook[Pre-commit Hook Triggers]
+    Hook --> Tests[Run Regression Tests]
+    
+    Tests --> Validate[Validate Schema Rules]
+    Validate --> Check{All Tests Pass?}
+    
+    Check -->|Yes| Success[✅ Commit Allowed]
+    Check -->|No| Block[❌ Commit Blocked]
+    
+    Block --> Fix[Fix Schema Issues]
+    Fix --> Commit
+    
+    Success --> MultiRepo{Multi-Repo?}
+    MultiRepo -->|No| Deploy[Deploy to Production]
+    MultiRepo -->|Yes| Sync[Sync to Other Repos]
+    
+    Sync --> TestOther[Test Other Repos]
+    TestOther --> CheckOther{Tests Pass?}
+    
+    CheckOther -->|Yes| DeployAll[Deploy All Repos]
+    CheckOther -->|No| FixOther[Fix Issues in Other Repos]
+    FixOther --> TestOther
+    
+    DeployAll --> End([✅ Production Safe])
+    
+    style Success fill:#90EE90
+    style Block fill:#FFB6C6
+    style End fill:#90EE90
+    style Tests fill:#87CEEB
+    style Sync fill:#DDA0DD
+```
+
+## Architecture Overview
+
+```mermaid
+graph LR
+    subgraph "Your Project Structure"
+        A[lib/types.ts<br/>Type Definitions] --> B[utils/validator.ts<br/>Validation Rules]
+        B --> C[tests/*.test.ts<br/>Test Suite]
+    end
+    
+    subgraph "Automation Layer"
+        C --> D[.husky/pre-commit<br/>Git Hook]
+        D --> E{Tests Pass?}
+        E -->|Yes| F[Git Commit ✅]
+        E -->|No| G[Block Commit ❌]
+    end
+    
+    subgraph "Multi-Repo Sync"
+        F --> H{Multiple Repos?}
+        H -->|Yes| I[scripts/sync.sh<br/>Copy Files]
+        I --> J[Other Repo Tests]
+        J --> K[Deploy All]
+        H -->|No| K
+    end
+    
+    subgraph "AI Assistant Integration"
+        L[.claude/PROJECT_RULES.md]
+        M[AI reads rules<br/>every session]
+        L --> M
+        M --> N[AI knows to<br/>run tests]
+    end
+    
+    style F fill:#90EE90
+    style G fill:#FFB6C6
+    style B fill:#87CEEB
+    style I fill:#DDA0DD
+```
 
 ## Step-by-Step Build Guide
+
+> **⚠️ IMPORTANT: This guide uses example code from our forecasting app.**
+> 
+> **You MUST customize for your project.** Look for 🔧 markers in code examples.
+
+### Customization Checklist
+
+Before starting, identify these for your project:
+
+| What to Customize | Our Example | Your Project |
+|-------------------|-------------|--------------|
+| **Main Type** | `Driver`, `Forecast` | `User`, `Product`, `Order`, etc. |
+| **Key Fields** | `direction`, `probability`, `version` | `email`, `price`, `status`, etc. |
+| **ID Format** | `drv_xxxxxxxxxxxx` (nanoid with prefix) | UUID? Numeric? Custom? |
+| **Validation Rules** | Probability 0-1, required direction | Email format? Price > 0? |
+| **File Paths** | `src/utils/`, `lib/` | Match your project structure |
+| **Backend Repo?** | Yes (`uffp-backend`) | Single repo? Multi-repo? |
 
 ### Phase 1: Create Schema Validator (30 min)
 
@@ -33,9 +126,15 @@ This guide shows you how to build a comprehensive regression testing system that
 
 **Location:** `src/utils/schemaValidator.ts` (or `lib/schemaValidator.ts`)
 
+> 💡 **Customize for your project:**
+> - Replace `YourMainType` with your primary data type (e.g., `User`, `Product`, `Order`)
+> - Adjust import paths to match your project structure
+> - Add validation rules specific to your domain
+
 ```typescript
 // src/utils/schemaValidator.ts
-import type { YourMainType } from '../types';
+// 🔧 CUSTOMIZE: Import your actual types here
+import type { YourMainType } from '../types';  // <- Change to your type!
 
 export interface ValidationError {
   entity: string;      // e.g., "Driver", "User"
@@ -107,10 +206,17 @@ export function formatValidationResults(result: ValidationResult): string {
 
 #### 1.2 Add Validation Rules
 
-Add rules for your specific domain. Examples:
+Add rules for your specific domain. Examples below show common patterns:
+
+> 💡 **Customize these validation rules for your project:**
+> - Change field names to match your schema (e.g., `email`, `age`, `price`)
+> - Adjust validation logic for your business rules
+> - Add domain-specific constraints (e.g., email format, price ranges)
 
 ```typescript
-// ID format validation
+// 🔧 EXAMPLE: ID format validation (customize the pattern for your IDs)
+// In our project: We use "prefix_xxxxxxxxxxxx" format
+// Your project might use: UUIDs, numeric IDs, or custom formats
 if (data.id && !/^prefix_[a-zA-Z0-9]{12}$/.test(data.id)) {
   warnings.push({
     entity: 'YourType',
@@ -163,10 +269,16 @@ npm install -D tsx  # For running TypeScript tests
 
 **Location:** `tests/schemaValidator.test.ts`
 
+> 💡 **Customize for your project:**
+> - Replace test data with realistic examples from your domain
+> - Test the specific fields and constraints that matter to your business
+> - Add tests for edge cases specific to your use case
+
 ```typescript
 // tests/schemaValidator.test.ts
+// 🔧 CUSTOMIZE: Import your validator and types
 import { validateYourType, formatValidationResults } from '../src/utils/schemaValidator';
-import type { YourMainType } from '../types';
+import type { YourMainType } from '../types';  // <- Your actual type!
 
 console.log('🧪 Running Schema Validation Tests\n');
 console.log('='.repeat(60) + '\n');
@@ -174,13 +286,14 @@ console.log('='.repeat(60) + '\n');
 let passedTests = 0;
 let failedTests = 0;
 
-// Test 1: Valid data should pass
+// 🔧 Test 1: Valid data should pass
+// CUSTOMIZE: Replace with valid data for YOUR type
 console.log('✓ Test 1: Valid data');
 const validData: YourMainType = {
-  id: 'prefix_abc123456789',
-  requiredField: 'value',
-  probability: 0.5,
-  // ... all required fields
+  id: 'prefix_abc123456789',      // <- Your ID format
+  requiredField: 'value',          // <- Your required fields
+  probability: 0.5,                 // <- Your numeric fields
+  // ... add ALL required fields for your type
 };
 
 const result1 = validateYourType(validData);
@@ -323,6 +436,42 @@ git reset HEAD~1
 ### Phase 4: Multi-Repo Sync (30 min)
 
 **Only needed if you have multiple repos sharing schemas (e.g., mobile + backend)**
+
+#### Multi-Repo Architecture
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant FR as Frontend Repo
+    participant FH as Frontend Tests
+    participant Sync as Sync Script
+    participant BR as Backend Repo
+    participant BH as Backend Tests
+    participant Prod as Production
+    
+    Dev->>FR: Edit schema (types.ts)
+    Dev->>FR: git commit
+    FR->>FH: Pre-commit hook triggers
+    FH->>FH: Run 12 tests
+    
+    alt Tests Pass
+        FH-->>FR: ✅ Commit allowed
+        FR->>Sync: Run sync script
+        Sync->>BR: Copy schema files
+        Sync->>BR: Fix import paths
+        BR->>BH: Run tests
+        
+        alt Backend Tests Pass
+            BH-->>BR: ✅ Tests pass
+            BR->>Prod: Deploy both repos
+            Prod-->>Dev: ✅ Production safe
+        else Backend Tests Fail
+            BH-->>Dev: ❌ Fix backend issues
+        end
+    else Tests Fail
+        FH-->>Dev: ❌ Commit blocked - fix issues
+    end
+```
 
 #### 4.1 Create Sync Script
 
