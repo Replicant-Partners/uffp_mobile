@@ -3147,8 +3147,57 @@ export default function ForecastWorkspaceScreen() {
 
       const grounding = trimmed.replace("/grounding ", "").trim();
       if (
-        ["external", "premortem", "inside view / analysis"].includes(grounding)
+        !["external", "premortem", "inside view / analysis"].includes(grounding)
       ) {
+        setError(
+          "Grounding must be 'external', 'premortem', or 'inside view / analysis'",
+        );
+        return;
+      }
+
+      // Sync to backend first
+      setLoading(true);
+      setProcessingAction("Updating grounding...");
+
+      try {
+        const { updateForecastWithSync } = await import("../utils/backendSync");
+        const result = await updateForecastWithSync(activeForecast.id, {
+          grounding: grounding as
+            | "external"
+            | "premortem"
+            | "inside view / analysis",
+        });
+
+        if (result.success && result.forecast) {
+          // Backend succeeded - use backend data
+          setActiveForecast(result.forecast);
+          setSavedForecasts((prev) =>
+            prev.map((f) => (f.id === activeForecast.id ? result.forecast : f)),
+          );
+          console.log("Grounding synced to backend successfully");
+        } else {
+          // Backend failed - update locally only
+          console.log(
+            "Grounding backend sync failed, saving locally:",
+            result.error,
+          );
+          const updatedForecast = {
+            ...activeForecast,
+            grounding: grounding as
+              | "external"
+              | "premortem"
+              | "inside view / analysis",
+            updatedAt: new Date().toISOString(),
+          };
+          setActiveForecast(updatedForecast);
+          setSavedForecasts((prev) =>
+            prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+          );
+          await saveForecast(updatedForecast);
+        }
+      } catch (err) {
+        console.error("Grounding sync error:", err);
+        // Fallback to local save
         const updatedForecast = {
           ...activeForecast,
           grounding: grounding as
@@ -3158,18 +3207,17 @@ export default function ForecastWorkspaceScreen() {
           updatedAt: new Date().toISOString(),
         };
         setActiveForecast(updatedForecast);
-        // Update savedForecasts so grounding appears in /list
         setSavedForecasts((prev) =>
           prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
         );
         await saveForecast(updatedForecast);
-        setCommandInput("");
-        setError("");
-      } else {
-        setError(
-          "Grounding must be 'external', 'premortem', or 'inside view / analysis'",
-        );
+      } finally {
+        setLoading(false);
+        setProcessingAction("");
       }
+
+      setCommandInput("");
+      setError("");
       return;
     }
 
@@ -3191,18 +3239,58 @@ export default function ForecastWorkspaceScreen() {
 
       const probability = prob / 100; // Convert to 0-1 range
 
-      const updatedForecast = {
-        ...activeForecast,
-        probability,
-        updatedAt: new Date().toISOString(),
-      };
+      // Sync to backend first
+      setLoading(true);
+      setProcessingAction("Saving probability...");
 
-      setActiveForecast(updatedForecast);
-      // Update savedForecasts so probability appears in /list
-      setSavedForecasts((prev) =>
-        prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
-      );
-      await saveForecast(updatedForecast);
+      try {
+        const { updateForecastWithSync } = await import("../utils/backendSync");
+        const result = await updateForecastWithSync(activeForecast.id, {
+          probability,
+        });
+
+        if (result.success && result.forecast) {
+          // Backend succeeded - use backend data
+          setActiveForecast(result.forecast);
+          setSavedForecasts((prev) =>
+            prev.map((f) => (f.id === activeForecast.id ? result.forecast : f)),
+          );
+          console.log("Probability synced to backend successfully");
+        } else {
+          // Backend failed - update locally only
+          console.log(
+            "Probability backend sync failed, saving locally:",
+            result.error,
+          );
+          const updatedForecast = {
+            ...activeForecast,
+            probability,
+            updatedAt: new Date().toISOString(),
+          };
+          setActiveForecast(updatedForecast);
+          setSavedForecasts((prev) =>
+            prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+          );
+          await saveForecast(updatedForecast);
+        }
+      } catch (err) {
+        console.error("Probability sync error:", err);
+        // Fallback to local save
+        const updatedForecast = {
+          ...activeForecast,
+          probability,
+          updatedAt: new Date().toISOString(),
+        };
+        setActiveForecast(updatedForecast);
+        setSavedForecasts((prev) =>
+          prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+        );
+        await saveForecast(updatedForecast);
+      } finally {
+        setLoading(false);
+        setProcessingAction("");
+      }
+
       setCommandInput("");
       setError("");
       return;
@@ -3731,18 +3819,58 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
-      const updatedForecast = {
-        ...activeForecast,
-        question: newQuestion,
-        updatedAt: new Date().toISOString(),
-      };
+      // Sync to backend first
+      setLoading(true);
+      setProcessingAction("Updating question...");
 
-      setActiveForecast(updatedForecast);
-      // Update savedForecasts so question edit appears in /list
-      setSavedForecasts((prev) =>
-        prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
-      );
-      await saveForecast(updatedForecast);
+      try {
+        const { updateForecastWithSync } = await import("../utils/backendSync");
+        const result = await updateForecastWithSync(activeForecast.id, {
+          question: newQuestion,
+        });
+
+        if (result.success && result.forecast) {
+          // Backend succeeded - use backend data
+          setActiveForecast(result.forecast);
+          setSavedForecasts((prev) =>
+            prev.map((f) => (f.id === activeForecast.id ? result.forecast : f)),
+          );
+          console.log("Question synced to backend successfully");
+        } else {
+          // Backend failed - update locally only
+          console.log(
+            "Question backend sync failed, saving locally:",
+            result.error,
+          );
+          const updatedForecast = {
+            ...activeForecast,
+            question: newQuestion,
+            updatedAt: new Date().toISOString(),
+          };
+          setActiveForecast(updatedForecast);
+          setSavedForecasts((prev) =>
+            prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+          );
+          await saveForecast(updatedForecast);
+        }
+      } catch (err) {
+        console.error("Question sync error:", err);
+        // Fallback to local save
+        const updatedForecast = {
+          ...activeForecast,
+          question: newQuestion,
+          updatedAt: new Date().toISOString(),
+        };
+        setActiveForecast(updatedForecast);
+        setSavedForecasts((prev) =>
+          prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+        );
+        await saveForecast(updatedForecast);
+      } finally {
+        setLoading(false);
+        setProcessingAction("");
+      }
+
       setCommandInput("");
       showToast(`✓ Question updated`);
       setError(`✓ Question updated to: "${newQuestion}"`);

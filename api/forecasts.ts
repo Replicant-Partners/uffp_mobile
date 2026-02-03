@@ -1,8 +1,9 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import {
   createForecast,
   getForecast,
   listForecasts,
+  updateForecast,
   addDriver,
   updateDriver,
   removeDriver,
@@ -11,9 +12,9 @@ import {
   saveSimulation,
   getUserStats,
   getLeaderboard,
-} from '../../lib/database';
-import { coach } from '../../lib/coach';
-import { setCorsHeaders } from './cors';
+} from "../../lib/database";
+import { coach } from "../../lib/coach";
+import { setCorsHeaders } from "./cors";
 
 /**
  * Unified forecasts API
@@ -22,9 +23,9 @@ import { setCorsHeaders } from './cors';
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Set CORS headers
   setCorsHeaders(res);
-  
+
   // Handle preflight
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
@@ -32,27 +33,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // Parse question
-    if (action === 'parse' && req.method === 'POST') {
+    if (action === "parse" && req.method === "POST") {
       const { userInput } = req.body;
-      if (!userInput) return res.status(400).json({ error: 'Missing userInput' });
-      
+      if (!userInput)
+        return res.status(400).json({ error: "Missing userInput" });
+
       const parsed = await coach.parseQuestion(userInput);
       return res.status(200).json({ success: true, parsed });
     }
 
     // GET requests
-    if (req.method === 'GET') {
-      if (action === 'get') {
+    if (req.method === "GET") {
+      if (action === "get") {
         const { id } = req.query;
-        if (!id) return res.status(400).json({ error: 'Missing id' });
-        
+        if (!id) return res.status(400).json({ error: "Missing id" });
+
         const forecast = await getForecast(id as string);
-        if (!forecast) return res.status(404).json({ error: 'Not found' });
-        
+        if (!forecast) return res.status(404).json({ error: "Not found" });
+
         return res.status(200).json({ success: true, forecast });
       }
-      
-      if (action === 'list') {
+
+      if (action === "list") {
         const { userId, status, limit, offset } = req.query;
         const result = await listForecasts({
           userId: userId as string,
@@ -62,11 +64,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         return res.status(200).json({ success: true, ...result });
       }
-      
-      if (action === 'stats') {
+
+      if (action === "stats") {
         const { userId, leaderboard, domain, limit } = req.query;
-        
-        if (leaderboard === 'true') {
+
+        if (leaderboard === "true") {
           const leaders = await getLeaderboard({
             domain: domain as string,
             limit: limit ? parseInt(limit as string) : undefined,
@@ -76,74 +78,96 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const stats = await getUserStats(userId as string);
           return res.status(200).json({ success: true, stats });
         }
-        return res.status(400).json({ error: 'Provide userId or leaderboard=true' });
+        return res
+          .status(400)
+          .json({ error: "Provide userId or leaderboard=true" });
       }
     }
 
     // POST requests
-    if (req.method === 'POST') {
-      if (action === 'create') {
-        const { userId, question, domain, timeframe, resolutionCriteria } = req.body;
+    if (req.method === "POST") {
+      if (action === "create") {
+        const { userId, question, domain, timeframe, resolutionCriteria } =
+          req.body;
         if (!question || !resolutionCriteria) {
-          return res.status(400).json({ error: 'Missing required fields' });
+          return res.status(400).json({ error: "Missing required fields" });
         }
-        
-        const forecast = await createForecast({ userId, question, domain, timeframe, resolutionCriteria });
+
+        const forecast = await createForecast({
+          userId,
+          question,
+          domain,
+          timeframe,
+          resolutionCriteria,
+        });
         return res.status(201).json({ success: true, forecast });
       }
-      
-      if (action === 'addDriver') {
+
+      if (action === "addDriver") {
         const { forecastId, driver } = req.body;
-        if (!forecastId || !driver) return res.status(400).json({ error: 'Missing fields' });
-        
+        if (!forecastId || !driver)
+          return res.status(400).json({ error: "Missing fields" });
+
         const forecast = await addDriver(forecastId, driver);
         return res.status(200).json({ success: true, forecast });
       }
-      
-      if (action === 'updateDriver') {
+
+      if (action === "updateDriver") {
         const { forecastId, driverId, updates, changeReason } = req.body;
-        if (!forecastId || !driverId || !updates) return res.status(400).json({ error: 'Missing fields' });
-        
-        const forecast = await updateDriver(forecastId, driverId, updates, changeReason);
+        if (!forecastId || !driverId || !updates)
+          return res.status(400).json({ error: "Missing fields" });
+
+        const forecast = await updateDriver(
+          forecastId,
+          driverId,
+          updates,
+          changeReason,
+        );
         return res.status(200).json({ success: true, forecast });
       }
-      
-      if (action === 'removeDriver') {
+
+      if (action === "removeDriver") {
         const { forecastId, driverId } = req.body;
-        if (!forecastId || !driverId) return res.status(400).json({ error: 'Missing fields' });
-        
+        if (!forecastId || !driverId)
+          return res.status(400).json({ error: "Missing fields" });
+
         const forecast = await removeDriver(forecastId, driverId);
         return res.status(200).json({ success: true, forecast });
       }
-      
-      if (action === 'addEvidence') {
+
+      if (action === "addEvidence") {
         const { forecastId, evidence, driverId } = req.body;
-        if (!forecastId || !evidence) return res.status(400).json({ error: 'Missing fields' });
-        
+        if (!forecastId || !evidence)
+          return res.status(400).json({ error: "Missing fields" });
+
         const forecast = await addEvidence(forecastId, evidence, driverId);
         return res.status(200).json({ success: true, forecast });
       }
-      
-      if (action === 'setBaseRate') {
+
+      if (action === "setBaseRate") {
         const { forecastId, baseRate } = req.body;
-        if (!forecastId || !baseRate) return res.status(400).json({ error: 'Missing fields' });
-        
+        if (!forecastId || !baseRate)
+          return res.status(400).json({ error: "Missing fields" });
+
         const forecast = await setBaseRate(forecastId, baseRate);
         return res.status(200).json({ success: true, forecast });
       }
-      
-      if (action === 'simulate') {
+
+      if (action === "simulate") {
         const { forecastId, iterations = 10000 } = req.body;
-        if (!forecastId) return res.status(400).json({ error: 'Missing forecastId' });
-        
+        if (!forecastId)
+          return res.status(400).json({ error: "Missing forecastId" });
+
         const forecast = await getForecast(forecastId);
-        if (!forecast) return res.status(404).json({ error: 'Forecast not found' });
-        if (forecast.drivers.length === 0) return res.status(400).json({ error: 'No drivers' });
-        
+        if (!forecast)
+          return res.status(404).json({ error: "Forecast not found" });
+        if (forecast.drivers.length === 0)
+          return res.status(400).json({ error: "No drivers" });
+
         const startTime = Date.now();
         const result = runMonteCarloSimulation(forecast.drivers, iterations);
         const runtime = Date.now() - startTime;
-        
+
         const simulation = {
           forecastId,
           iterations,
@@ -154,17 +178,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           runtime,
           executedAt: new Date(),
         };
-        
+
         const updated = await saveSimulation(forecastId, simulation);
-        return res.status(200).json({ success: true, simulation, forecast: updated });
+        return res
+          .status(200)
+          .json({ success: true, simulation, forecast: updated });
+      }
+
+      if (action === "updateForecast") {
+        const { forecastId, updates } = req.body;
+        if (!forecastId || !updates)
+          return res.status(400).json({ error: "Missing fields" });
+
+        const forecast = await updateForecast(forecastId, updates);
+        return res.status(200).json({ success: true, forecast });
       }
     }
 
-    return res.status(400).json({ error: 'Invalid action' });
+    return res.status(400).json({ error: "Invalid action" });
   } catch (error) {
-    console.error('Forecast error:', error);
+    console.error("Forecast error:", error);
     return res.status(500).json({
-      error: error instanceof Error ? error.message : 'Internal server error',
+      error: error instanceof Error ? error.message : "Internal server error",
     });
   }
 }
@@ -174,7 +209,7 @@ function runMonteCarloSimulation(drivers: any[], iterations: number) {
   for (let i = 0; i < iterations; i++) {
     let outcome = 1;
     for (const driver of drivers) {
-      if (driver.type === 'binary' && driver.probability !== undefined) {
+      if (driver.type === "binary" && driver.probability !== undefined) {
         if (Math.random() > driver.probability / 100) {
           outcome = 0;
           break;
@@ -184,7 +219,7 @@ function runMonteCarloSimulation(drivers: any[], iterations: number) {
     outcomes.push(outcome);
   }
   outcomes.sort((a, b) => a - b);
-  const successCount = outcomes.filter(o => o > 0).length;
+  const successCount = outcomes.filter((o) => o > 0).length;
   return {
     probability: Math.round((successCount / iterations) * 100) / 100,
     distribution: {

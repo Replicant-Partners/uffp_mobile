@@ -611,6 +611,67 @@ export async function setBaseRateWithSync(
 }
 
 /**
+ * Update forecast-level fields (question, grounding, probability, etc.)
+ * Syncs to backend via action=updateForecast
+ */
+export async function updateForecastWithSync(
+  forecastId: string,
+  updates: {
+    question?: string;
+    grounding?: string;
+    probability?: number;
+    premortem?: any;
+    fermiConversation?: any[];
+    [key: string]: any;
+  },
+): Promise<{
+  success: boolean;
+  forecast?: any;
+  error?: string;
+}> {
+  // Don't sync local-only forecasts
+  if (forecastId.startsWith("local-")) {
+    console.log(
+      "[BackendSync] Skipping backend sync for local-only forecast:",
+      forecastId,
+    );
+    return { success: false, error: "Cannot sync local-only forecasts" };
+  }
+
+  try {
+    console.log(
+      "[BackendSync] Updating forecast fields:",
+      Object.keys(updates),
+    );
+
+    const result = await researchService.makeRequest(
+      "/forecasts?action=updateForecast",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          forecastId,
+          updates,
+        }),
+      },
+    );
+
+    const data = await result.json();
+
+    if (data.success && data.forecast) {
+      const forecast = mapBackendToLocal(data.forecast);
+      console.log(`[BackendSync] Forecast updated successfully`);
+      return { success: true, forecast };
+    }
+
+    throw new Error("Backend response invalid");
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error("[BackendSync] Forecast update failed:", errorMsg);
+    return { success: false, error: errorMsg };
+  }
+}
+
+/**
  * Get user stats from backend
  */
 export async function getUserStatsFromBackend(): Promise<{

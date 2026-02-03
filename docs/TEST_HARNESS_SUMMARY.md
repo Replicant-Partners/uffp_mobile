@@ -59,25 +59,32 @@ A comprehensive test harness has been built to validate future versions of the a
 ✅ CLI driver creation fully reconciled with schema!
 ```
 
-### 4. State Integrity Tests (`tests/stateIntegrity.test.ts`) **[UPDATED]**
-- **9 tests** validating UI/backend state synchronization:
-  - ✅ Backend forecasts appear in savedForecasts (for /list visibility)
-  - ✅ Backend driver sync updates activeForecast AND savedForecasts
-  - ✅ Backend simulation updates activeForecast with probability
-  - ✅ Forecast resolution updates activeForecast with Brier score
-  - ✅ Local storage cleared when backend is source of truth
-  - ✅ Evidence additions update both activeForecast AND savedForecasts **[NEW]**
-  - ✅ Driver removal updates both activeForecast AND savedForecasts **[NEW]**
-  - ✅ Question edits update both activeForecast AND savedForecasts **[NEW]**
-  - ✅ Base rate updates sync to savedForecasts **[NEW]**
+### 4. State Integrity Tests (`tests/stateIntegrity.test.ts`) **[EXPANDED]**
+- **13 tests** validating UI/backend state synchronization:
+  - ✅ Test 1: Backend forecasts appear in savedForecasts (for /list visibility)
+  - ✅ Test 2: Backend driver sync updates activeForecast AND savedForecasts
+  - ✅ Test 3: Backend simulation updates activeForecast with probability
+  - ✅ Test 4: Forecast resolution updates activeForecast with Brier score
+  - ✅ Test 5: Local storage cleared when backend is source of truth
+  - ✅ Test 6: Evidence additions update both activeForecast AND savedForecasts
+  - ✅ Test 7: Driver removal updates both activeForecast AND savedForecasts (local state)
+  - ✅ Test 8: Question edits update both activeForecast AND savedForecasts (local state)
+  - ✅ Test 9: Base rate updates sync to savedForecasts (local state)
+  - ✅ Test 10: Driver updates (evidence) sync to backend **[NEW]**
+  - ✅ Test 11: Base rate changes sync to backend **[NEW]**
+  - ✅ Test 12: External view (reference class) syncs to backend **[NEW]**
+  - ✅ Test 13: Driver removal syncs to backend **[NEW]**
 
 **Test Results:**
 ```
-📊 Test Summary: 9 passed, 0 failed
+📊 Test Summary: 13 passed, 0 failed
 ✅ All state integrity tests passed!
 ```
 
-**Why This Matters:** State integrity tests catch bugs where backend operations succeed but UI state isn't updated, making data "invisible" to users. The 4 new tests specifically validate the evidence disappearing bug discovered on mobile.
+**Why This Matters:** State integrity tests catch bugs where:
+1. UI state (activeForecast ↔ savedForecasts) desyncs - Tests 6-9
+2. Backend operations succeed but UI not updated - Tests 1-5
+3. Changes save locally but not to backend (disappear on reload) - Tests 10-13
 
 ### 5. CLI Validation Tool (`scripts/validate-schema.ts`)
 - Run tests: `npm run test:schema`
@@ -94,9 +101,9 @@ Automatically runs all tests before each commit:
 ```bash
 npm run test:schema  # Schema validation (16 tests)
 npm run test:cli     # CLI driver creation (4 tests)
-npm run test:state   # State integrity (9 tests)
+npm run test:state   # State integrity (13 tests)
 ```
-**Total: 29 tests** run automatically on every commit.
+**Total: 33 tests** run automatically on every commit.
 
 If any test fails, commit is blocked to prevent regression.
 
@@ -210,7 +217,7 @@ const forecasts = await loadForecasts();
 - Supports gradual migration from old to new formats
 
 ### 3. Developer Experience
-- **29 tests** (16 schema + 4 CLI + 9 state) run in ~3 seconds
+- **33 tests** (16 schema + 4 CLI + 13 state) run in ~3 seconds
 - Clear, actionable error messages
 - Easy to add new validation rules
 - Pre-commit hook prevents accidental regressions
@@ -308,7 +315,7 @@ Warnings (2):
 | Required fields present | CLI Test 3 | ✅ Pass |
 | Field types correct | CLI Test 4 | ✅ Pass |
 
-### State Integrity (9 tests)
+### State Integrity (13 tests)
 | Scenario | Test | Status |
 |----------|------|--------|
 | Forecasts appear in /list | State Test 1 | ✅ Pass |
@@ -320,6 +327,10 @@ Warnings (2):
 | Driver removal persists | State Test 7 | ✅ Pass |
 | Question edits persist in /list | State Test 8 | ✅ Pass |
 | Base rate updates persist | State Test 9 | ✅ Pass |
+| Driver updates (evidence) sync to backend | State Test 10 | ✅ Pass |
+| Base rate changes sync to backend | State Test 11 | ✅ Pass |
+| External view syncs to backend | State Test 12 | ✅ Pass |
+| Driver removal syncs to backend | State Test 13 | ✅ Pass |
 
 ## Migration Support
 
@@ -348,8 +359,8 @@ node migrate-probability-range.js
 ✅ **Complete test harness built and enhanced**
 - **Schema Validation**: 20+ rules across 5 entity types (16 tests)
 - **CLI Workflow**: Ensures CLI-created drivers match schema (4 tests)
-- **State Integrity**: Validates UI/backend synchronization (9 tests)
-- **100% test pass rate** (29/29 tests)
+- **State Integrity**: Validates UI/backend synchronization (13 tests)
+- **100% test pass rate** (33/33 tests)
 - Automatic validation on save/load
 - Pre-commit hooks prevent regressions
 - CLI tools for manual validation
