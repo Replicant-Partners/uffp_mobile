@@ -37,20 +37,6 @@ export async function parseQuestion(userInput: string): Promise<{
   suggestedResearch?: string[];
   confidence: number;
 }> {
-  // Check if API key is available - if not, use simple fallback
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    console.log('[parseQuestion] ANTHROPIC_API_KEY not available, using simple parser');
-    return {
-      question: userInput.includes('?') ? userInput : userInput + '?',
-      domain: 'general',
-      timeframe: undefined,
-      suggestedDrivers: [],
-      suggestedResearch: [],
-      confidence: 0.5
-    };
-  }
-
   const prompt = `You are a forecasting assistant. Parse this forecast request:
 
 "${userInput}"
@@ -350,18 +336,19 @@ async function callCoachAgent(prompt: string): Promise<string> {
     throw new Error('ANTHROPIC_API_KEY not configured');
   }
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 2000,
-      temperature: 0.7,
-      system: `You are an expert Superforecaster coach. You help users create high-quality probability forecasts using the Tetlock methodology. You are:
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        temperature: 0.7,
+        system: `You are an expert Superforecaster coach. You help users create high-quality probability forecasts using the Tetlock methodology. You are:
 - Encouraging and positive
 - Clear and concise
 - Methodical and structured
@@ -369,21 +356,34 @@ async function callCoachAgent(prompt: string): Promise<string> {
 - Good at breaking down complex questions
 
 Keep responses brief (2-4 sentences usually). Ask ONE clear question at a time.`,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    }),
-  });
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      }),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Coach API error: ${response.status}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[callCoachAgent] API error ${response.status}:`, errorText);
+      throw new Error(`Coach API error: ${response.status} - ${errorText.substring(0, 200)}`);
+    }
+
+    const data = await response.json() as any;
+    
+    // Validate response structure
+    if (!data.content || !Array.isArray(data.content) || data.content.length === 0) {
+      console.error('[callCoachAgent] Unexpected API response structure:', JSON.stringify(data).substring(0, 500));
+      throw new Error('Unexpected API response structure');
+    }
+    
+    return data.content[0].text;
+  } catch (error: any) {
+    console.error('[callCoachAgent] Error:', error.message);
+    throw error;
   }
-
-  const data = await response.json() as any;
-  return data.content[0].text;
 }
 
 function generateBaseRateSuggestions(domain: string): any[] {
