@@ -2002,10 +2002,13 @@ export default function ForecastWorkspaceScreen() {
           return;
         }
 
-        setDriverBeingConfigured({
+        const updatedDriver = {
           ...driverBeingConfigured,
           agents: [...currentAgents, agentConfig],
-        });
+        };
+
+        setDriverBeingConfigured(updatedDriver);
+        updateDriverInForecast(updatedDriver);
 
         // Clear agent config and show success
         setAgentBeingConfigured(null);
@@ -2013,12 +2016,12 @@ export default function ForecastWorkspaceScreen() {
 
         await addFermiMessage(
           "/save",
-          `✓ Agent @${agentConfig.name} attached to driver config\n\n⚠️ Not persisted yet - driver must be saved!\n\nNext steps:\n• Add more agents: @<agent_name>\n• Configure driver: /p, /dist, /direction\n• Save driver to persist: /save`,
+          `✓ Agent @${agentConfig.name} attached and persisted!\n\nNext steps:\n• Add more agents: @<agent_name>\n• Configure driver: /p, /dist, /direction\n• Run the agent: /run @${agentConfig.name}`,
           [
             {
-              key: "save-driver",
-              label: "/save",
-              description: "Save driver + agents",
+              key: "run",
+              label: `/run @${agentConfig.name}`,
+              description: "Execute research now",
             },
             { key: "another", label: "@", description: "Add another agent" },
           ],
@@ -2284,8 +2287,10 @@ export default function ForecastWorkspaceScreen() {
             updated.probability = 0.5;
           }
           setDriverBeingConfigured(updated);
+          updateDriverInForecast(updated);
           setCommandInput("");
           setError("");
+          showToast(`✓ Driver type set to: ${type}`);
         } else {
           setError("Type must be 'continuous' or 'binary'");
         }
