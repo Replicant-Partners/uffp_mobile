@@ -39,6 +39,7 @@ if (Platform.OS === "web" && typeof document !== "undefined") {
 import { BarChart, LineChart } from "react-native-chart-kit";
 import Markdown from "react-native-markdown-display";
 import { researchService } from "../services/researchService";
+import { LinkPreviewCard } from "../components/LinkPreviewCard";
 import {
   executeCommand,
   type CommandContext,
@@ -2306,21 +2307,44 @@ export default function ForecastWorkspaceScreen() {
           return;
         }
 
+        // Extract URLs and fetch preview for first URL
+        const { extractUrls } = await import("../utils/urlUtils");
+        const { fetchLinkPreview } =
+          await import("../services/linkPreviewService");
+
+        const urls = extractUrls(evidenceText);
+        let linkPreview = undefined;
+
+        if (urls.length > 0) {
+          try {
+            setError("Fetching link preview...");
+            linkPreview = await fetchLinkPreview(urls[0]);
+          } catch (err) {
+            console.error("Failed to fetch link preview:", err);
+            // Continue without preview if fetch fails
+          }
+        }
+
         setDriverBeingConfigured({
           ...driverBeingConfigured,
           evidence: [
             ...(driverBeingConfigured.evidence || []),
             {
-              type: "manual",
+              type: urls.length > 0 ? "url" : "manual",
               source: "user",
               summary: evidenceText,
               timestamp: new Date().toISOString(),
+              linkPreview,
             },
           ],
         });
         setCommandInput("");
+
+        const previewMsg = linkPreview
+          ? `\n📎 Preview: ${linkPreview.title}`
+          : "";
         setError(
-          `✓ Evidence added: "${evidenceText.substring(0, 50)}${evidenceText.length > 50 ? "..." : ""}"`,
+          `✓ Evidence added: "${evidenceText.substring(0, 50)}${evidenceText.length > 50 ? "..." : ""}"${previewMsg}`,
         );
         return;
       }
@@ -4906,6 +4930,9 @@ export default function ForecastWorkspaceScreen() {
                             >
                               {ev.summary}
                             </Text>
+                            {ev.linkPreview && (
+                              <LinkPreviewCard preview={ev.linkPreview} />
+                            )}
                             {isExpanded && ev.fullResult && (
                               <View style={styles.fullResultSection}>
                                 <View style={styles.resultHeader}>
