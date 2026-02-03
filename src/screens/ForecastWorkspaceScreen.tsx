@@ -660,6 +660,8 @@ export default function ForecastWorkspaceScreen() {
           // Add forecast details if available
           if (activeForecast) {
             context.question = activeForecast.question;
+            context.domain = activeForecast.domain || "general"; // Backend requires domain for drivers stage
+            context.timeframe = activeForecast.timeframe;
             // Format drivers with percentage display
             context.drivers = activeForecast.drivers?.map(formatDriverForCoach);
             if (activeForecast.probability != null) {
