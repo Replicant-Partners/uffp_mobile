@@ -6,7 +6,7 @@
  * causes 404 errors from Anthropic API, breaking forecast creation.
  */
 
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
 async function runTests() {
@@ -31,6 +31,45 @@ async function runTests() {
   const modelId = modelMatch[1];
   console.log(`✅ PASSED: Found model ID: ${modelId}`);
 
+  // Tes
+
+  // Test 1.5: Check all API files for model usage
+  console.log('\n✓ Test 1.5: Checking all API files for Anthropic model usage');
+
+  const apiFiles = [
+    'lib/coach.ts'
+  ];
+
+  let allFilesCorrect = true;
+  
+  for (const file of apiFiles) {
+    const filePath = join(__dirname, '..', file);
+    if (!existsSync(filePath)) continue;
+    
+    const fileContent = readFileSync(filePath, 'utf-8');
+    
+    // Check if file uses Anthropic API
+    if (fileContent.includes('api.anthropic.com') || fileContent.includes('anthropic-version')) {
+      const fileModelMatch = fileContent.match(/model:\s*['"]([^'"]+)['"]/);
+      if (fileModelMatch) {
+        const fileModel = fileModelMatch[1];
+        if (fileModel !== modelId) {
+          console.error(`❌ FAILED: ${file} uses different model: ${fileModel}`);
+          console.error(`   Expected: ${modelId}`);
+          allFilesCorrect = false;
+        } else {
+          console.log(`   ✓ ${file}: ${fileModel}`);
+        }
+      }
+    }
+  }
+
+  if (!allFilesCorrect) {
+    console.error('\n❌ Model inconsistency detected across API files');
+    process.exit(1);
+  }
+
+  console.log('✅ PASSED: All API files use consistent model');
   // Test 2: Validate model ID format
   console.log('\n✓ Test 2: Model ID format validation');
 
