@@ -1309,8 +1309,18 @@ export default function ForecastWorkspaceScreen() {
           updatedDriver.name,
         );
         try {
+          // Ensure driver has an ID before sending to backend
+          if (!updatedDriver.id) {
+            updatedDriver.id = idGenerators.driver();
+            console.log(
+              "[SaveDriver] Generated ID for new driver:",
+              updatedDriver.id,
+            );
+          }
+
           const { addDriverWithSync } = await import("../utils/backendSync");
           const result = await addDriverWithSync(activeForecast.id, {
+            id: updatedDriver.id,
             name: updatedDriver.name,
             type: updatedDriver.type,
             probability: updatedDriver.probability,
