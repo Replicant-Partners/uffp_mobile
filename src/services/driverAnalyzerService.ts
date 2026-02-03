@@ -74,7 +74,7 @@ function fallbackAnalysis(driverName: string): DriverRecommendation {
           ? "decreases"
           : "increases",
       reasoning: "Yes/no event - binary outcome",
-      examples: { probability: 50 },
+      examples: { probability: 0.5 }, // 0.5 = 50% (stored as 0-1 range)
     };
   }
 

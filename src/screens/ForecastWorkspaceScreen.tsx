@@ -2697,6 +2697,43 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
+    // Handle /base-rate command - set base rate percentage for external view
+    if (trimmed.startsWith("/base-rate ")) {
+      if (!activeForecast) {
+        setError("No active forecast. Type /question first.");
+        setCommandInput("");
+        return;
+      }
+
+      const rateStr = trimmed.replace("/base-rate ", "").trim();
+      const rate = parseFloat(rateStr);
+
+      if (isNaN(rate) || rate < 0 || rate > 100) {
+        setError(
+          "Please provide a valid percentage (0-100), e.g., /base-rate 35",
+        );
+        return;
+      }
+
+      const updatedForecast = {
+        ...activeForecast,
+        externalView: {
+          referenceClass:
+            activeForecast.externalView?.referenceClass ||
+            "General reference class",
+          baseRate: rate / 100, // Convert percentage to 0-1 range
+          source: activeForecast.externalView?.source || "User-provided",
+        },
+        grounding: "external" as const,
+        updatedAt: new Date().toISOString(),
+      };
+      setActiveForecast(updatedForecast);
+      await saveForecast(updatedForecast);
+      setCommandInput("");
+      setError("");
+      return;
+    }
+
     // Handle /premortem command - mark premortem as pending
     if (trimmed === "/premortem") {
       if (!activeForecast) {
@@ -2917,12 +2954,24 @@ export default function ForecastWorkspaceScreen() {
       setFermiThinking(true);
 
       try {
+        // Build baseRate object if available
+        const baseRate =
+          activeForecast.externalView?.baseRate !== undefined
+            ? {
+                referenceClass:
+                  activeForecast.externalView.referenceClass || "General",
+                successRate: activeForecast.externalView.baseRate * 100, // Convert 0-1 to percentage
+                source: activeForecast.externalView.source,
+              }
+            : undefined;
+
         const response = await researchService.reviewForecast(
           activeForecast.id || "temp",
           {
             question: activeForecast.question,
             drivers: activeForecast.drivers,
             probability: activeForecast.probability,
+            baseRate,
           },
         );
 
@@ -3976,11 +4025,9 @@ export default function ForecastWorkspaceScreen() {
 
     // General command hints
     if (!input.startsWith("/")) {
-      return [
-        { key: "question", label: "/question", desc: "Start a new forecast" },
-        { key: "commands", label: "/commands", desc: "Show all commands" },
-        { key: "list", label: "/list", desc: "View forecasts" },
-      ];
+      // Don't show autocomplete for freeform text messages
+      // Only show hints if input is empty or we're prompting them to use commands
+      return [];
     }
 
     const query = input.toLowerCase();
@@ -4006,6 +4053,11 @@ export default function ForecastWorkspaceScreen() {
           key: "decompose",
           label: "/decompose",
           desc: "Break down the question",
+        },
+        {
+          key: "base-rate",
+          label: "/base-rate",
+          desc: "Set base rate percentage (0-100)",
         },
         { key: "remove", label: "/remove", desc: "Remove driver or agent" },
       );
