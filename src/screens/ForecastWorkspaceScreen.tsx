@@ -1146,6 +1146,40 @@ export default function ForecastWorkspaceScreen() {
     setError(actionMessage);
   };
 
+  /**
+   * Auto-save driver changes immediately (matches chip behavior)
+   * Used by driver configuration commands like /p, /dist, /direction
+   */
+  const updateDriverInForecast = (updatedDriver: any) => {
+    if (!activeForecast) return;
+
+    const existingIndex = activeForecast.drivers?.findIndex(
+      (d: any) => d.id === updatedDriver.id,
+    );
+
+    let updatedDrivers;
+    if (existingIndex >= 0) {
+      // Update existing driver
+      updatedDrivers = [...activeForecast.drivers];
+      updatedDrivers[existingIndex] = updatedDriver;
+    } else {
+      // Shouldn't happen in normal flow, but handle it
+      updatedDrivers = [...(activeForecast.drivers || []), updatedDriver];
+    }
+
+    const updatedForecast = {
+      ...activeForecast,
+      drivers: updatedDrivers,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setActiveForecast(updatedForecast);
+    setSavedForecasts((prev) =>
+      prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+    );
+    saveForecast(updatedForecast);
+  };
+
   const saveConfiguredDriver = async (force: boolean = false) => {
     console.log("[SaveDriver] === START ===");
     console.log("[SaveDriver] force:", force);
@@ -2263,12 +2297,15 @@ export default function ForecastWorkspaceScreen() {
         }
         const probPercent = parseInt(trimmed.replace("/prob ", "").trim(), 10);
         if (!isNaN(probPercent) && probPercent >= 0 && probPercent <= 100) {
-          setDriverBeingConfigured({
+          const updated = {
             ...driverBeingConfigured,
             probability: probPercent / 100, // Convert 0-100 to 0-1
-          });
+          };
+          setDriverBeingConfigured(updated);
+          updateDriverInForecast(updated);
           setCommandInput("");
           setError("");
+          showToast(`✓ Probability set to: ${probPercent}%`);
         } else {
           setError("Probability must be a number between 0 and 100");
         }
@@ -2283,9 +2320,12 @@ export default function ForecastWorkspaceScreen() {
         }
         const distribution = trimmed.replace("/dist ", "").trim();
         if (["triangular", "normal", "lognormal"].includes(distribution)) {
-          setDriverBeingConfigured({ ...driverBeingConfigured, distribution });
+          const updated = { ...driverBeingConfigured, distribution };
+          setDriverBeingConfigured(updated);
+          updateDriverInForecast(updated);
           setCommandInput("");
           setError("");
+          showToast(`✓ Distribution set to: ${distribution}`);
         } else {
           setError(
             "Distribution must be 'triangular', 'normal', or 'lognormal'",
@@ -2322,14 +2362,17 @@ export default function ForecastWorkspaceScreen() {
               return;
             }
 
-            setDriverBeingConfigured({
+            const updated = {
               ...driverBeingConfigured,
               p5,
               p50,
               p95,
-            });
+            };
+            setDriverBeingConfigured(updated);
+            updateDriverInForecast(updated);
             setCommandInput("");
             setError("");
+            showToast(`✓ Updated p-values: ${p5}, ${p50}, ${p95}`);
           } else {
             setError("Values must be numbers");
           }
@@ -2343,9 +2386,12 @@ export default function ForecastWorkspaceScreen() {
       if (trimmed.startsWith("/direction ")) {
         const direction = trimmed.replace("/direction ", "").trim();
         if (direction === "increases" || direction === "decreases") {
-          setDriverBeingConfigured({ ...driverBeingConfigured, direction });
+          const updated = { ...driverBeingConfigured, direction };
+          setDriverBeingConfigured(updated);
+          updateDriverInForecast(updated);
           setCommandInput("");
           setError("");
+          showToast(`✓ Direction set to: ${direction}`);
         } else {
           setError("Direction must be 'increases' or 'decreases'");
         }
