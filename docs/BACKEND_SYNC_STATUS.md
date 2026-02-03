@@ -14,6 +14,9 @@ This document tracks which commands sync data to backend vs. only saving locally
 | `/external` | `setBaseRateWithSync()` | ✅ Syncs | **b77e719** (Feb 3) |
 | `/simulate` | `runSimulationWithSync()` | ✅ Syncs | Already working |
 | `/remove driver` | `removeDriverWithSync()` | ✅ Syncs | **7cda926** (Feb 3) |
+| `/edit question` | `updateForecastWithSync()` | ✅ Syncs | **9a4ac2f** (Feb 3) |
+| `/grounding` | `updateForecastWithSync()` | ✅ Syncs | **9a4ac2f** (Feb 3) |
+| `/setprob` | `updateForecastWithSync()` | ✅ Syncs | **9a4ac2f** (Feb 3) |
 
 ## ⚠️ Commands WITHOUT Backend Sync (NEED FIXING)
 
@@ -21,11 +24,7 @@ These commands only save to localStorage. Changes are lost when reloading from b
 
 ### High Priority
 
-| Command | What It Modifies | Backend Endpoint Needed | Risk Level |
-|---------|-----------------|------------------------|------------|
-| `/edit question` | `forecast.question` | `action=updateForecast` | **HIGH** - Users edit questions and changes disappear |
-| `/grounding` | `forecast.grounding` | `action=updateForecast` | **HIGH** - Grounding strategy lost on reload |
-| `/setprob` | `forecast.probability` | `action=updateForecast` | **HIGH** - Manual probability overrides lost |
+**NONE - All high priority commands now fixed!**
 
 ### Medium Priority
 
@@ -40,12 +39,12 @@ These commands only save to localStorage. Changes are lost when reloading from b
 |---------|-----------------|------------------------|------------|
 | `/premortem` | `forecast.premortem`, `forecast.grounding` | `action=updateForecast` | **LOW** - Feature marked "coming soon", low usage |
 
-## Backend API Gaps
+## Backend API Status
 
-The backend needs a general forecast update endpoint:
+The backend now has all necessary forecast endpoints:
 
 ```typescript
-// Backend needs this endpoint:
+// ✅ NOW IMPLEMENTED in commit 9a4ac2f:
 POST /api/forecasts?action=updateForecast
 Body: {
   forecastId: string,
@@ -60,42 +59,32 @@ Body: {
 }
 ```
 
-Currently the backend has:
+Backend endpoints available:
 - ✅ `action=addDriver` - add new driver
 - ✅ `action=updateDriver` - update existing driver  
 - ✅ `action=removeDriver` - remove driver
 - ✅ `action=setBaseRate` - update external view/base rate
 - ✅ `action=simulate` - run simulation
-- ❌ `action=updateForecast` - **MISSING** - needed for question, grounding, probability, etc.
+- ✅ `action=updateForecast` - **NOW AVAILABLE** - updates question, grounding, probability, etc.
 
-## Workaround Until Backend Fixed
+## Implementation Complete ✅
 
-For the commands that need `action=updateForecast`, we have two options:
+All high-priority backend sync issues have been resolved:
 
-### Option 1: Use Existing `updateForecast` Method (Frontend Has It)
-The frontend already has `researchService.updateForecast()` but the backend doesn't implement `action=update`. This is dead code that never works.
+### Backend Work (Commit 9a4ac2f):
+   - ✅ Added `action=updateForecast` endpoint to `api/forecasts.ts`
+   - ✅ Imported `updateForecast()` from `database.ts` (already existed)
+   - ✅ Supports updating: question, grounding, probability, and any forecast-level field
 
-**Code location:** `src/services/researchService.ts:338`
-
-### Option 2: Wait for Backend Implementation
-Backend team needs to add the `updateForecast` endpoint handler in:
-- `uffp-backend/api/forecasts.ts`
-- `uffp-backend/lib/database.ts`
-
-## Recommended Fix Order
-
-1. **Backend Work Required:**
-   - Add `action=updateForecast` endpoint to backend
-   - Add `updateForecast()` function to database.ts
-   - Support updating: question, grounding, probability, premortem, fermiConversation
-
-2. **Frontend Work (After Backend Ready):**
-   - Create `updateForecastWithSync()` in backendSync.ts
-   - Update `/edit question` to use it
-   - Update `/grounding` to use it  
-   - Update `/setprob` to use it
-   - Update `/premortem` to use it
-   - Update `addFermiMessage()` to use it
+### Frontend Work (Commit 9a4ac2f):
+   - ✅ Created `updateForecastWithSync()` in `src/utils/backendSync.ts`
+   - ✅ Updated `/edit question` to use it
+   - ✅ Updated `/grounding` to use it  
+   - ✅ Updated `/setprob` to use it
+   
+### Remaining Low Priority:
+   - ⚠️ `/premortem` - Can use `updateForecastWithSync()` when feature is implemented
+   - ⚠️ `addFermiMessage()` - Can use `updateForecastWithSync()` for conversation history (medium priority)
 
 ## Testing Strategy
 
@@ -131,22 +120,22 @@ All user actions will persist across:
 **Total Commands Analyzed:** 15
 
 **Backend Sync Status:**
-- ✅ **7 commands** syncing correctly (47%)
-- ⚠️ **5 commands** need fixing (33%)
+- ✅ **10 commands** syncing correctly (67%)
+- ⚠️ **2 commands** need fixing (13%) - low priority
 - ✅ **3 commands** are OK (staged changes in driver config) (20%)
 
-**Bugs Fixed Today:**
+**Bugs Fixed Today (February 3, 2026):**
 1. Base rate disappearing - b77e719
 2. External view disappearing - b77e719
 3. Evidence disappearing - 8726cf5
 4. Driver removal not persisting - 7cda926
+5. Question edits not persisting - 9a4ac2f ✨ **NEW**
+6. Grounding changes not persisting - 9a4ac2f ✨ **NEW**
+7. Manual probability not persisting - 9a4ac2f ✨ **NEW**
 
-**Bugs Remaining:**
-1. Question edits not persisting (needs backend)
-2. Grounding changes not persisting (needs backend)
-3. Manual probability not persisting (needs backend)
-4. Fermi conversation not persisting (needs backend)
-5. Premortem settings not persisting (needs backend)
+**Bugs Remaining (Low Priority):**
+1. Fermi conversation not persisting (medium priority - can use `updateForecastWithSync()`)
+2. Premortem settings not persisting (low priority - feature not yet implemented)
 
 ## Related Documentation
 
@@ -157,5 +146,5 @@ All user actions will persist across:
 ---
 
 **Last Updated:** February 3, 2026  
-**Next Action:** Backend team needs to implement `action=updateForecast` endpoint  
-**Tracking Issue:** TBD
+**Status:** ✅ **All high-priority backend sync issues resolved**  
+**Commits:** b77e719, 8726cf5, 7cda926, 9a4ac2f
