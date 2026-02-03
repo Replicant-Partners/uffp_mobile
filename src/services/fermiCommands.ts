@@ -754,14 +754,15 @@ export const COMMANDS: Record<string, Command> = {
 
   remove: {
     name: "remove",
-    syntax: "/remove <driver|agent|evidence> <name|number>",
-    description: "Remove a driver, agent, or evidence (cascade delete)",
+    syntax: "/remove <driver|agent|evidence|research> <name|number>",
+    description: "Remove items one-by-one (driver cascades to all children)",
     contexts: ["forecast_active", "driver_config"],
     category: "system",
     examples: [
       "/remove driver Market size",
       "/remove agent research_analyst",
       "/remove evidence 1",
+      "/remove research 2",
     ],
     execute: async (args, state) => {
       const type = args[0];
@@ -770,7 +771,7 @@ export const COMMANDS: Record<string, Command> = {
         return {
           success: false,
           message:
-            "Usage: /remove driver <name> | /remove agent <name> | /remove evidence <number>",
+            "Usage: /remove driver <name> | /remove agent <name> | /remove evidence <number> | /remove research <number>",
         };
       }
       return {

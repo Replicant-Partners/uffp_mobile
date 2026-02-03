@@ -3937,9 +3937,56 @@ export default function ForecastWorkspaceScreen() {
         );
         setError(`✓ Removed evidence #${evidenceIndex + 1}`);
         return;
+      } else if (removeTarget.startsWith("research ")) {
+        const researchIndex =
+          parseInt(removeTarget.replace("research ", "").trim(), 10) - 1; // Convert to 0-indexed
+
+        if (!driverBeingConfigured) {
+          setError(
+            "No driver being configured. Enter driver config mode first with /driver <name>",
+          );
+          setCommandInput("");
+          return;
+        }
+
+        if (
+          isNaN(researchIndex) ||
+          researchIndex < 0 ||
+          !driverBeingConfigured.researchResults ||
+          researchIndex >= driverBeingConfigured.researchResults.length
+        ) {
+          setError(
+            `Invalid research index. Use /remove research <number> (1-${driverBeingConfigured.researchResults?.length || 0})`,
+          );
+          setCommandInput("");
+          return;
+        }
+
+        // Remove research result from driver
+        const updatedResearch = [
+          ...(driverBeingConfigured.researchResults || []),
+        ];
+        const removedResearch = updatedResearch.splice(researchIndex, 1)[0];
+
+        const updatedDriver = {
+          ...driverBeingConfigured,
+          researchResults: updatedResearch,
+        };
+
+        setDriverBeingConfigured(updatedDriver);
+        updateDriverInForecast(updatedDriver);
+
+        setCommandInput("");
+        const researchSummary =
+          removedResearch.summary?.substring(0, 50) || "research result";
+        showToast(
+          `✓ Removed research: ${researchSummary}${researchSummary.length >= 50 ? "..." : ""}`,
+        );
+        setError(`✓ Removed research #${researchIndex + 1}`);
+        return;
       } else {
         setError(
-          "Usage: /remove driver <name> | /remove agent <name> | /remove evidence <number>",
+          "Usage: /remove driver <name> | /remove agent <name> | /remove evidence <number> | /remove research <number>",
         );
         setCommandInput("");
         return;
