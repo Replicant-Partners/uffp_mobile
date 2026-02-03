@@ -1058,10 +1058,13 @@ export default function ForecastWorkspaceScreen() {
       // Store result as evidence on the driver being configured
       const newEvidence = {
         id: idGenerators.evidence(),
-        type: "research",
+        type: "data" as const,
+        content: result.result?.summary || "Research completed successfully",
         source: agentBeingConfigured.name,
-        summary: result.result?.summary || "Research completed successfully",
-        timestamp: new Date().toISOString(),
+        confidence: "medium" as const,
+        attachedTo: "driver" as const,
+        attachedToId: driverBeingConfigured?.id || "",
+        timestamp: new Date(),
         fullResult: result.result,
       };
 
@@ -2351,12 +2354,15 @@ export default function ForecastWorkspaceScreen() {
                   ...(driverBeingConfigured.evidence || []),
                   {
                     id: idGenerators.evidence(),
-                    type: "research",
-                    source: agent.name || agent,
-                    summary:
+                    type: "data" as const,
+                    content:
                       result.result?.summary ||
                       "Research completed successfully",
-                    timestamp: new Date().toISOString(),
+                    source: agent.name || agent,
+                    confidence: "medium" as const,
+                    attachedTo: "driver" as const,
+                    attachedToId: driverBeingConfigured.id,
+                    timestamp: new Date(),
                     fullResult: result.result, // Store the actual ResearchResult
                   },
                 ],
@@ -2367,12 +2373,15 @@ export default function ForecastWorkspaceScreen() {
                 if (d.id === targetDriver.id) {
                   const newEvidence = {
                     id: idGenerators.evidence(),
-                    type: "research",
-                    source: agent.name || agent,
-                    summary:
+                    type: "data" as const,
+                    content:
                       result.result?.summary ||
                       "Research completed successfully",
-                    timestamp: new Date().toISOString(),
+                    source: agent.name || agent,
+                    confidence: "medium" as const,
+                    attachedTo: "driver" as const,
+                    attachedToId: d.id,
+                    timestamp: new Date(),
                     fullResult: result.result, // Store the actual ResearchResult
                   };
 
@@ -2781,10 +2790,13 @@ export default function ForecastWorkspaceScreen() {
             ...(driverBeingConfigured.evidence || []),
             {
               id: idGenerators.evidence(),
-              type: urls.length > 0 ? "url" : "manual",
+              type: urls.length > 0 ? "url" : "reasoning",
+              content: evidenceText,
               source: "user",
-              summary: evidenceText,
-              timestamp: new Date().toISOString(),
+              confidence: "medium" as const,
+              attachedTo: "driver" as const,
+              attachedToId: driverBeingConfigured.id,
+              timestamp: new Date(),
               linkPreview,
             },
           ],

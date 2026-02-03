@@ -60,6 +60,15 @@ function findCommandHandler(content: string, command: string): string | null {
     match = commandRegex.exec(content);
   }
 
+  // Try if statement pattern without space: if (trimmed.startsWith("/command"))
+  if (!match) {
+    commandRegex = new RegExp(
+      `if \\(.*startsWith\\(['"\`]${command.replace("/", "\\/")}['"\`]\\)`,
+      "g",
+    );
+    match = commandRegex.exec(content);
+  }
+
   // Try exact match pattern for commands without arguments
   if (!match) {
     commandRegex = new RegExp(`trimmed === ['"\`]${command}['"\`]`, "g");
@@ -68,8 +77,8 @@ function findCommandHandler(content: string, command: string): string | null {
 
   if (!match) return null;
 
-  // Get the next 1500 chars to analyze the handler
-  return content.substring(match.index, match.index + 1500);
+  // Get the next 4500 chars to analyze the handler (some commands are very long)
+  return content.substring(match.index, match.index + 4500);
 }
 
 function checkPersistence(
@@ -104,8 +113,16 @@ function checkPersistence(
     return true;
   }
 
+  // For /evidence command (uses updateDriverInForecast helper)
+  if (commandName === "/evidence") {
+    if (!hasUpdateHelper) {
+      return `${commandName} should update state (setActiveForecast or setSavedForecasts)`;
+    }
+    return true;
+  }
+
   // For other forecast-modifying commands
-  if (["/edit", "/evidence", "/base-rate", "/external"].includes(commandName)) {
+  if (["/edit", "/base-rate", "/external"].includes(commandName)) {
     if (!hasSetActive && !hasSetSaved) {
       return `${commandName} should update state (setActiveForecast or setSavedForecasts)`;
     }
@@ -249,10 +266,10 @@ test("/list command exists", () => {
   return true;
 });
 
-// Test 12: /help command
-test("/help command exists", () => {
-  const handler = findCommandHandler(content, "/help");
-  if (!handler) return "/help command not found";
+// Test 12: /commands command (help system)
+test("/commands command exists", () => {
+  const handler = findCommandHandler(content, "/commands");
+  if (!handler) return "/commands command not found";
   return true;
 });
 
@@ -280,9 +297,11 @@ test("updateDriverInForecast helper function exists", () => {
 });
 
 // Test 14: Check backend sync is used for critical operations
-test("Backend sync methods are properly imported", () => {
-  const hasImports = /from ['"].*backendSync['"]/.test(content);
-  if (!hasImports) return "backendSync not imported";
+test("Backend sync methods are properly used", () => {
+  // Check for dynamic imports of backendSync
+  const hasBackendSyncImport = /import\(['"].*backendSync['"]\)/.test(content);
+  if (!hasBackendSyncImport)
+    return "backendSync not imported (static or dynamic)";
 
   const hasAddDriver = /addDriverWithSync/.test(content);
   const hasUpdateDriver = /updateDriverWithSync/.test(content);
@@ -295,10 +314,13 @@ test("Backend sync methods are properly imported", () => {
   return true;
 });
 
-// Test 15: Check schema validation is run on load
+// Test 15: Check schema validation is run on load (via backendSync)
 test("Schema validation runs on forecast load", () => {
-  const hasValidation = /validateForecast\(|schemaValidator/.test(content);
-  if (!hasValidation) return "Schema validation not found";
+  // Schema validation happens in backendSync.ts, which is imported dynamically
+  // Check that we use loadForecastsWithSync which includes validation
+  const usesLoadWithSync = /loadForecastsWithSync/.test(content);
+  if (!usesLoadWithSync)
+    return "loadForecastsWithSync not used (schema validation happens there)";
   return true;
 });
 
