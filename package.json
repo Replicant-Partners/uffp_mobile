@@ -19,14 +19,15 @@
     "test:cli": "npx tsx tests/cliDriverCreation.test.ts",
     "test:state": "npx tsx tests/stateIntegrity.test.ts",
     "test:model": "npx tsx tests/anthropicModel.test.ts",
-    "test:all": "npm run test:schema && npm run test:cli && npm run test:state && npm run test:model && npm run test:driver-sync",
+    "test:all": "npm run test:schema && npm run test:cli && npm run test:state && npm run test:model && npm run test:driver-sync && npm run test:command-persist",
     "test": "npm run test:all",
     "prepare": "husky",
     "test:link-preview": "npx tsx tests/linkPreview.test.ts",
     "test:backend": "npx tsx tests/backendIntegration.test.ts",
     "test:e2e-base-rate": "npx tsx tests/e2e-base-rate.test.ts",
     "test:phase2": "npx tsx tests/phase2-ui-integration.test.ts",
-    "test:driver-sync": "npx tsx tests/driverSyncFallback.test.ts"
+    "test:driver-sync": "npx tsx tests/driverSyncFallback.test.ts",
+    "test:command-persist": "npx tsx tests/commandPersistence.test.ts"
   },
   "dependencies": {
     "@react-navigation/native": "^7.1.28",
