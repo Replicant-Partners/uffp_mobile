@@ -45,7 +45,12 @@
 This project has TWO repositories that must stay in sync:
 
 - **Mobile:** `/home/ilabra/uffp_mobile` (React Native + Expo)
-- **Backend:** `/home/ilabra/uffp-backend` (Vercel Serverless)
+  - Local path: `/home/ilabra/uffp_mobile`
+  
+- **Backend:** `https://github.com/Replicant-Partners/uffp-backend` (Vercel Serverless)
+  - Local path: `/home/ilabra/uffp-backend`
+  - GitHub: https://github.com/Replicant-Partners/uffp-backend
+  - Deployed on Vercel (auto-deploy from master)
 
 Both have identical regression test suites and pre-commit hooks.
 
