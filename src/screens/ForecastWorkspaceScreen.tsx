@@ -2743,6 +2743,11 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
+      const previousGeneratedBy = activeForecast.externalView?.generatedBy;
+      const previousRate = activeForecast.externalView?.baseRate
+        ? Math.round(activeForecast.externalView.baseRate * 100)
+        : null;
+
       const updatedForecast = {
         ...activeForecast,
         externalView: {
@@ -2762,11 +2767,43 @@ export default function ForecastWorkspaceScreen() {
       setActiveForecast(updatedForecast);
       await saveForecast(updatedForecast);
       setCommandInput("");
-      setError(
-        `✓ Base rate updated to ${rate}%\n\n` +
-          `💡 Consider documenting your reasoning:\n` +
-          `Type: /evidence [explain why you chose this base rate]`,
-      );
+
+      // Send Fermi message with different content based on whether this is override or new
+      if (previousGeneratedBy === "fermi" && previousRate !== null) {
+        await addFermiMessage(
+          "/base-rate",
+          `✓ **Base rate updated to ${rate}%**\n\n` +
+            `You've overridden the AI-generated base rate (${previousRate}%) with your own research.\n\n` +
+            `💡 **Document your reasoning:** To help with future analysis and collaboration, ` +
+            `consider adding evidence explaining why you chose this base rate:\n\n` +
+            `\`/evidence [explain your research and reasoning]\``,
+          [
+            {
+              key: "evidence",
+              label: "/evidence ",
+              desc: "Document your reasoning",
+            },
+            { key: "driver", label: "/driver ", desc: "Add a driver" },
+          ],
+        );
+      } else {
+        await addFermiMessage(
+          "/base-rate",
+          `✓ **Base rate set to ${rate}%**\n\n` +
+            `${previousRate !== null ? `Updated from ${previousRate}%.` : "Base rate added."}\n\n` +
+            `💡 **Document your reasoning:** Adding evidence will help explain ` +
+            `this base rate to others and for future reference:\n\n` +
+            `\`/evidence [explain why you chose this base rate]\``,
+          [
+            {
+              key: "evidence",
+              label: "/evidence ",
+              desc: "Document your reasoning",
+            },
+            { key: "driver", label: "/driver ", desc: "Add a driver" },
+          ],
+        );
+      }
       return;
     }
 
@@ -3390,16 +3427,57 @@ export default function ForecastWorkspaceScreen() {
             const baseRatePercent = Math.round(
               newForecast.externalView.baseRate * 100,
             );
-            setError(
-              `✓ Forecast created!\n\n📊 Base Rate Analysis:\n` +
-                `Reference Class: ${newForecast.externalView.referenceClass}\n` +
-                `Historical Success Rate: ${baseRatePercent}%\n` +
-                `Confidence: ${newForecast.externalView.confidence || "medium"}\n\n` +
-                `${newForecast.externalView.reasoning || ""}\n\n` +
-                `💡 Use /driver to add your first driver, or /base-rate to override this estimate.`,
+
+            // Send Fermi message about base rate
+            await addFermiMessage(
+              "/question",
+              `✓ **Forecast created!**\n\n` +
+                `📊 **Base Rate Analysis**\n\n` +
+                `I've analyzed similar historical cases and found:\n\n` +
+                `**Reference Class:** ${newForecast.externalView.referenceClass}\n\n` +
+                `**Historical Success Rate:** ${baseRatePercent}%\n\n` +
+                `**Confidence:** ${newForecast.externalView.confidence || "medium"}\n\n` +
+                `**Reasoning:** ${newForecast.externalView.reasoning || ""}\n\n` +
+                `💡 This gives us a starting point based on ${newForecast.externalView.source || "historical analysis"}. ` +
+                `As you add drivers and evidence, we'll refine this estimate.\n\n` +
+                `**Next steps:**\n` +
+                `• Use \`/driver\` to add your first driver\n` +
+                `• Use \`/base-rate\` if you want to override with your own research`,
+              [
+                {
+                  key: "driver",
+                  label: "/driver ",
+                  desc: "Add your first driver",
+                },
+                {
+                  key: "base-rate",
+                  label: "/base-rate ",
+                  desc: "Override base rate",
+                },
+              ],
             );
           } else {
-            setError(`✓ Forecast created! Use /driver to add drivers.`);
+            // No base rate available - send basic Fermi message
+            await addFermiMessage(
+              "/question",
+              `✓ **Forecast created!**\n\n` +
+                `Your forecast "${newForecast.question}" is ready.\n\n` +
+                `**Next steps:**\n` +
+                `• Use \`/driver\` to decompose this into key drivers\n` +
+                `• Use \`/base-rate\` to add an external view base rate`,
+              [
+                {
+                  key: "driver",
+                  label: "/driver ",
+                  desc: "Add your first driver",
+                },
+                {
+                  key: "base-rate",
+                  label: "/base-rate ",
+                  desc: "Add base rate",
+                },
+              ],
+            );
           }
 
           // Only save to local storage if backend failed
