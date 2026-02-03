@@ -37,6 +37,20 @@ export async function parseQuestion(userInput: string): Promise<{
   suggestedResearch?: string[];
   confidence: number;
 }> {
+  // Check if API key is available - if not, use simple fallback
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.log('[parseQuestion] ANTHROPIC_API_KEY not available, using simple parser');
+    return {
+      question: userInput.includes('?') ? userInput : userInput + '?',
+      domain: 'general',
+      timeframe: undefined,
+      suggestedDrivers: [],
+      suggestedResearch: [],
+      confidence: 0.5
+    };
+  }
+
   const prompt = `You are a forecasting assistant. Parse this forecast request:
 
 "${userInput}"
@@ -82,13 +96,13 @@ Output: {
 
 Now parse: "${userInput}"`;
 
-  const response = await callCoachAgent(prompt);
-  
   try {
+    const response = await callCoachAgent(prompt);
     const parsed = JSON.parse(response);
     return parsed;
   } catch (e) {
-    // Fallback if JSON parsing fails
+    // Fallback if AI parsing fails
+    console.error('[parseQuestion] AI parsing failed, using fallback:', e);
     return {
       question: userInput.includes('?') ? userInput : userInput + '?',
       domain: 'general',
@@ -100,9 +114,6 @@ Now parse: "${userInput}"`;
   }
 }
 
-/**
- * Coach guides user through base rate selection
- */
 export async function coachBaseRate(context: {
   question: string;
   domain: string;
