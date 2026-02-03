@@ -519,6 +519,19 @@ export async function updateDriverWithSync(
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
     console.error("[BackendSync] Driver update failed:", errorMsg);
+
+    // If driver doesn't exist on backend, try adding it instead
+    if (errorMsg.includes("Driver not found")) {
+      console.log(
+        "[BackendSync] Driver not found on backend, attempting to add it instead...",
+      );
+      const driverData = {
+        id: driverId,
+        ...updates,
+      };
+      return await addDriverWithSync(forecastId, driverData);
+    }
+
     return { success: false, error: errorMsg };
   }
 }
