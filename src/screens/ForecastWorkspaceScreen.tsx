@@ -1580,6 +1580,110 @@ export default function ForecastWorkspaceScreen() {
     await processSingleCommand(trimmed);
   };
 
+  // Parse multi-command input (semicolon or newline separated)
+  const parseMultiCommand = (input: string): string[] => {
+    // Support newlines, semicolons, or forward slashes as separators
+    let commands: string[] = [];
+
+    if (input.includes("\n")) {
+      commands = input.split("\n");
+    } else if (input.includes(";")) {
+      commands = input.split(";");
+    } else if (input.split("/").filter((c) => c.trim()).length > 1) {
+      commands = input.split("/");
+    } else {
+      return [input]; // Single command
+    }
+
+    // Clean and filter
+    commands = commands.map((c) => c.trim()).filter((c) => c.length > 0);
+
+    // Ensure all start with /
+    commands = commands.map((cmd) => (cmd.startsWith("/") ? cmd : "/" + cmd));
+
+    return commands;
+  };
+
+  // Execute multiple commands as atomic batch with rollback support
+  const executeCommandBatch = async (commands: string[]) => {
+    // Capture state snapshot for rollback
+    const snapshot = {
+      activeForecast: activeForecast
+        ? JSON.parse(JSON.stringify(activeForecast))
+        : null,
+      driverBeingConfigured: driverBeingConfigured
+        ? JSON.parse(JSON.stringify(driverBeingConfigured))
+        : null,
+      agentBeingConfigured: agentBeingConfigured
+        ? JSON.parse(JSON.stringify(agentBeingConfigured))
+        : null,
+      savedForecasts: JSON.parse(JSON.stringify(savedForecasts)),
+    };
+
+    const executedCommands: string[] = [];
+
+    setFermiThinking(true);
+
+    try {
+      for (const cmd of commands) {
+        executedCommands.push(cmd);
+        console.log(
+          `[Batch] Executing command ${executedCommands.length}/${commands.length}:`,
+          cmd,
+        );
+        await processSingleCommand(cmd);
+      }
+
+      // Success - all commands executed
+      showToast(`✓ Executed ${commands.length} commands successfully`);
+
+      await addFermiMessage(
+        `batch (${commands.length} commands)`,
+        `✓ **Batch complete!**\n\nSuccessfully executed ${commands.length} commands:\n${commands.map((c, i) => `${i + 1}. ${c}`).join("\n")}`,
+      );
+    } catch (error: any) {
+      // Rollback: restore snapshot
+      console.error(
+        `[Batch] Failed at command ${executedCommands.length}/${commands.length}`,
+        error,
+      );
+
+      if (snapshot.activeForecast) setActiveForecast(snapshot.activeForecast);
+      if (snapshot.driverBeingConfigured)
+        setDriverBeingConfigured(snapshot.driverBeingConfigured);
+      if (snapshot.agentBeingConfigured)
+        setAgentBeingConfigured(snapshot.agentBeingConfigured);
+      setSavedForecasts(snapshot.savedForecasts);
+
+      const failedCmd = executedCommands[executedCommands.length - 1];
+      const failedIndex = executedCommands.length;
+
+      setError(
+        `❌ Batch failed at command ${failedIndex}/${commands.length}:\n\n` +
+          `"${failedCmd}"\n\n` +
+          `Error: ${error.message || error}\n\n` +
+          `✓ All changes rolled back.\n\n` +
+          `Executed before failure:\n${
+            executedCommands
+              .slice(0, -1)
+              .map((c, i) => `${i + 1}. ${c}`)
+              .join("\n") || "(none)"
+          }`,
+      );
+
+      await addFermiMessage(
+        `batch error (${commands.length} commands)`,
+        `❌ **Batch failed**\n\n` +
+          `Executed ${executedCommands.length - 1}/${commands.length} successfully, then failed on:\n\n` +
+          `"${failedCmd}"\n\n` +
+          `Error: ${error.message || error}\n\n` +
+          `All changes have been rolled back.`,
+      );
+    } finally {
+      setFermiThinking(false);
+    }
+  };
+
   const processSingleCommand = async (trimmed: string) => {
     // Check for unsaved changes before allowing navigation commands
     const navigationCommands = [
@@ -6686,10 +6790,19 @@ export default function ForecastWorkspaceScreen() {
                 const userMsg = fermiChatInput.trim();
                 setFermiChatInput("");
 
-                // Commands and @ mentions go through main handler, other text goes to coaching
+                // Check if this is a command or @ mention
                 if (userMsg.startsWith("/") || userMsg.startsWith("@")) {
-                  await processSingleCommand(userMsg);
+                  // Check for multi-command input
+                  const commands = parseMultiCommand(userMsg);
+                  if (commands.length > 1) {
+                    // Execute as batch with transaction support
+                    await executeCommandBatch(commands);
+                  } else {
+                    // Single command, execute normally
+                    await processSingleCommand(userMsg);
+                  }
                 } else {
+                  // Natural language goes to coaching
                   await handleFermiCoaching(userMsg);
                 }
               }
@@ -6706,10 +6819,19 @@ export default function ForecastWorkspaceScreen() {
                   const userMsg = fermiChatInput.trim();
                   setFermiChatInput("");
 
-                  // Commands and @ mentions go through main handler, other text goes to coaching
+                  // Check if this is a command or @ mention
                   if (userMsg.startsWith("/") || userMsg.startsWith("@")) {
-                    await processSingleCommand(userMsg);
+                    // Check for multi-command input
+                    const commands = parseMultiCommand(userMsg);
+                    if (commands.length > 1) {
+                      // Execute as batch with transaction support
+                      await executeCommandBatch(commands);
+                    } else {
+                      // Single command, execute normally
+                      await processSingleCommand(userMsg);
+                    }
                   } else {
+                    // Natural language goes to coaching
                     await handleFermiCoaching(userMsg);
                   }
                 }
@@ -6733,10 +6855,19 @@ export default function ForecastWorkspaceScreen() {
                 const userMsg = fermiChatInput.trim();
                 setFermiChatInput("");
 
-                // Commands and @ mentions go through main handler, other text goes to coaching
+                // Check if this is a command or @ mention
                 if (userMsg.startsWith("/") || userMsg.startsWith("@")) {
-                  await processSingleCommand(userMsg);
+                  // Check for multi-command input
+                  const commands = parseMultiCommand(userMsg);
+                  if (commands.length > 1) {
+                    // Execute as batch with transaction support
+                    await executeCommandBatch(commands);
+                  } else {
+                    // Single command, execute normally
+                    await processSingleCommand(userMsg);
+                  }
                 } else {
+                  // Natural language goes to coaching
                   await handleFermiCoaching(userMsg);
                 }
               }
