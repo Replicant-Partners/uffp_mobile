@@ -130,6 +130,134 @@ const scenarios: TestScenario[] = [
   },
 
   {
+    name: "Backend simulation updates activeForecast",
+    description:
+      "When a simulation is run, activeForecast must be updated with the backend response including probability and simulation data",
+    setup: () => ({
+      forecastId: "fct_abc123",
+      iterations: 10000,
+      backendResponse: {
+        success: true,
+        probability: 0.65,
+        forecast: {
+          id: "fct_abc123",
+          question: "Test",
+          probability: 0.65,
+          simulations: [
+            {
+              id: "sim_xyz789",
+              iterations: 10000,
+              probability: 0.65,
+              executedAt: new Date().toISOString(),
+            },
+          ],
+        },
+      },
+      activeForecastBefore: {
+        id: "fct_abc123",
+        question: "Test",
+        probability: undefined,
+        simulations: [],
+      },
+      activeForecastAfter: {
+        id: "fct_abc123",
+        question: "Test",
+        probability: 0.65,
+        simulations: [
+          {
+            id: "sim_xyz789",
+            iterations: 10000,
+            probability: 0.65,
+            executedAt: new Date().toISOString(),
+          },
+        ],
+      },
+    }),
+    validate: (state) => {
+      const { backendResponse, activeForecastAfter } = state;
+
+      if (backendResponse.success && backendResponse.forecast) {
+        if (activeForecastAfter.probability !== backendResponse.probability) {
+          return {
+            valid: false,
+            error: `Simulation ran successfully but activeForecast.probability not updated. Expected ${backendResponse.probability}, got ${activeForecastAfter.probability}. User will not see simulation result.`,
+          };
+        }
+
+        if (
+          !activeForecastAfter.simulations ||
+          activeForecastAfter.simulations.length === 0
+        ) {
+          return {
+            valid: false,
+            error:
+              "Simulation ran successfully but activeForecast.simulations not updated. User will not see simulation history.",
+          };
+        }
+      }
+
+      return { valid: true };
+    },
+  },
+
+  {
+    name: "Backend forecast resolution updates activeForecast",
+    description:
+      "When a forecast is resolved, activeForecast must be updated with outcome and Brier score",
+    setup: () => ({
+      forecastId: "fct_abc123",
+      actualOutcome: true,
+      backendResponse: {
+        success: true,
+        brierScore: 0.15,
+        forecast: {
+          id: "fct_abc123",
+          question: "Test",
+          resolved: true,
+          actualOutcome: true,
+          brierScore: 0.15,
+          resolvedAt: new Date().toISOString(),
+        },
+      },
+      activeForecastBefore: {
+        id: "fct_abc123",
+        question: "Test",
+        resolved: false,
+      },
+      activeForecastAfter: {
+        id: "fct_abc123",
+        question: "Test",
+        resolved: true,
+        actualOutcome: true,
+        brierScore: 0.15,
+        resolvedAt: new Date().toISOString(),
+      },
+    }),
+    validate: (state) => {
+      const { backendResponse, activeForecastAfter } = state;
+
+      if (backendResponse.success && backendResponse.forecast) {
+        if (!activeForecastAfter.resolved) {
+          return {
+            valid: false,
+            error:
+              "Forecast resolved on backend but activeForecast.resolved not set to true. UI will not show resolved state.",
+          };
+        }
+
+        if (activeForecastAfter.brierScore === undefined) {
+          return {
+            valid: false,
+            error: `Forecast resolved but Brier score not updated. Expected ${backendResponse.brierScore}, got undefined.`,
+          };
+        }
+      }
+
+      return { valid: true };
+    },
+  },
+
+  {
     name: "Local storage cleared when backend is source of truth",
     description:
       "When forecasts are loaded from backend, local storage should be cleared to prevent state conflicts",
