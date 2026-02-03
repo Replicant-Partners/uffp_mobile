@@ -801,11 +801,11 @@ export default function ForecastWorkspaceScreen() {
           );
 
           // Parse suggestions from response if provided
-          const suggestions: CommandSuggestion[] = response.suggestions || [];
+          const suggestions: CommandSuggestion[] = response.response?.suggestions || response.suggestions || [];
 
           await addFermiMessage(
             queryText,
-            response.message || response.response,
+            response.response?.message || response.message || JSON.stringify(response),
             suggestions,
           );
           return;
