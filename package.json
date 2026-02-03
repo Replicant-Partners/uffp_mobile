@@ -21,7 +21,9 @@
     "test": "npm run test:all",
     "prepare": "husky",
     "test:link-preview": "npx tsx tests/linkPreview.test.ts",
-    "test:backend": "npx tsx tests/backendIntegration.test.ts"
+    "test:backend": "npx tsx tests/backendIntegration.test.ts",
+    "test:e2e-base-rate": "npx tsx tests/e2e-base-rate.test.ts",
+    "test:phase2": "npx tsx tests/phase2-ui-integration.test.ts"
   },
   "dependencies": {
     "@react-navigation/native": "^7.1.28",
