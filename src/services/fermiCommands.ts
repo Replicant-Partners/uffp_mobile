@@ -111,6 +111,30 @@ export const COMMANDS: Record<string, Command> = {
     },
   },
 
+  edit: {
+    name: "edit",
+    syntax: "/edit question <new question text>",
+    description: "Edit the question for your active forecast",
+    contexts: ["forecast_workspace"],
+    category: "forecast",
+    examples: ["/edit question Will SpaceX reach Mars by 2030?"],
+    execute: async (args, state) => {
+      const newQuestion = args.join(" ");
+      if (!newQuestion) {
+        return {
+          success: false,
+          message: "Usage: /edit question <new question text>",
+        };
+      }
+
+      return {
+        success: true,
+        message: `Question updated to: "${newQuestion}"`,
+        updateState: { question: newQuestion },
+      };
+    },
+  },
+
   list: {
     name: "list",
     syntax: "/list [all|active|expired]",
