@@ -14,6 +14,17 @@ export interface Evidence {
   keyFinding: string;
   date: string;
   relevance: "high" | "medium" | "low";
+
+  // Link preview metadata (Phase 3)
+  linkPreview?: {
+    url: string;
+    title: string;
+    description: string;
+    image?: string;
+    favicon?: string;
+    fetchedAt: string;
+    error?: string;
+  };
 }
 
 export interface ForecastDriver {
