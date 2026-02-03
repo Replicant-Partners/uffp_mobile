@@ -724,6 +724,158 @@ const scenarios: TestScenario[] = [
       return { valid: true };
     },
   },
+
+  {
+    name: "Driver updates (evidence, probability) sync to backend",
+    description:
+      "When an EXISTING driver is updated (e.g., evidence added), changes must sync to backend so they persist across reloads",
+    setup: () => ({
+      command: "/evidence https://example.com",
+      driverId: "drv_abc123",
+      forecastId: "fct_xyz789",
+      driverBefore: {
+        id: "drv_abc123",
+        name: "Market Conditions",
+        type: "binary",
+        probability: 0.5,
+        evidence: [],
+      },
+      driverAfter: {
+        id: "drv_abc123",
+        name: "Market Conditions",
+        type: "binary",
+        probability: 0.5,
+        evidence: [
+          {
+            id: "ev_123",
+            type: "web_article",
+            title: "Example Article",
+            url: "https://example.com",
+          },
+        ],
+      },
+      backendSyncCalled: true, // updateDriverWithSync should be called
+      backendResponse: {
+        success: true,
+        forecast: {
+          id: "fct_xyz789",
+          question: "Test",
+          drivers: [
+            {
+              id: "drv_abc123",
+              name: "Market Conditions",
+              type: "binary",
+              probability: 0.5,
+              evidence: [
+                {
+                  id: "ev_123",
+                  type: "web_article",
+                  title: "Example Article",
+                  url: "https://example.com",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      savedForecastsAfter: [
+        {
+          id: "fct_xyz789",
+          question: "Test",
+          drivers: [
+            {
+              id: "drv_abc123",
+              name: "Market Conditions",
+              type: "binary",
+              probability: 0.5,
+              evidence: [
+                {
+                  id: "ev_123",
+                  type: "web_article",
+                  title: "Example Article",
+                  url: "https://example.com",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+    validate: (state) => {
+      const {
+        backendSyncCalled,
+        backendResponse,
+        driverAfter,
+        savedForecastsAfter,
+        forecastId,
+        driverId,
+      } = state;
+
+      // Check that backend sync was called for driver UPDATE
+      if (!backendSyncCalled) {
+        return {
+          valid: false,
+          error: `Driver update did not call backend sync. Changes will only be local and will disappear on reload. This is the evidence disappearing bug!`,
+        };
+      }
+
+      // Check backend response includes updated driver
+      if (backendResponse.success && backendResponse.forecast) {
+        const driverInBackend = backendResponse.forecast.drivers?.find(
+          (d: any) => d.id === driverId,
+        );
+
+        if (!driverInBackend) {
+          return {
+            valid: false,
+            error: `Backend sync called but driver ${driverId} not in backend response`,
+          };
+        }
+
+        if (
+          !driverInBackend.evidence ||
+          driverInBackend.evidence.length === 0
+        ) {
+          return {
+            valid: false,
+            error: `Backend sync called but evidence not saved to backend. Driver will lose evidence on reload.`,
+          };
+        }
+      }
+
+      // Check savedForecasts was updated with backend data
+      const forecastInSaved = savedForecastsAfter.find(
+        (f: any) => f.id === forecastId,
+      );
+
+      if (!forecastInSaved) {
+        return {
+          valid: false,
+          error: `Forecast ${forecastId} not found in savedForecasts after driver update`,
+        };
+      }
+
+      const driverInSaved = forecastInSaved.drivers?.find(
+        (d: any) => d.id === driverId,
+      );
+
+      if (!driverInSaved) {
+        return {
+          valid: false,
+          error: `Driver ${driverId} not found in savedForecasts after update`,
+        };
+      }
+
+      if (!driverInSaved.evidence || driverInSaved.evidence.length === 0) {
+        return {
+          valid: false,
+          error: `Driver updated with evidence but savedForecasts not updated with backend data. Evidence will disappear on reload. This was the bug - updateDriverWithSync not being called!`,
+        };
+      }
+
+      return { valid: true };
+    },
+  },
 ];
 
 // Run tests
