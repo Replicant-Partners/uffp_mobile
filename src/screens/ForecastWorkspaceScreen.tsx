@@ -1277,8 +1277,12 @@ export default function ForecastWorkspaceScreen() {
         probability: driverBeingConfigured.probability,
         hasAgents: !!driverBeingConfigured.agents,
         agentCount: driverBeingConfigured.agents?.length || 0,
+        agentNames: (driverBeingConfigured.agents || []).map(
+          (a: any) => a.name || a,
+        ),
       }),
     );
+    console.log("[SaveDriver] Full driver object:", driverBeingConfigured);
 
     const validation = validateDriverConfig(driverBeingConfigured);
     console.log("[SaveDriver] Validation result:", validation);
@@ -2179,6 +2183,7 @@ export default function ForecastWorkspaceScreen() {
           driverId: updatedDriver.id,
           driverName: updatedDriver.name,
           agentCount: updatedDriver.agents.length,
+          agentNames: updatedDriver.agents.map((a: any) => a.name || a),
           forecastId: activeForecast?.id,
           isLocalForecast: activeForecast?.id?.startsWith("local-"),
         });
@@ -2187,6 +2192,17 @@ export default function ForecastWorkspaceScreen() {
         await updateDriverInForecast(updatedDriver);
 
         console.log("[Agent Save] updateDriverInForecast completed");
+        console.log(
+          "[Agent Save] Driver in state now has",
+          driverBeingConfigured?.agents?.length,
+          "agents",
+        );
+        console.log(
+          "[Agent Save] Active forecast driver has",
+          activeForecast?.drivers?.find((d: any) => d.id === updatedDriver.id)
+            ?.agents?.length,
+          "agents",
+        );
 
         // Clear agent config and show success
         setAgentBeingConfigured(null);
