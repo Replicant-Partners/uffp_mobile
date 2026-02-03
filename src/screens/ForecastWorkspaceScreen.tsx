@@ -3620,13 +3620,6 @@ export default function ForecastWorkspaceScreen() {
       return;
     }
 
-    // Handle numbered driver selection (e.g., "1", "2", "3")
-    if (/^\d+$/.test(trimmed)) {
-      const index = parseInt(trimmed, 10) - 1; // Convert to 0-indexed
-      startDriverConfiguration(index);
-      return;
-    }
-
     // Handle /driver command (only if forecast is active)
     if (trimmed.startsWith("/driver ")) {
       if (!activeForecast) {
@@ -5910,76 +5903,15 @@ export default function ForecastWorkspaceScreen() {
             </View>
           )}
 
-        {/* Suggested Drivers */}
-        {parsedResult &&
-          parsedResult.suggestedDrivers &&
-          parsedResult.suggestedDrivers.length > 0 &&
-          activeForecast &&
-          !driverBeingConfigured && (
-            <View style={styles.driversSection}>
-              <Text style={styles.sectionLabel}>Suggested Drivers</Text>
-              {parsedResult.suggestedDrivers.map(
-                (driver: string, idx: number) => {
-                  // Check if this driver is already added
-                  const alreadyAdded = activeForecast.drivers.some(
-                    (d: any) => d.name.toLowerCase() === driver.toLowerCase(),
-                  );
-                  return (
-                    <TouchableOpacity
-                      key={idx}
-                      style={[
-                        styles.suggestedDriverCard,
-                        alreadyAdded && styles.suggestedDriverCardAdded,
-                      ]}
-                      onPress={() => startDriverConfiguration(idx)}
-                      disabled={alreadyAdded}
-                    >
-                      <Text style={styles.driverNumber}>{idx + 1}</Text>
-                      <Text
-                        style={[
-                          styles.driverName,
-                          alreadyAdded && styles.driverNameAdded,
-                        ]}
-                      >
-                        {driver} {alreadyAdded && "✓"}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                },
-              )}
-            </View>
-          )}
-
         {/* Hint for adding drivers - only when NOT configuring */}
-        {activeForecast &&
-          !driverBeingConfigured &&
-          parsedResult &&
-          parsedResult.suggestedDrivers &&
-          parsedResult.suggestedDrivers.length > 0 &&
-          activeForecast.drivers.length === 0 && (
-            <View style={styles.hintCard}>
-              <Text style={styles.hintText}>
-                Type <Text style={styles.hintCommand}>1</Text>,{" "}
-                <Text style={styles.hintCommand}>2</Text>, etc. to add a
-                suggested driver, or{" "}
-                <Text style={styles.hintCommand}>/driver Your driver</Text> for
-                custom
-              </Text>
-            </View>
-          )}
-        {activeForecast &&
-          !driverBeingConfigured &&
-          (!parsedResult ||
-            !parsedResult.suggestedDrivers ||
-            parsedResult.suggestedDrivers.length === 0 ||
-            activeForecast.drivers.length > 0) && (
-            <View style={styles.hintCard}>
-              <Text style={styles.hintText}>
-                Type <Text style={styles.hintCommand}>/driver Your driver</Text>{" "}
-                to add a driver
-              </Text>
-            </View>
-          )}
+        {activeForecast && !driverBeingConfigured && (
+          <View style={styles.hintCard}>
+            <Text style={styles.hintText}>
+              Type <Text style={styles.hintCommand}>/driver Your driver</Text>{" "}
+              to add a driver
+            </Text>
+          </View>
+        )}
 
         {/* Multi-User Leaderboard */}
         {showLeaderboard &&
