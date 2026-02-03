@@ -5619,7 +5619,7 @@ export default function ForecastWorkspaceScreen() {
 
                                   // Show config guidance
                                   setError(
-                                    `✓ Driver saved with AI defaults!\n\nNow configure:\n• Add agents: @research_analyst\n• Adjust values: /p 20 50 80\n• Add evidence: /evidence\n\nType /save when done or /cancel to exit.`,
+                                    `✓ Driver saved with AI defaults!\n\nNext steps (optional):\n• Attach research agent: @research_analyst\n• Adjust values: /p 20 50 80\n• Add evidence: /evidence\n\nType /save when done or /cancel to exit.`,
                                   );
                                 } catch (err) {
                                   console.error(
