@@ -6186,6 +6186,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#928374",
   },
+  agentQuery: {
+    fontSize: 12,
+    color: "#d5c4a1",
+    marginBottom: 3,
+    fontStyle: "italic",
+  },
+  agentSchedule: {
+    fontSize: 11,
+    color: "#bdae93",
+  },
   driverContextCard: {
     backgroundColor: "#32302f",
     padding: 12,
