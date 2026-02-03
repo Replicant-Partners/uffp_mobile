@@ -119,7 +119,7 @@ class ResearchService {
 
   // Forecast endpoints
   async parseQuestion(userInput: string): Promise<any> {
-    const response = await this.makeRequest("/forecasts?action=parse", {
+    const response = await this.makeRequest("/parse-question", {
       method: "POST",
       body: JSON.stringify({ userInput }),
     });
