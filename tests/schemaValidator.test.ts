@@ -459,6 +459,139 @@ function runTests() {
     failed++;
   }
 
+  // Test 12: ExternalView provenance validation
+  console.log("✓ Test 12: ExternalView provenance validation");
+  const invalidProvenanceForecast: any = {
+    ...validForecast,
+    externalView: {
+      referenceClass: "Tech startups reaching unicorn status",
+      baseRate: 0.15,
+      source: "CB Insights data",
+      generatedBy: "invalid_source", // Invalid provenance
+      confidence: "medium",
+    },
+  };
+
+  const result12 = validateForecast(invalidProvenanceForecast);
+  console.log(formatValidationResults(result12));
+  if (
+    !result12.valid &&
+    result12.errors.some((e) => e.rule === "INVALID_PROVENANCE")
+  ) {
+    console.log("✅ PASSED: Invalid provenance detected\n");
+    passed++;
+  } else {
+    console.log("❌ FAILED: Invalid provenance not detected\n");
+    failed++;
+  }
+
+  // Test 13: ExternalView confidence validation
+  console.log("✓ Test 13: ExternalView confidence validation");
+  const invalidConfidenceForecast: any = {
+    ...validForecast,
+    externalView: {
+      referenceClass: "Similar predictions",
+      baseRate: 0.4,
+      generatedBy: "fermi",
+      confidence: "super-high", // Invalid confidence level
+    },
+  };
+
+  const result13 = validateForecast(invalidConfidenceForecast);
+  console.log(formatValidationResults(result13));
+  if (
+    !result13.valid &&
+    result13.errors.some((e) => e.rule === "INVALID_CONFIDENCE")
+  ) {
+    console.log("✅ PASSED: Invalid confidence level detected\n");
+    passed++;
+  } else {
+    console.log("❌ FAILED: Invalid confidence level not detected\n");
+    failed++;
+  }
+
+  // Test 14: ExternalView baseRate range validation
+  console.log("✓ Test 14: ExternalView baseRate range validation");
+  const invalidExternalViewRateForecast: any = {
+    ...validForecast,
+    externalView: {
+      referenceClass: "Historical cases",
+      baseRate: 1.5, // Invalid: must be 0-1
+      source: "Research",
+      generatedBy: "fermi",
+    },
+  };
+
+  const result14 = validateForecast(invalidExternalViewRateForecast);
+  console.log(formatValidationResults(result14));
+  if (
+    !result14.valid &&
+    result14.errors.some(
+      (e) => e.entity === "ExternalView" && e.rule === "PROBABILITY_RANGE",
+    )
+  ) {
+    console.log("✅ PASSED: ExternalView baseRate range violation detected\n");
+    passed++;
+  } else {
+    console.log(
+      "❌ FAILED: ExternalView baseRate range violation not detected\n",
+    );
+    failed++;
+  }
+
+  // Test 15: ExternalView timestamp validation
+  console.log("✓ Test 15: ExternalView timestamp validation");
+  const invalidTimestampForecast: any = {
+    ...validForecast,
+    externalView: {
+      referenceClass: "Historical data",
+      baseRate: 0.25,
+      generatedBy: "user",
+      updatedAt: "not-a-valid-timestamp", // Invalid timestamp
+    },
+  };
+
+  const result15 = validateForecast(invalidTimestampForecast);
+  console.log(formatValidationResults(result15));
+  if (
+    !result15.valid &&
+    result15.errors.some((e) => e.rule === "INVALID_TIMESTAMP")
+  ) {
+    console.log("✅ PASSED: Invalid timestamp detected\n");
+    passed++;
+  } else {
+    console.log("❌ FAILED: Invalid timestamp not detected\n");
+    failed++;
+  }
+
+  // Test 16: Valid ExternalView (sanity check)
+  console.log("✓ Test 16: Valid ExternalView with all fields");
+  const validExternalViewForecast: any = {
+    ...validForecast,
+    externalView: {
+      referenceClass:
+        "Small-cap tech stocks achieving 200%+ returns within 2 years",
+      baseRate: 0.12,
+      source: "Analysis of Russell 2000 tech sector 2010-2023",
+      generatedBy: "fermi",
+      confidence: "medium",
+      reasoning:
+        "Historically, about 12% of small-cap tech stocks double within a 2-year period during bull markets.",
+      updatedAt: new Date().toISOString(),
+    },
+  };
+
+  const result16 = validateForecast(validExternalViewForecast);
+  console.log(formatValidationResults(result16));
+  if (result16.valid) {
+    console.log("✅ PASSED: Valid ExternalView accepted\n");
+    passed++;
+  } else {
+    console.log("❌ FAILED: Valid ExternalView rejected\n");
+    console.log("Errors:", result16.errors);
+    failed++;
+  }
+
   // Summary
   console.log("\n" + "=".repeat(60));
   console.log(`\n📊 Test Summary: ${passed} passed, ${failed} failed\n`);

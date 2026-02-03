@@ -81,6 +81,11 @@ export function validateForecast(forecast: Forecast): ValidationResult {
     validateBaseRate(forecast, errors, warnings);
   }
 
+  // Validate external view if present
+  if (forecast.externalView) {
+    validateExternalView(forecast, errors, warnings);
+  }
+
   return {
     valid: errors.length === 0,
     errors,
@@ -738,6 +743,146 @@ function validateBaseRate(
         severity: "warning",
       });
     }
+  }
+}
+
+/**
+ * Validate external view (AI-generated base rate structure)
+ */
+function validateExternalView(
+  forecast: any,
+  errors: ValidationError[],
+  warnings: ValidationError[],
+): void {
+  const externalView = forecast.externalView;
+  if (!externalView) return;
+
+  // Reference class is required
+  if (
+    !externalView.referenceClass ||
+    externalView.referenceClass.trim() === ""
+  ) {
+    errors.push({
+      entity: "ExternalView",
+      entityId: forecast.id || "unknown",
+      field: "referenceClass",
+      rule: "REQUIRED_FIELD",
+      message: "ExternalView must have a referenceClass",
+      severity: "error",
+    });
+  }
+
+  // If baseRate is provided, validate it's in 0-1 range
+  if (externalView.baseRate !== undefined) {
+    if (externalView.baseRate < 0 || externalView.baseRate > 1) {
+      errors.push({
+        entity: "ExternalView",
+        entityId: forecast.id || "unknown",
+        field: "baseRate",
+        rule: "PROBABILITY_RANGE",
+        message: `ExternalView baseRate must be 0-1, got ${externalView.baseRate}`,
+        severity: "error",
+      });
+    }
+
+    // If baseRate exists, referenceClass should be meaningful
+    if (
+      externalView.referenceClass &&
+      (externalView.referenceClass === "General reference class" ||
+        externalView.referenceClass === "General")
+    ) {
+      warnings.push({
+        entity: "ExternalView",
+        entityId: forecast.id || "unknown",
+        field: "referenceClass",
+        rule: "VAGUE_REFERENCE_CLASS",
+        message: "Reference class is too vague. Consider being more specific.",
+        severity: "warning",
+      });
+    }
+  }
+
+  // Validate generatedBy if present
+  if (externalView.generatedBy) {
+    if (!["fermi", "user"].includes(externalView.generatedBy)) {
+      errors.push({
+        entity: "ExternalView",
+        entityId: forecast.id || "unknown",
+        field: "generatedBy",
+        rule: "INVALID_PROVENANCE",
+        message: `ExternalView generatedBy must be 'fermi' or 'user', got '${externalView.generatedBy}'`,
+        severity: "error",
+      });
+    }
+  }
+
+  // Validate confidence if present
+  if (externalView.confidence) {
+    if (!["high", "medium", "low"].includes(externalView.confidence)) {
+      errors.push({
+        entity: "ExternalView",
+        entityId: forecast.id || "unknown",
+        field: "confidence",
+        rule: "INVALID_CONFIDENCE",
+        message: `ExternalView confidence must be 'high', 'medium', or 'low', got '${externalView.confidence}'`,
+        severity: "error",
+      });
+    }
+
+    // Warn if AI-generated base rate has low confidence
+    if (
+      externalView.generatedBy === "fermi" &&
+      externalView.confidence === "low" &&
+      !externalView.reasoning
+    ) {
+      warnings.push({
+        entity: "ExternalView",
+        entityId: forecast.id || "unknown",
+        field: "reasoning",
+        rule: "MISSING_REASONING",
+        message:
+          "Low confidence base rate should include reasoning to explain uncertainty",
+        severity: "warning",
+      });
+    }
+  }
+
+  // Validate updatedAt timestamp if present
+  if (externalView.updatedAt) {
+    try {
+      const timestamp = new Date(externalView.updatedAt);
+      if (isNaN(timestamp.getTime())) {
+        errors.push({
+          entity: "ExternalView",
+          entityId: forecast.id || "unknown",
+          field: "updatedAt",
+          rule: "INVALID_TIMESTAMP",
+          message: "ExternalView updatedAt must be a valid ISO timestamp",
+          severity: "error",
+        });
+      }
+    } catch {
+      errors.push({
+        entity: "ExternalView",
+        entityId: forecast.id || "unknown",
+        field: "updatedAt",
+        rule: "INVALID_TIMESTAMP",
+        message: "ExternalView updatedAt must be a valid ISO timestamp",
+        severity: "error",
+      });
+    }
+  }
+
+  // Consistency check: if user-provided, should have source
+  if (externalView.generatedBy === "user" && !externalView.source) {
+    warnings.push({
+      entity: "ExternalView",
+      entityId: forecast.id || "unknown",
+      field: "source",
+      rule: "MISSING_SOURCE",
+      message: "User-provided base rate should include source attribution",
+      severity: "warning",
+    });
   }
 }
 
