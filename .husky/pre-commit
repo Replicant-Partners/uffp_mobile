@@ -10,13 +10,16 @@ SCHEMA_EXIT=$?
 npm run test:cli
 CLI_EXIT=$?
 
-if [ $SCHEMA_EXIT -ne 0 ] || [ $CLI_EXIT -ne 0 ]; then
+npm run test:state
+STATE_EXIT=$?
+
+if [ $SCHEMA_EXIT -ne 0 ] || [ $CLI_EXIT -ne 0 ] || [ $STATE_EXIT -ne 0 ]; then
   echo ""
-  echo "❌ Schema validation tests failed!"
+  echo "❌ Validation tests failed!"
   echo "Please fix the errors before committing."
   echo ""
   exit 1
 fi
 
-echo "✅ All schema validation tests passed!"
+echo "✅ All validation tests passed!"
 echo ""
