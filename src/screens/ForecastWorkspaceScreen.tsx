@@ -3577,9 +3577,8 @@ export default function ForecastWorkspaceScreen() {
           return;
         }
 
-        // Remove driver (with cascade delete logging)
-        const updatedDrivers = [...(activeForecast.drivers || [])];
-        const removedDriver = updatedDrivers.splice(driverIndex, 1)[0];
+        // Get driver to remove (for cascade delete logging)
+        const removedDriver = activeForecast.drivers[driverIndex];
 
         // Log cascade delete info
         const agentsCount = removedDriver.agents?.length || 0;
@@ -3593,18 +3592,71 @@ export default function ForecastWorkspaceScreen() {
         console.log(`  - ${researchCount} research result(s)`);
         console.log(`  - ${evidenceCount} evidence item(s)`);
 
-        const updatedForecast = {
-          ...activeForecast,
-          drivers: updatedDrivers,
-          updatedAt: new Date().toISOString(),
-        };
+        // Try backend sync first
+        setLoading(true);
+        setProcessingAction("Removing driver...");
 
-        setActiveForecast(updatedForecast);
-        // Update savedForecasts so removal appears in /list
-        setSavedForecasts((prev) =>
-          prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
-        );
-        saveForecast(updatedForecast);
+        try {
+          const { removeDriverWithSync } = await import("../utils/backendSync");
+          const result = await removeDriverWithSync(
+            activeForecast.id,
+            removedDriver.id,
+          );
+
+          if (result.success && result.forecast) {
+            // Backend succeeded - use backend data
+            setActiveForecast(result.forecast);
+            setSavedForecasts((prev) =>
+              prev.map((f) =>
+                f.id === activeForecast.id ? result.forecast : f,
+              ),
+            );
+            console.log("Driver removed from backend successfully");
+          } else {
+            // Backend failed - remove locally
+            console.log(
+              "Backend removal failed, removing locally:",
+              result.error,
+            );
+            const updatedDrivers = [...(activeForecast.drivers || [])];
+            updatedDrivers.splice(driverIndex, 1);
+
+            const updatedForecast = {
+              ...activeForecast,
+              drivers: updatedDrivers,
+              updatedAt: new Date().toISOString(),
+            };
+
+            setActiveForecast(updatedForecast);
+            setSavedForecasts((prev) =>
+              prev.map((f) =>
+                f.id === activeForecast.id ? updatedForecast : f,
+              ),
+            );
+            await saveForecast(updatedForecast);
+          }
+        } catch (err) {
+          console.error("Driver removal error:", err);
+          // Fallback to local removal
+          const updatedDrivers = [...(activeForecast.drivers || [])];
+          updatedDrivers.splice(driverIndex, 1);
+
+          const updatedForecast = {
+            ...activeForecast,
+            drivers: updatedDrivers,
+            updatedAt: new Date().toISOString(),
+          };
+
+          setActiveForecast(updatedForecast);
+          setSavedForecasts((prev) =>
+            prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+          );
+          await saveForecast(updatedForecast);
+        } finally {
+          setLoading(false);
+          setProcessingAction("");
+        }
+
         setCommandInput("");
 
         // Show detailed cascade delete message

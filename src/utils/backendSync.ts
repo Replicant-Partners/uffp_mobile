@@ -523,6 +523,45 @@ export async function updateDriverWithSync(
 }
 
 /**
+ * Remove driver with backend sync
+ */
+export async function removeDriverWithSync(
+  forecastId: string,
+  driverId: string,
+): Promise<{
+  success: boolean;
+  forecast?: any;
+  error?: string;
+}> {
+  // Skip if local-only ID
+  if (forecastId.startsWith("local-")) {
+    console.log(
+      "[BackendSync] Skipping driver removal for local-only forecast",
+    );
+    return { success: false, error: "Cannot sync local-only forecasts" };
+  }
+
+  try {
+    console.log(
+      `[BackendSync] Removing driver ${driverId} from forecast ${forecastId}...`,
+    );
+    const result = await researchService.removeDriver(forecastId, driverId);
+
+    if (result.success && result.forecast) {
+      const forecast = mapBackendToLocal(result.forecast);
+      console.log(`[BackendSync] Driver removed successfully`);
+      return { success: true, forecast };
+    }
+
+    throw new Error("Backend response invalid");
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error("[BackendSync] Driver removal failed:", errorMsg);
+    return { success: false, error: errorMsg };
+  }
+}
+
+/**
  * Set base rate with backend sync
  */
 export async function setBaseRateWithSync(
