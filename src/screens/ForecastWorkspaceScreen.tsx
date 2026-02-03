@@ -801,11 +801,14 @@ export default function ForecastWorkspaceScreen() {
           );
 
           // Parse suggestions from response if provided
-          const suggestions: CommandSuggestion[] = response.response?.suggestions || response.suggestions || [];
+          const suggestions: CommandSuggestion[] =
+            response.response?.suggestions || response.suggestions || [];
 
           await addFermiMessage(
             queryText,
-            response.response?.message || response.message || JSON.stringify(response),
+            response.response?.message ||
+              response.message ||
+              JSON.stringify(response),
             suggestions,
           );
           return;
@@ -2509,6 +2512,7 @@ export default function ForecastWorkspaceScreen() {
           evidence: [
             ...(driverBeingConfigured.evidence || []),
             {
+              id: idGenerators.evidence(),
               type: urls.length > 0 ? "url" : "manual",
               source: "user",
               summary: evidenceText,
