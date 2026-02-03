@@ -1,5 +1,22 @@
 # Claude Code Project Rules
 
+## 📿 Task Management: Use Beads System
+
+**ALWAYS use "beads" (emojis) for tracking todos and progress:**
+
+- 🔴 Critical/blocking issue
+- 🟠 High priority bug
+- 🟡 Medium priority / enhancement
+- 🟢 Low priority / nice-to-have
+- 🔵 Investigation needed
+- ⚪ Completed/resolved
+
+**When user reports multiple issues:**
+1. Create a bead for each issue
+2. Use TodoWrite tool to track them
+3. Mark status: pending → in_progress → completed
+4. Keep beads visible throughout the session
+
 ## 🔒 Critical: Regression Testing Required
 
 **BEFORE making ANY schema or type changes, you MUST:**
