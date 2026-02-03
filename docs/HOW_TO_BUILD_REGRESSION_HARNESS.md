@@ -783,6 +783,84 @@ if (!result.valid) {
 }
 ```
 
+### State Integrity Tests (CRITICAL)
+```typescript
+// tests/stateIntegrity.test.ts
+// Test that UI state stays synchronized with backend state
+
+interface TestScenario {
+  name: string;
+  description: string;
+  setup: () => any;
+  validate: (state: any) => { valid: boolean; error?: string };
+}
+
+const scenarios: TestScenario[] = [
+  {
+    name: 'Backend data appears in UI state',
+    description: 'When data is created on backend, it must be added to UI state arrays',
+    setup: () => ({
+      backendResponse: { success: true, data: { id: 'abc', name: 'Test' } },
+      uiStateBefore: [],
+      uiStateAfter: [{ id: 'abc', name: 'Test' }], // Correct behavior
+    }),
+    validate: (state) => {
+      const { backendResponse, uiStateAfter } = state;
+      
+      if (backendResponse.success) {
+        const dataInState = uiStateAfter.find(
+          (item: any) => item.id === backendResponse.data.id
+        );
+        
+        if (!dataInState) {
+          return {
+            valid: false,
+            error: `Data ${backendResponse.data.id} created on backend but not in UI state. User will not see it.`,
+          };
+        }
+      }
+      
+      return { valid: true };
+    },
+  },
+  
+  // Add more scenarios for:
+  // - Updates to active/selected items
+  // - Simulations/calculations updating state
+  // - Local storage being cleared when backend is authoritative
+];
+
+// Run tests
+scenarios.forEach((scenario) => {
+  const state = scenario.setup();
+  const result = scenario.validate(state);
+  
+  if (!result.valid) {
+    throw new Error(result.error);
+  }
+});
+```
+
+**Why State Integrity Tests Matter:**
+
+The most insidious bugs are when:
+- ✅ Backend operation succeeds
+- ✅ No error is thrown
+- ❌ User can't see their data
+
+**Example Bug:** User creates a forecast. Backend returns `{ success: true, id: 'fct_123' }`. But the forecast doesn't appear in the list because you forgot to update the `forecasts` state array.
+
+State integrity tests catch this by validating that:
+1. Backend data appears in UI state
+2. Active/selected items are updated
+3. Local storage is cleared when backend is authoritative
+
+**Add state integrity tests for any backend operation that should update UI state:**
+- Creating items
+- Updating items
+- Running calculations/simulations
+- Resolving/completing items
+
 ## Time Investment
 
 **Initial Setup:** ~2-3 hours
