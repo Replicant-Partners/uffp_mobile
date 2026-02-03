@@ -111,6 +111,17 @@ export interface Evidence {
   attachedToId: string;
 
   timestamp: Date;
+
+  // Link preview metadata (for URL evidence)
+  linkPreview?: {
+    url: string;
+    title: string;
+    description: string;
+    image?: string;
+    favicon?: string;
+    fetchedAt: string;
+    error?: string;
+  };
 }
 
 export interface ResearchSnapshot {
