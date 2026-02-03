@@ -6772,6 +6772,30 @@ export default function ForecastWorkspaceScreen() {
           </View>
         )}
 
+        {/* Batch Command Preview */}
+        {(() => {
+          const commands = parseMultiCommand(fermiChatInput);
+          if (commands.length > 1) {
+            return (
+              <View style={styles.fermiBatchPreview}>
+                <Text style={styles.fermiBatchPreviewTitle}>
+                  📦 Batch Mode: {commands.length} commands
+                </Text>
+                {commands.map((cmd, idx) => (
+                  <Text key={idx} style={styles.fermiBatchPreviewCommand}>
+                    {idx + 1}. {cmd}
+                  </Text>
+                ))}
+                <Text style={styles.fermiBatchPreviewHint}>
+                  💡 All commands will run as one transaction (rollback on
+                  error)
+                </Text>
+              </View>
+            );
+          }
+          return null;
+        })()}
+
         {/* Chat Input */}
         <View style={styles.fermiChatInputContainer}>
           <TextInput
@@ -8055,6 +8079,51 @@ const styles = StyleSheet.create({
           ? "monospace"
           : "Courier New, monospace",
     flex: 1,
+  },
+  fermiBatchPreview: {
+    backgroundColor: "#1d2021",
+    borderTopWidth: 1,
+    borderTopColor: "#458588",
+    borderBottomWidth: 1,
+    borderBottomColor: "#458588",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    maxHeight: 200,
+  },
+  fermiBatchPreviewTitle: {
+    color: "#83a598",
+    fontSize: 11,
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
+    fontWeight: "bold",
+    marginBottom: 6,
+  },
+  fermiBatchPreviewCommand: {
+    color: "#fabd2f",
+    fontSize: 10,
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
+    marginBottom: 3,
+  },
+  fermiBatchPreviewHint: {
+    color: "#928374",
+    fontSize: 9,
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
+    marginTop: 6,
+    fontStyle: "italic",
   },
   fermiChatInputContainer: {
     flexDirection: "row",
