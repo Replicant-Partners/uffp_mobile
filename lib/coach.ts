@@ -435,9 +435,9 @@ Your job:
 Keep response brief (3-4 sentences). Be encouraging!
 
 Example:
-"Great work! You have ${context.drivers.length} drivers and ${evidenceCount} pieces of evidence. The drivers look independent and well-reasoned.
+"Great work! You have ${drivers.length} drivers and ${evidenceCount} pieces of evidence. The drivers look independent and well-reasoned.
 
-⚠️ One suggestion: Consider adding evidence for '${context.drivers[0]?.name}' to strengthen your forecast.
+⚠️ One suggestion: Consider adding evidence for '${drivers[0]?.name}' to strengthen your forecast.
 
 Ready to run the Monte Carlo simulation? This will combine your drivers into a final probability."`;
 
