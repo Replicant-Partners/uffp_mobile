@@ -1112,7 +1112,25 @@ export default function ForecastWorkspaceScreen() {
   };
 
   const saveConfiguredDriver = async (force: boolean = false) => {
-    if (!driverBeingConfigured || !activeForecast) return;
+    console.log("[SaveDriver] === START ===");
+    console.log("[SaveDriver] force:", force);
+    console.log(
+      "[SaveDriver] driverBeingConfigured:",
+      !!driverBeingConfigured,
+      driverBeingConfigured?.name,
+    );
+    console.log(
+      "[SaveDriver] activeForecast:",
+      !!activeForecast,
+      activeForecast?.id,
+    );
+
+    if (!driverBeingConfigured || !activeForecast) {
+      console.log(
+        "[SaveDriver] ABORT: Missing driverBeingConfigured or activeForecast",
+      );
+      return;
+    }
 
     // Validate configuration
     console.log(
@@ -1127,6 +1145,8 @@ export default function ForecastWorkspaceScreen() {
     );
 
     const validation = validateDriverConfig(driverBeingConfigured);
+    console.log("[SaveDriver] Validation result:", validation);
+
     if (!validation.valid) {
       console.error(
         "[SaveDriver] Validation failed:",
@@ -2602,7 +2622,16 @@ export default function ForecastWorkspaceScreen() {
 
       // /save - save the configured driver
       if (trimmed === "/save") {
+        console.log("[/save] Command received");
+        console.log("[/save] isOnline:", isOnline);
+        console.log(
+          "[/save] driverBeingConfigured:",
+          driverBeingConfigured?.name,
+        );
+        console.log("[/save] activeForecast:", activeForecast?.id);
+
         if (!isOnline) {
+          console.log("[/save] Blocked: Offline");
           setError(
             "❌ Cannot save while offline.\n\n" +
               "Saving changes requires backend connectivity. " +
@@ -2611,7 +2640,10 @@ export default function ForecastWorkspaceScreen() {
           setCommandInput("");
           return;
         }
+
+        console.log("[/save] Calling saveConfiguredDriver...");
         await saveConfiguredDriver();
+        console.log("[/save] saveConfiguredDriver completed");
         setCommandInput("");
         return;
       }
