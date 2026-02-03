@@ -285,7 +285,7 @@ export default function ForecastWorkspaceScreen() {
       const { loadForecastsWithSync } = await import("../utils/backendSync");
       const result = await loadForecastsWithSync();
 
-      if (result.fromBackend && result.forecasts.length > 0) {
+      if (result.fromBackend) {
         console.log(`Loaded ${result.forecasts.length} forecasts from backend`);
         const migrated = migrateEvidenceFormat(result.forecasts);
         setSavedForecasts(migrated);

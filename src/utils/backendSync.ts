@@ -109,10 +109,11 @@ export function mapLocalToBackend(localForecast: any): any {
  * Map backend forecast to local SavedForecast format
  */
 export function mapBackendToLocal(backendForecast: any): any {
-  // Map drivers - keep both agents and researchResults as separate fields
+  // Map drivers - keep agents, researchResults, and evidence as separate fields
   const drivers = (backendForecast.drivers || []).map((driver: any) => ({
     ...driver,
     agents: driver.agents || [],
+    evidence: driver.evidence || [],
     researchResults: driver.researchResults || [],
   }));
 
