@@ -405,6 +405,7 @@ export async function coachReview(context: {
 }): Promise<CoachResponse> {
   const drivers = context.drivers || [];
   const evidence = context.evidence || [];
+  const history = context.conversationHistory || [];
 
   const driversText = drivers
     .map(
@@ -414,32 +415,23 @@ export async function coachReview(context: {
     .join("\n");
 
   const evidenceCount = evidence.length;
+  const historyText = history.map((m) => `${m.role}: ${m.content}`).join("\n");
 
-  const prompt = `You are a Superforecaster coach reviewing a complete forecast.
+  const prompt = `You are a Superforecaster coach. The user is asking you a question about their forecast.
 
 Question: "${context.question}"
 
 Base rate: ${context.baseRate ? `${context.baseRate.successRate}% (${context.baseRate.referenceClass})` : "Not set"}
 
-Drivers:
-${driversText}
+Drivers (${drivers.length}):
+${driversText || "None yet"}
 
 Evidence pieces: ${evidenceCount}
 
-Your job:
-1. Review for completeness
-2. Check if drivers are independent
-3. Suggest any missing considerations
-4. Encourage running simulation if ready
+Conversation history:
+${historyText || "(No previous messages)"}
 
-Keep response brief (3-4 sentences). Be encouraging!
-
-Example:
-"Great work! You have ${drivers.length} drivers and ${evidenceCount} pieces of evidence. The drivers look independent and well-reasoned.
-
-⚠️ One suggestion: Consider adding evidence for '${drivers[0]?.name}' to strengthen your forecast.
-
-Ready to run the Monte Carlo simulation? This will combine your drivers into a final probability."`;
+Respond naturally to the user's question. Be encouraging, specific, and helpful. Keep responses brief (2-4 sentences).`;
 
   const response = await callCoachAgent(prompt);
 
