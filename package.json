@@ -20,7 +20,8 @@
     "test:all": "npm run test:schema && npm run test:cli",
     "test": "npm run test:all",
     "prepare": "husky",
-    "test:link-preview": "npx tsx tests/linkPreview.test.ts"
+    "test:link-preview": "npx tsx tests/linkPreview.test.ts",
+    "test:backend": "npx tsx tests/backendIntegration.test.ts"
   },
   "dependencies": {
     "@react-navigation/native": "^7.1.28",
