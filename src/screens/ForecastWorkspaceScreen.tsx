@@ -3822,6 +3822,15 @@ export default function ForecastWorkspaceScreen() {
       }
     }
 
+    // Handle /edit alone - show usage
+    if (trimmed === "/edit" || trimmed === "/edit ") {
+      setError(
+        "Usage: /edit question <new question text>\n\nExample: /edit question Will AI surpass human intelligence by 2030?",
+      );
+      setCommandInput("");
+      return;
+    }
+
     // Handle /edit question command
     if (trimmed.startsWith("/edit question ")) {
       if (!activeForecast) {
