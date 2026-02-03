@@ -1339,6 +1339,14 @@ export default function ForecastWorkspaceScreen() {
           if (result.success && result.forecast) {
             // Backend succeeded - use backend data
             setActiveForecast(result.forecast);
+
+            // Update savedForecasts so driver appears in /list
+            setSavedForecasts((prev) =>
+              prev.map((f) =>
+                f.id === result.forecast.id ? result.forecast : f,
+              ),
+            );
+
             backendSyncSucceeded = true;
             console.log("Driver added to backend successfully");
           }
