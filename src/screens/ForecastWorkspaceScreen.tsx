@@ -672,6 +672,9 @@ export default function ForecastWorkspaceScreen() {
             }
             context.conversationHistory =
               activeForecast.fermiConversation || [];
+          } else {
+            // Use global conversation when no active forecast
+            context.conversationHistory = globalFermiConversation || [];
           }
 
           // Add driver context if configuring

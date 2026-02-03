@@ -397,7 +397,7 @@ Or just give a single probability like: 75%"`;
  * Coach reviews the complete forecast
  */
 export async function coachReview(context: {
-  question: string;
+  question?: string;
   baseRate?: any;
   drivers?: any[];
   evidence?: any[];
@@ -416,6 +416,26 @@ export async function coachReview(context: {
 
   const evidenceCount = evidence.length;
   const historyText = history.map((m) => `${m.role}: ${m.content}`).join("\n");
+
+  // If no question context, this is casual conversation
+  if (!context.question) {
+    const prompt = `You are Fermi, a friendly AI forecasting coach. The user is chatting with you.
+
+Conversation history:
+${historyText || "(No previous messages)"}
+
+Respond naturally and conversationally. If they greet you, greet them back warmly. If they ask what you do, explain you help create probability forecasts. Be casual, friendly, and brief (1-3 sentences).
+
+Don't force forecasting on them unless they ask. Just have a natural conversation.`;
+
+    const response = await callCoachAgent(prompt);
+
+    return {
+      message: response,
+      suggestions: [],
+      nextStage: "base_rate",
+    };
+  }
 
   const prompt = `You are a Superforecaster coach. The user is asking you a question about their forecast.
 
@@ -462,14 +482,16 @@ async function callCoachAgent(prompt: string): Promise<string> {
         model: "claude-sonnet-4-20250514",
         max_tokens: 2000,
         temperature: 0.7,
-        system: `You are an expert Superforecaster coach. You help users create high-quality probability forecasts using the Tetlock methodology. You are:
-- Encouraging and positive
-- Clear and concise
-- Methodical and structured
-- Focused on evidence and base rates
-- Good at breaking down complex questions
+        system: `You are Fermi, a friendly AI forecasting coach. You help users create probability forecasts using Superforecasting methods.
 
-Keep responses brief (2-4 sentences usually). Ask ONE clear question at a time.`,
+Your personality:
+- Warm and conversational, not robotic
+- Respond naturally to greetings and casual chat
+- When working on forecasts: methodical, evidence-focused, encouraging
+- Brief responses (1-4 sentences)
+- Don't give canned responses - be natural
+
+If the user is just chatting (hello, how are you, what do you do), respond casually. Only go into "forecasting mode" when they're actually working on a forecast.`,
         messages: [
           {
             role: "user",
