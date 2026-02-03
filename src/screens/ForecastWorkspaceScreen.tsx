@@ -159,6 +159,7 @@ export default function ForecastWorkspaceScreen() {
   const [error, setError] = useState<string>("");
   const [showCommandHints, setShowCommandHints] = useState(true);
   const [inputFocused, setInputFocused] = useState(false);
+  const [isOnline, setIsOnline] = useState(true); // Track backend connectivity
   const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(
     new Set(),
   );
@@ -395,6 +396,45 @@ export default function ForecastWorkspaceScreen() {
       setShowCommandHints(false);
     }
   }, [commandInput, driverBeingConfigured, agentBeingConfigured]);
+
+  // Check backend connectivity on mount and periodically
+  useEffect(() => {
+    const checkConnectivity = async () => {
+      try {
+        const response = await fetch(
+          "https://uffp-backend.vercel.app/api/forecasts?action=ping",
+          {
+            method: "OPTIONS",
+            signal: AbortSignal.timeout(5000),
+          },
+        );
+        const online = response.ok;
+        if (isOnline !== online) {
+          setIsOnline(online);
+          if (!online) {
+            setError(
+              "⚠️ Backend offline - editing disabled. CRDT sync coming soon!",
+            );
+          }
+        }
+      } catch (err) {
+        if (isOnline) {
+          setIsOnline(false);
+          setError(
+            "⚠️ Backend offline - editing disabled. CRDT sync coming soon!",
+          );
+        }
+      }
+    };
+
+    // Check immediately
+    checkConnectivity();
+
+    // Check every 30 seconds
+    const interval = setInterval(checkConnectivity, 30000);
+
+    return () => clearInterval(interval);
+  }, [isOnline]);
 
   // Detect current context for command system
   const getCurrentContext = (): CommandContext => {
@@ -2307,6 +2347,16 @@ export default function ForecastWorkspaceScreen() {
           return;
         }
 
+        if (!isOnline) {
+          setError(
+            "❌ Cannot add evidence while offline.\n\n" +
+              "Adding evidence requires backend connectivity for link preview fetching. " +
+              "Local-only mode with CRDT synchronization will be available in a future update.",
+          );
+          setCommandInput("");
+          return;
+        }
+
         // Extract URLs and fetch preview for first URL
         const { extractUrls } = await import("../utils/urlUtils");
         const { fetchLinkPreview } =
@@ -2406,6 +2456,16 @@ export default function ForecastWorkspaceScreen() {
 
       // /run @agent [/query <text>] - Quick agent execution
       if (trimmed.startsWith("/run @")) {
+        if (!isOnline) {
+          setError(
+            "❌ Cannot run agents while offline.\n\n" +
+              "Agent execution requires backend connectivity. " +
+              "Local-only mode with CRDT synchronization will be available in a future update.",
+          );
+          setCommandInput("");
+          return;
+        }
+
         const fullCommand = trimmed.replace("/run @", "").trim();
 
         // Parse: agent_name /query some text
@@ -2542,6 +2602,15 @@ export default function ForecastWorkspaceScreen() {
 
       // /save - save the configured driver
       if (trimmed === "/save") {
+        if (!isOnline) {
+          setError(
+            "❌ Cannot save while offline.\n\n" +
+              "Saving changes requires backend connectivity. " +
+              "Local-only mode with CRDT synchronization will be available in a future update.",
+          );
+          setCommandInput("");
+          return;
+        }
         await saveConfiguredDriver();
         setCommandInput("");
         return;
@@ -3148,6 +3217,17 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
+      // Check if backend is online
+      if (!isOnline) {
+        setError(
+          "❌ Cannot edit drivers while offline.\n\n" +
+            "Driver creation and editing requires backend connectivity. " +
+            "Local-only mode with CRDT synchronization will be available in a future update.",
+        );
+        setCommandInput("");
+        return;
+      }
+
       const driverName = trimmed.replace("/driver ", "").trim();
       if (!driverName) {
         setError("Please provide a driver name");
@@ -3367,6 +3447,18 @@ export default function ForecastWorkspaceScreen() {
     if (trimmed.startsWith("/question ")) {
       const question = trimmed.replace("/question ", "").trim();
       if (!question) return;
+
+      // Check if backend is online
+      if (!isOnline) {
+        setError(
+          "❌ Cannot create forecasts while offline.\n\n" +
+            "UFFP requires backend connectivity for forecast creation and editing. " +
+            "Local-only mode with CRDT synchronization will be available in a future update.\n\n" +
+            "Please check your internet connection and try again.",
+        );
+        setCommandInput("");
+        return;
+      }
 
       setActiveQuestion(question);
       setCommandInput("");
@@ -4626,6 +4718,18 @@ export default function ForecastWorkspaceScreen() {
         {error && (
           <View style={styles.errorCard}>
             <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        {/* Offline Mode Indicator */}
+        {!isOnline && (
+          <View style={styles.offlineBanner}>
+            <Text style={styles.offlineBannerText}>
+              🔌 OFFLINE MODE - Editing Disabled
+            </Text>
+            <Text style={styles.offlineBannerSubtext}>
+              Reconnect to create and edit forecasts. CRDT sync coming soon.
+            </Text>
           </View>
         )}
 
@@ -6344,6 +6448,24 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 14,
     color: "#ebdbb2",
+  },
+  offlineBanner: {
+    backgroundColor: "#d65d0e",
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 24,
+    borderLeftWidth: 4,
+    borderLeftColor: "#fe8019",
+  },
+  offlineBannerText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#ebdbb2",
+    marginBottom: 4,
+  },
+  offlineBannerSubtext: {
+    fontSize: 13,
+    color: "#d5c4a1",
   },
   driversSection: {
     marginTop: 24,
