@@ -480,7 +480,7 @@ export default function ForecastWorkspaceScreen() {
         id: idGenerators.driver(),
         name: suggestedDriver,
         type: recommendation.type,
-        direction: recommendation.direction,
+        direction: recommendation.direction || "increases", // Fallback to "increases" if AI doesn't provide direction
         agents: [] as any[],
         researchResults: [] as any[],
         evidence: [],
@@ -1204,6 +1204,32 @@ export default function ForecastWorkspaceScreen() {
     setSavedForecasts((prev) =>
       prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
     );
+
+    // Validate forecast before syncing to backend
+    const { validateForecast } = await import("../utils/schemaValidator");
+    const validationResult = validateForecast(updatedForecast as any);
+
+    if (validationResult.errors.length > 0) {
+      console.error(
+        "[updateDriverInForecast] Schema validation errors:",
+        validationResult.errors,
+      );
+      // Filter errors related to this specific driver
+      const driverErrors = validationResult.errors.filter(
+        (e: any) => e.entityId === updatedDriver.id || e.entity === "Driver",
+      );
+      if (driverErrors.length > 0) {
+        console.error(
+          "[updateDriverInForecast] Driver-specific errors:",
+          driverErrors,
+        );
+        showToast(
+          `⚠️ Driver has ${driverErrors.length} validation error(s). Check console for details.`,
+        );
+        // Still save locally so user doesn't lose work, but don't sync to backend
+        return;
+      }
+    }
 
     // Sync to backend if not local-only forecast
     if (!activeForecast.id.startsWith("local-")) {
@@ -3910,7 +3936,7 @@ export default function ForecastWorkspaceScreen() {
           id: idGenerators.driver(),
           name: driverName,
           type: recommendation.type,
-          direction: recommendation.direction,
+          direction: recommendation.direction || "increases", // Fallback to "increases" if AI doesn't provide direction
           agents: [] as any[],
           researchResults: [] as any[],
           evidence: [],
