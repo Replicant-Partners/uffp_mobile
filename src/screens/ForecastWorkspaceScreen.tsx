@@ -3654,9 +3654,24 @@ export default function ForecastWorkspaceScreen() {
           newDriver.p95 = recommendation.examples?.p95 || 70;
         }
 
+        // Auto-save driver immediately (same as chip behavior)
+        const updatedForecast = {
+          ...activeForecast,
+          drivers: [...(activeForecast.drivers || []), newDriver],
+          updatedAt: new Date().toISOString(),
+        };
+
+        setActiveForecast(updatedForecast);
+        setSavedForecasts((prev) =>
+          prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+        );
+        await saveForecast(updatedForecast);
+
+        // Enter config mode for optional refinement
         setDriverBeingConfigured(newDriver);
+        showToast(`✓ Driver added: ${newDriver.name}`);
         setError(
-          `✓ AI configured as ${recommendation.type} ${recommendation.distribution || ""}. ${recommendation.reasoning}`,
+          `✓ Driver saved with AI defaults!\n\n${recommendation.reasoning}\n\nNext steps (optional):\n• Attach research agent: @research_analyst\n• Adjust values: /p 20 50 80\n• Add evidence: /evidence\n\nType /save when done or /cancel to exit.`,
         );
       } catch (err) {
         console.error("[Custom Driver] Analysis failed:", err);
