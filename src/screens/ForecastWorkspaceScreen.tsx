@@ -3634,6 +3634,8 @@ export default function ForecastWorkspaceScreen() {
             console.log("Created forecast locally (backend unavailable)");
           } else {
             console.log(`Created forecast ${newForecast.id} on backend`);
+            // Add to savedForecasts state so it appears in /list
+            setSavedForecasts((prev) => [...prev, newForecast]);
           }
         } else {
           throw new Error("Failed to create forecast");
