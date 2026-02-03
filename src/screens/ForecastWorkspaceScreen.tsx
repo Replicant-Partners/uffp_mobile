@@ -104,6 +104,10 @@ interface SavedForecast {
     referenceClass: string; // AI-suggested, user can change via /external
     baseRate?: number; // Historical probability from reference class
     source?: string; // Where the base rate came from
+    generatedBy?: "fermi" | "user"; // Track provenance
+    confidence?: "high" | "medium" | "low"; // Confidence level
+    reasoning?: string; // AI's reasoning (2-3 sentences)
+    updatedAt?: string; // When last updated
   };
   premortem?: {
     status: "pending" | "completed";
@@ -2720,9 +2724,13 @@ export default function ForecastWorkspaceScreen() {
         externalView: {
           referenceClass:
             activeForecast.externalView?.referenceClass ||
-            "General reference class",
+            "User-defined reference class",
           baseRate: rate / 100, // Convert percentage to 0-1 range
-          source: activeForecast.externalView?.source || "User-provided",
+          source: activeForecast.externalView?.source || "User research",
+          generatedBy: "user" as const, // Mark as user override
+          confidence: activeForecast.externalView?.confidence || "medium",
+          reasoning: activeForecast.externalView?.reasoning,
+          updatedAt: new Date().toISOString(),
         },
         grounding: "external" as const,
         updatedAt: new Date().toISOString(),
@@ -2730,7 +2738,11 @@ export default function ForecastWorkspaceScreen() {
       setActiveForecast(updatedForecast);
       await saveForecast(updatedForecast);
       setCommandInput("");
-      setError("");
+      setError(
+        `✓ Base rate updated to ${rate}%\n\n` +
+          `💡 Consider documenting your reasoning:\n` +
+          `Type: /evidence [explain why you chose this base rate]`,
+      );
       return;
     }
 
@@ -2952,6 +2964,20 @@ export default function ForecastWorkspaceScreen() {
       setCommandInput("");
       setFermiChatExpanded(true);
       setFermiThinking(true);
+
+      // Warn if base rate confidence is low
+      if (activeForecast.externalView?.confidence === "low") {
+        await addFermiMessage(
+          "/review",
+          `⚠️ **Base Rate Confidence Warning**\n\n` +
+            `Your base rate (${Math.round(activeForecast.externalView.baseRate! * 100)}%) ` +
+            `has low confidence. Consider:\n` +
+            `• Researching similar cases with /evidence\n` +
+            `• Refining the reference class with /external\n` +
+            `• Using /base-rate to override with better data\n\n` +
+            `Proceeding with review...`,
+        );
+      }
 
       try {
         // Build baseRate object if available
@@ -3312,12 +3338,18 @@ export default function ForecastWorkspaceScreen() {
         if (createResult.forecast) {
           const newForecast: SavedForecast = {
             ...createResult.forecast,
-            grounding: parsed.referenceClass
+            grounding: parsed.externalView
               ? "external"
               : "inside view / analysis",
-            externalView: parsed.referenceClass
+            externalView: parsed.externalView
               ? {
-                  referenceClass: parsed.referenceClass,
+                  referenceClass: parsed.externalView.referenceClass,
+                  baseRate: parsed.externalView.baseRate,
+                  source: parsed.externalView.source,
+                  generatedBy: "fermi", // Track that AI generated this
+                  confidence: parsed.externalView.confidence,
+                  reasoning: parsed.externalView.reasoning,
+                  updatedAt: new Date().toISOString(),
                 }
               : undefined,
             version: createResult.forecast.version || { major: 1, minor: 0 },
@@ -3325,6 +3357,26 @@ export default function ForecastWorkspaceScreen() {
           };
 
           setActiveForecast(newForecast);
+
+          // Show base rate information if available
+          if (
+            newForecast.externalView &&
+            newForecast.externalView.baseRate !== undefined
+          ) {
+            const baseRatePercent = Math.round(
+              newForecast.externalView.baseRate * 100,
+            );
+            setError(
+              `✓ Forecast created!\n\n📊 Base Rate Analysis:\n` +
+                `Reference Class: ${newForecast.externalView.referenceClass}\n` +
+                `Historical Success Rate: ${baseRatePercent}%\n` +
+                `Confidence: ${newForecast.externalView.confidence || "medium"}\n\n` +
+                `${newForecast.externalView.reasoning || ""}\n\n` +
+                `💡 Use /driver to add your first driver, or /base-rate to override this estimate.`,
+            );
+          } else {
+            setError(`✓ Forecast created! Use /driver to add drivers.`);
+          }
 
           // Only save to local storage if backend failed
           if (!createResult.fromBackend) {
@@ -4166,32 +4218,56 @@ export default function ForecastWorkspaceScreen() {
 
             {/* External View - Always at top to ground the problem class */}
             {activeForecast?.externalView && (
-              <TouchableOpacity
-                style={styles.externalViewCard}
-                onPress={() => {
-                  // Click to edit reference class
-                  setCommandInput(
-                    `/external ${activeForecast.externalView.referenceClass}`,
-                  );
-                  inputRef.current?.focus();
-                }}
-              >
+              <View style={styles.externalViewCard}>
                 <Text style={styles.externalViewLabel}>
-                  📊 External View (Reference Class):
+                  📊 External View{" "}
+                  {activeForecast.externalView.generatedBy === "fermi"
+                    ? "(🦊 AI-Generated)"
+                    : "(✏️ User-Provided)"}
                 </Text>
                 <Text style={styles.externalViewText}>
                   {activeForecast.externalView.referenceClass}
                 </Text>
                 {activeForecast.externalView.baseRate !== undefined && (
-                  <Text style={styles.baseRateText}>
-                    Base Rate:{" "}
-                    {Math.round(activeForecast.externalView.baseRate * 100)}%
-                    {activeForecast.externalView.source &&
-                      ` (${activeForecast.externalView.source})`}
+                  <View style={styles.baseRateDisplay}>
+                    <Text style={styles.baseRateValue}>
+                      {Math.round(activeForecast.externalView.baseRate * 100)}%
+                    </Text>
+                    <Text style={styles.baseRateLabel}>
+                      Historical Base Rate
+                    </Text>
+                    {activeForecast.externalView.confidence && (
+                      <Text style={styles.baseRateConfidence}>
+                        Confidence: {activeForecast.externalView.confidence}
+                      </Text>
+                    )}
+                    {activeForecast.externalView.source && (
+                      <Text style={styles.baseRateSource}>
+                        Source: {activeForecast.externalView.source}
+                      </Text>
+                    )}
+                  </View>
+                )}
+                {activeForecast.externalView.reasoning && (
+                  <Text style={styles.baseRateReasoning}>
+                    {activeForecast.externalView.reasoning}
                   </Text>
                 )}
-                <Text style={styles.externalViewHint}>Click to edit</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.overrideButton}
+                  onPress={() => {
+                    const currentRate = activeForecast.externalView.baseRate
+                      ? Math.round(activeForecast.externalView.baseRate * 100)
+                      : 50;
+                    setCommandInput(`/base-rate ${currentRate} `);
+                    inputRef.current?.focus();
+                  }}
+                >
+                  <Text style={styles.overrideButtonText}>
+                    Override Base Rate
+                  </Text>
+                </TouchableOpacity>
+              </View>
             )}
 
             {parsedResult && (
@@ -5921,6 +5997,60 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#b8bb26",
     marginTop: 4,
+  },
+  baseRateDisplay: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: "#282828",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#504945",
+  },
+  baseRateValue: {
+    fontSize: 32,
+    fontWeight: "700",
+    color: "#b8bb26",
+    textAlign: "center",
+  },
+  baseRateLabel: {
+    fontSize: 12,
+    color: "#a89984",
+    textAlign: "center",
+    marginTop: 4,
+  },
+  baseRateConfidence: {
+    fontSize: 11,
+    color: "#83a598",
+    textAlign: "center",
+    marginTop: 8,
+  },
+  baseRateSource: {
+    fontSize: 11,
+    color: "#a89984",
+    textAlign: "center",
+    marginTop: 4,
+    fontStyle: "italic",
+  },
+  baseRateReasoning: {
+    fontSize: 13,
+    color: "#d5c4a1",
+    lineHeight: 20,
+    marginTop: 12,
+  },
+  overrideButton: {
+    marginTop: 12,
+    backgroundColor: "#3c3836",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#504945",
+    alignItems: "center",
+  },
+  overrideButtonText: {
+    fontSize: 12,
+    color: "#83a598",
+    fontWeight: "600",
   },
   premortemCard: {
     backgroundColor: "#3c3836",
