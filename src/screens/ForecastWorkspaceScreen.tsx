@@ -589,6 +589,10 @@ export default function ForecastWorkspaceScreen() {
     };
 
     setActiveForecast(updatedForecast);
+    // Update savedForecasts so conversation appears in /list
+    setSavedForecasts((prev) =>
+      prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+    );
     // Only save to local if it's a local-only forecast
     if (activeForecast.id && activeForecast.id.startsWith("local-")) {
       await saveForecast(updatedForecast);
@@ -2085,6 +2089,12 @@ export default function ForecastWorkspaceScreen() {
               };
 
               setActiveForecast(updatedForecast);
+              // Update savedForecasts so evidence appears in /list
+              setSavedForecasts((prev) =>
+                prev.map((f) =>
+                  f.id === activeForecast.id ? updatedForecast : f,
+                ),
+              );
               await saveForecast(updatedForecast);
             }
 
@@ -2859,6 +2869,10 @@ export default function ForecastWorkspaceScreen() {
         updatedAt: new Date().toISOString(),
       };
       setActiveForecast(updatedForecast);
+      // Update savedForecasts so external view appears in /list
+      setSavedForecasts((prev) =>
+        prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+      );
       await saveForecast(updatedForecast);
       setCommandInput("");
       setError("");
@@ -2905,6 +2919,10 @@ export default function ForecastWorkspaceScreen() {
         updatedAt: new Date().toISOString(),
       };
       setActiveForecast(updatedForecast);
+      // Update savedForecasts so base rate appears in /list
+      setSavedForecasts((prev) =>
+        prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+      );
       await saveForecast(updatedForecast);
       setCommandInput("");
 
@@ -2965,6 +2983,10 @@ export default function ForecastWorkspaceScreen() {
         updatedAt: new Date().toISOString(),
       };
       setActiveForecast(updatedForecast);
+      // Update savedForecasts so premortem status appears in /list
+      setSavedForecasts((prev) =>
+        prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+      );
       await saveForecast(updatedForecast);
       setCommandInput("");
       setError("Premortem mode enabled (full workflow coming soon)");
@@ -2992,6 +3014,10 @@ export default function ForecastWorkspaceScreen() {
           updatedAt: new Date().toISOString(),
         };
         setActiveForecast(updatedForecast);
+        // Update savedForecasts so grounding appears in /list
+        setSavedForecasts((prev) =>
+          prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+        );
         await saveForecast(updatedForecast);
         setCommandInput("");
         setError("");
@@ -3028,6 +3054,10 @@ export default function ForecastWorkspaceScreen() {
       };
 
       setActiveForecast(updatedForecast);
+      // Update savedForecasts so probability appears in /list
+      setSavedForecasts((prev) =>
+        prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+      );
       await saveForecast(updatedForecast);
       setCommandInput("");
       setError("");
@@ -3126,6 +3156,12 @@ export default function ForecastWorkspaceScreen() {
               updatedAt: new Date().toISOString(),
             };
             setActiveForecast(updatedForecast);
+            // Update savedForecasts so probability appears in /list
+            setSavedForecasts((prev) =>
+              prev.map((f) =>
+                f.id === activeForecast.id ? updatedForecast : f,
+              ),
+            );
             await saveForecast(updatedForecast);
           }
 
@@ -3420,6 +3456,10 @@ export default function ForecastWorkspaceScreen() {
         };
 
         setActiveForecast(updatedForecast);
+        // Update savedForecasts so removal appears in /list
+        setSavedForecasts((prev) =>
+          prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+        );
         saveForecast(updatedForecast);
         setCommandInput("");
 
@@ -3502,6 +3542,10 @@ export default function ForecastWorkspaceScreen() {
       };
 
       setActiveForecast(updatedForecast);
+      // Update savedForecasts so question edit appears in /list
+      setSavedForecasts((prev) =>
+        prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+      );
       await saveForecast(updatedForecast);
       setCommandInput("");
       showToast(`✓ Question updated`);
@@ -6016,6 +6060,14 @@ export default function ForecastWorkspaceScreen() {
                                   };
 
                                   setActiveForecast(updatedForecast);
+                                  // Update savedForecasts so driver appears in /list
+                                  setSavedForecasts((prev) =>
+                                    prev.map((f) =>
+                                      f.id === activeForecast.id
+                                        ? updatedForecast
+                                        : f,
+                                    ),
+                                  );
                                   await saveForecast(updatedForecast);
 
                                   // Enter config mode immediately

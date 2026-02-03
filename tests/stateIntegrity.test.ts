@@ -337,6 +337,393 @@ const scenarios: TestScenario[] = [
       return { valid: true };
     },
   },
+
+  {
+    name: "Evidence additions update both activeForecast AND savedForecasts",
+    description:
+      "When evidence is added via /evidence or agent research, both state arrays must be updated so evidence persists across navigation",
+    setup: () => ({
+      command: "/evidence Study shows 80% success rate",
+      driverId: "drv_abc123",
+      newEvidence: {
+        id: "ev_xyz789",
+        type: "research",
+        title: "Study shows 80% success rate",
+        source: "User",
+        summary: "Study shows 80% success rate",
+        keyFinding: "80% success rate",
+        date: new Date().toISOString(),
+        relevance: "high",
+      },
+      activeForecastBefore: {
+        id: "fct_abc123",
+        question: "Test",
+        drivers: [
+          {
+            id: "drv_abc123",
+            name: "Market Conditions",
+            evidence: [],
+          },
+        ],
+      },
+      activeForecastAfter: {
+        id: "fct_abc123",
+        question: "Test",
+        drivers: [
+          {
+            id: "drv_abc123",
+            name: "Market Conditions",
+            evidence: [
+              {
+                id: "ev_xyz789",
+                type: "research",
+                title: "Study shows 80% success rate",
+                summary: "Study shows 80% success rate",
+              },
+            ],
+          },
+        ],
+      },
+      savedForecastsBefore: [
+        {
+          id: "fct_abc123",
+          question: "Test",
+          drivers: [
+            {
+              id: "drv_abc123",
+              name: "Market Conditions",
+              evidence: [],
+            },
+          ],
+        },
+      ],
+      savedForecastsAfter: [
+        {
+          id: "fct_abc123",
+          question: "Test",
+          drivers: [
+            {
+              id: "drv_abc123",
+              name: "Market Conditions",
+              evidence: [
+                {
+                  id: "ev_xyz789",
+                  type: "research",
+                  title: "Study shows 80% success rate",
+                  summary: "Study shows 80% success rate",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+    validate: (state) => {
+      const {
+        activeForecastAfter,
+        savedForecastsAfter,
+        newEvidence,
+        driverId,
+      } = state;
+
+      // Check activeForecast
+      const driverInActive = activeForecastAfter.drivers?.find(
+        (d: any) => d.id === driverId,
+      );
+      if (!driverInActive) {
+        return {
+          valid: false,
+          error: `Driver ${driverId} not found in activeForecast`,
+        };
+      }
+
+      const evidenceInActive = driverInActive.evidence?.find(
+        (e: any) => e.id === newEvidence.id,
+      );
+      if (!evidenceInActive) {
+        return {
+          valid: false,
+          error: `Evidence added but not found in activeForecast driver. User sees it now but it will disappear.`,
+        };
+      }
+
+      // Check savedForecasts (CRITICAL - this was the evidence bug)
+      const forecastInSaved = savedForecastsAfter.find(
+        (f: any) => f.id === activeForecastAfter.id,
+      );
+      if (!forecastInSaved) {
+        return {
+          valid: false,
+          error: `Forecast not found in savedForecasts`,
+        };
+      }
+
+      const driverInSaved = forecastInSaved.drivers?.find(
+        (d: any) => d.id === driverId,
+      );
+      if (!driverInSaved) {
+        return {
+          valid: false,
+          error: `Driver not found in savedForecasts`,
+        };
+      }
+
+      const evidenceInSaved = driverInSaved.evidence?.find(
+        (e: any) => e.id === newEvidence.id,
+      );
+      if (!evidenceInSaved) {
+        return {
+          valid: false,
+          error: `Evidence added to activeForecast but NOT in savedForecasts. Evidence will disappear when user navigates away. This is the bug reported on mobile!`,
+        };
+      }
+
+      return { valid: true };
+    },
+  },
+
+  {
+    name: "Driver removal updates both activeForecast AND savedForecasts",
+    description:
+      "When a driver is removed via /remove driver, both state arrays must be updated so removal persists across navigation",
+    setup: () => ({
+      command: "/remove driver Market Conditions",
+      driverId: "drv_abc123",
+      activeForecastBefore: {
+        id: "fct_abc123",
+        question: "Test",
+        drivers: [
+          {
+            id: "drv_abc123",
+            name: "Market Conditions",
+            type: "binary",
+            probability: 0.5,
+          },
+        ],
+      },
+      activeForecastAfter: {
+        id: "fct_abc123",
+        question: "Test",
+        drivers: [],
+      },
+      savedForecastsBefore: [
+        {
+          id: "fct_abc123",
+          question: "Test",
+          drivers: [
+            {
+              id: "drv_abc123",
+              name: "Market Conditions",
+              type: "binary",
+              probability: 0.5,
+            },
+          ],
+        },
+      ],
+      savedForecastsAfter: [
+        {
+          id: "fct_abc123",
+          question: "Test",
+          drivers: [],
+        },
+      ],
+    }),
+    validate: (state) => {
+      const { activeForecastAfter, savedForecastsAfter, driverId } = state;
+
+      // Check activeForecast
+      const driverInActive = activeForecastAfter.drivers?.find(
+        (d: any) => d.id === driverId,
+      );
+      if (driverInActive) {
+        return {
+          valid: false,
+          error: `Driver ${driverId} still present in activeForecast after removal command`,
+        };
+      }
+
+      // Check savedForecasts
+      const forecastInSaved = savedForecastsAfter.find(
+        (f: any) => f.id === activeForecastAfter.id,
+      );
+      if (!forecastInSaved) {
+        return {
+          valid: false,
+          error: `Forecast not found in savedForecasts`,
+        };
+      }
+
+      const driverInSaved = forecastInSaved.drivers?.find(
+        (d: any) => d.id === driverId,
+      );
+      if (driverInSaved) {
+        return {
+          valid: false,
+          error: `Driver removed from activeForecast but still in savedForecasts. Driver will reappear when user navigates to /list.`,
+        };
+      }
+
+      return { valid: true };
+    },
+  },
+
+  {
+    name: "Question edits update both activeForecast AND savedForecasts",
+    description:
+      "When question is edited via /edit question, both state arrays must be updated so changes persist in /list",
+    setup: () => ({
+      command: "/edit question Will SpaceX reach Mars by 2030?",
+      oldQuestion: "Will SpaceX reach Mars?",
+      newQuestion: "Will SpaceX reach Mars by 2030?",
+      activeForecastBefore: {
+        id: "fct_abc123",
+        question: "Will SpaceX reach Mars?",
+        drivers: [],
+      },
+      activeForecastAfter: {
+        id: "fct_abc123",
+        question: "Will SpaceX reach Mars by 2030?",
+        drivers: [],
+      },
+      savedForecastsBefore: [
+        {
+          id: "fct_abc123",
+          question: "Will SpaceX reach Mars?",
+          drivers: [],
+        },
+      ],
+      savedForecastsAfter: [
+        {
+          id: "fct_abc123",
+          question: "Will SpaceX reach Mars by 2030?",
+          drivers: [],
+        },
+      ],
+    }),
+    validate: (state) => {
+      const {
+        activeForecastAfter,
+        savedForecastsAfter,
+        newQuestion,
+        oldQuestion,
+      } = state;
+
+      // Check activeForecast
+      if (activeForecastAfter.question !== newQuestion) {
+        return {
+          valid: false,
+          error: `Question not updated in activeForecast. Expected "${newQuestion}", got "${activeForecastAfter.question}"`,
+        };
+      }
+
+      // Check savedForecasts
+      const forecastInSaved = savedForecastsAfter.find(
+        (f: any) => f.id === activeForecastAfter.id,
+      );
+      if (!forecastInSaved) {
+        return {
+          valid: false,
+          error: `Forecast not found in savedForecasts`,
+        };
+      }
+
+      if (forecastInSaved.question !== newQuestion) {
+        return {
+          valid: false,
+          error: `Question updated in activeForecast but NOT in savedForecasts. Expected "${newQuestion}", got "${forecastInSaved.question}". Old question will show in /list.`,
+        };
+      }
+
+      if (forecastInSaved.question === oldQuestion) {
+        return {
+          valid: false,
+          error: `Question still shows old value in savedForecasts: "${oldQuestion}". Update did not propagate to /list.`,
+        };
+      }
+
+      return { valid: true };
+    },
+  },
+
+  {
+    name: "Base rate updates sync to savedForecasts",
+    description:
+      "When base rate is updated via /base-rate, savedForecasts must be updated so changes persist in /list",
+    setup: () => ({
+      command: "/base-rate 45",
+      activeForecastBefore: {
+        id: "fct_abc123",
+        question: "Test",
+        externalView: {
+          referenceClass: "Tech startups",
+          baseRate: 0.25,
+        },
+      },
+      activeForecastAfter: {
+        id: "fct_abc123",
+        question: "Test",
+        externalView: {
+          referenceClass: "Tech startups",
+          baseRate: 0.45,
+          generatedBy: "user",
+        },
+      },
+      savedForecastsBefore: [
+        {
+          id: "fct_abc123",
+          question: "Test",
+          externalView: {
+            referenceClass: "Tech startups",
+            baseRate: 0.25,
+          },
+        },
+      ],
+      savedForecastsAfter: [
+        {
+          id: "fct_abc123",
+          question: "Test",
+          externalView: {
+            referenceClass: "Tech startups",
+            baseRate: 0.45,
+            generatedBy: "user",
+          },
+        },
+      ],
+    }),
+    validate: (state) => {
+      const { activeForecastAfter, savedForecastsAfter } = state;
+
+      const expectedRate = 0.45;
+
+      // Check activeForecast
+      if (activeForecastAfter.externalView?.baseRate !== expectedRate) {
+        return {
+          valid: false,
+          error: `Base rate not updated in activeForecast. Expected ${expectedRate}, got ${activeForecastAfter.externalView?.baseRate}`,
+        };
+      }
+
+      // Check savedForecasts
+      const forecastInSaved = savedForecastsAfter.find(
+        (f: any) => f.id === activeForecastAfter.id,
+      );
+      if (!forecastInSaved) {
+        return {
+          valid: false,
+          error: `Forecast not found in savedForecasts`,
+        };
+      }
+
+      if (forecastInSaved.externalView?.baseRate !== expectedRate) {
+        return {
+          valid: false,
+          error: `Base rate updated in activeForecast but NOT in savedForecasts. Expected ${expectedRate}, got ${forecastInSaved.externalView?.baseRate}. Old base rate will show in /list.`,
+        };
+      }
+
+      return { valid: true };
+    },
+  },
 ];
 
 // Run tests
