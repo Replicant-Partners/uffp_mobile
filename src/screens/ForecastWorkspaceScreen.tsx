@@ -3789,6 +3789,11 @@ export default function ForecastWorkspaceScreen() {
       return [
         { key: "question", label: "/question", desc: "Start a new forecast" },
         { key: "commands", label: "/commands", desc: "Show all commands" },
+        {
+          key: "agent-list",
+          label: "/agent-list",
+          desc: "List all research agents",
+        },
       ];
     }
 
@@ -4041,6 +4046,11 @@ export default function ForecastWorkspaceScreen() {
         desc: "View forecasts (active/expired/all)",
       },
       { key: "leaderboard", label: "/leaderboard", desc: "Global rankings" },
+      {
+        key: "agent-list",
+        label: "/agent-list",
+        desc: "List all research agents",
+      },
     ];
 
     // Add forecast-specific commands when there's an active forecast
@@ -5528,6 +5538,25 @@ export default function ForecastWorkspaceScreen() {
                               const driverData = (suggestion as any).driverData;
 
                               if (driverData && activeForecast) {
+                                // Check if driver already exists
+                                const existingDriver =
+                                  activeForecast.drivers?.find(
+                                    (d: any) =>
+                                      d.name.toLowerCase() ===
+                                      driverData.name.toLowerCase(),
+                                  );
+
+                                if (existingDriver) {
+                                  // Driver already exists - enter edit mode instead
+                                  setDriverBeingConfigured({
+                                    ...existingDriver,
+                                  });
+                                  setError(
+                                    `📝 Driver "${existingDriver.name}" already exists!\n\nEntering edit mode. Modify with /p, /dist, /direction, or add agents.\nType /save when done or /cancel to discard changes.`,
+                                  );
+                                  return;
+                                }
+
                                 // Auto-save driver from decompose suggestion
                                 setProcessingAction("Adding driver...");
 
@@ -5606,7 +5635,11 @@ export default function ForecastWorkspaceScreen() {
                               } else {
                                 // Normal chip behavior
                                 setFermiChatInput(commandText);
-                                if (commandText.startsWith("/")) {
+                                // Always use processSingleCommand for commands and @agent mentions
+                                if (
+                                  commandText.startsWith("/") ||
+                                  commandText.startsWith("@")
+                                ) {
                                   await processSingleCommand(commandText);
                                 } else {
                                   await handleFermiCoaching(commandText);
