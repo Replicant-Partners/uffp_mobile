@@ -754,24 +754,29 @@ export const COMMANDS: Record<string, Command> = {
 
   remove: {
     name: "remove",
-    syntax: "/remove <driver|agent> <name>",
-    description: "Remove a driver or agent from forecast",
+    syntax: "/remove <driver|agent|evidence> <name|number>",
+    description: "Remove a driver, agent, or evidence (cascade delete)",
     contexts: ["forecast_active", "driver_config"],
     category: "system",
-    examples: ["/remove driver Market size", "/remove agent research_analyst"],
+    examples: [
+      "/remove driver Market size",
+      "/remove agent research_analyst",
+      "/remove evidence 1",
+    ],
     execute: async (args, state) => {
       const type = args[0];
-      const name = args.slice(1).join(" ");
-      if (!type || !name) {
+      const identifier = args.slice(1).join(" ");
+      if (!type || !identifier) {
         return {
           success: false,
-          message: "Usage: /remove <driver|agent> <name>",
+          message:
+            "Usage: /remove driver <name> | /remove agent <name> | /remove evidence <number>",
         };
       }
       return {
         success: true,
-        message: `Removed ${type}: ${name}`,
-        updateState: { remove: { type, name } },
+        message: `Removed ${type}: ${identifier}`,
+        updateState: { remove: { type, identifier } },
       };
     },
   },

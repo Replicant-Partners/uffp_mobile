@@ -3880,17 +3880,67 @@ export default function ForecastWorkspaceScreen() {
         const updatedAgents = [...(driverBeingConfigured.agents || [])];
         const removedAgent = updatedAgents.splice(agentIndex, 1)[0];
 
-        setDriverBeingConfigured({
+        const updatedDriver = {
           ...driverBeingConfigured,
           agents: updatedAgents,
-        });
+        };
+
+        setDriverBeingConfigured(updatedDriver);
+        updateDriverInForecast(updatedDriver);
 
         setCommandInput("");
         showToast(`✓ Removed agent: ${removedAgent.name}`);
         setError(`✓ Removed agent: ${removedAgent.name}`);
         return;
+      } else if (removeTarget.startsWith("evidence ")) {
+        const evidenceIndex =
+          parseInt(removeTarget.replace("evidence ", "").trim(), 10) - 1; // Convert to 0-indexed
+
+        if (!driverBeingConfigured) {
+          setError(
+            "No driver being configured. Enter driver config mode first with /driver <name>",
+          );
+          setCommandInput("");
+          return;
+        }
+
+        if (
+          isNaN(evidenceIndex) ||
+          evidenceIndex < 0 ||
+          !driverBeingConfigured.evidence ||
+          evidenceIndex >= driverBeingConfigured.evidence.length
+        ) {
+          setError(
+            `Invalid evidence index. Use /remove evidence <number> (1-${driverBeingConfigured.evidence?.length || 0})`,
+          );
+          setCommandInput("");
+          return;
+        }
+
+        // Remove evidence from driver
+        const updatedEvidence = [...(driverBeingConfigured.evidence || [])];
+        const removedEvidence = updatedEvidence.splice(evidenceIndex, 1)[0];
+
+        const updatedDriver = {
+          ...driverBeingConfigured,
+          evidence: updatedEvidence,
+        };
+
+        setDriverBeingConfigured(updatedDriver);
+        updateDriverInForecast(updatedDriver);
+
+        setCommandInput("");
+        const evidenceSummary =
+          removedEvidence.summary?.substring(0, 50) || "evidence";
+        showToast(
+          `✓ Removed evidence: ${evidenceSummary}${evidenceSummary.length >= 50 ? "..." : ""}`,
+        );
+        setError(`✓ Removed evidence #${evidenceIndex + 1}`);
+        return;
       } else {
-        setError("Usage: /remove driver <name> or /remove agent <name>");
+        setError(
+          "Usage: /remove driver <name> | /remove agent <name> | /remove evidence <number>",
+        );
         setCommandInput("");
         return;
       }
