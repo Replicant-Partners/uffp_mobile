@@ -1166,13 +1166,27 @@ export default function ForecastWorkspaceScreen() {
       (d: any) => d.id === updatedDriver.id,
     );
 
+    console.log("[updateDriverInForecast] Driver search:", {
+      updatedDriverId: updatedDriver.id,
+      existingIndex,
+      forecastDriverIds: activeForecast.drivers?.map((d: any) => d.id),
+      driverInForecast: existingIndex >= 0 ? "YES" : "NO",
+    });
+
     let updatedDrivers;
     if (existingIndex >= 0) {
       // Update existing driver
+      console.log(
+        "[updateDriverInForecast] Updating existing driver at index",
+        existingIndex,
+      );
       updatedDrivers = [...activeForecast.drivers];
       updatedDrivers[existingIndex] = updatedDriver;
     } else {
       // Shouldn't happen in normal flow, but handle it
+      console.log(
+        "[updateDriverInForecast] Driver not found in forecast, adding as new",
+      );
       updatedDrivers = [...(activeForecast.drivers || []), updatedDriver];
     }
 
@@ -2161,8 +2175,18 @@ export default function ForecastWorkspaceScreen() {
           agents: [...currentAgents, agentConfig],
         };
 
+        console.log("[Agent Save] Driver being updated:", {
+          driverId: updatedDriver.id,
+          driverName: updatedDriver.name,
+          agentCount: updatedDriver.agents.length,
+          forecastId: activeForecast?.id,
+          isLocalForecast: activeForecast?.id?.startsWith("local-"),
+        });
+
         setDriverBeingConfigured(updatedDriver);
         await updateDriverInForecast(updatedDriver);
+
+        console.log("[Agent Save] updateDriverInForecast completed");
 
         // Clear agent config and show success
         setAgentBeingConfigured(null);
