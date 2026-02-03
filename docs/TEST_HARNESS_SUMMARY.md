@@ -59,21 +59,25 @@ A comprehensive test harness has been built to validate future versions of the a
 ✅ CLI driver creation fully reconciled with schema!
 ```
 
-### 4. State Integrity Tests (`tests/stateIntegrity.test.ts`) **[NEW]**
-- **5 tests** validating UI/backend state synchronization:
+### 4. State Integrity Tests (`tests/stateIntegrity.test.ts`) **[UPDATED]**
+- **9 tests** validating UI/backend state synchronization:
   - ✅ Backend forecasts appear in savedForecasts (for /list visibility)
-  - ✅ Backend driver sync updates activeForecast
+  - ✅ Backend driver sync updates activeForecast AND savedForecasts
   - ✅ Backend simulation updates activeForecast with probability
   - ✅ Forecast resolution updates activeForecast with Brier score
   - ✅ Local storage cleared when backend is source of truth
+  - ✅ Evidence additions update both activeForecast AND savedForecasts **[NEW]**
+  - ✅ Driver removal updates both activeForecast AND savedForecasts **[NEW]**
+  - ✅ Question edits update both activeForecast AND savedForecasts **[NEW]**
+  - ✅ Base rate updates sync to savedForecasts **[NEW]**
 
 **Test Results:**
 ```
-📊 Test Summary: 5 passed, 0 failed
+📊 Test Summary: 9 passed, 0 failed
 ✅ All state integrity tests passed!
 ```
 
-**Why This Matters:** State integrity tests catch bugs where backend operations succeed but UI state isn't updated, making data "invisible" to users.
+**Why This Matters:** State integrity tests catch bugs where backend operations succeed but UI state isn't updated, making data "invisible" to users. The 4 new tests specifically validate the evidence disappearing bug discovered on mobile.
 
 ### 5. CLI Validation Tool (`scripts/validate-schema.ts`)
 - Run tests: `npm run test:schema`
@@ -90,8 +94,10 @@ Automatically runs all tests before each commit:
 ```bash
 npm run test:schema  # Schema validation (16 tests)
 npm run test:cli     # CLI driver creation (4 tests)
-npm run test:state   # State integrity (5 tests)
+npm run test:state   # State integrity (9 tests)
 ```
+**Total: 29 tests** run automatically on every commit.
+
 If any test fails, commit is blocked to prevent regression.
 
 ### 8. Documentation
@@ -204,7 +210,7 @@ const forecasts = await loadForecasts();
 - Supports gradual migration from old to new formats
 
 ### 3. Developer Experience
-- **25 tests** (16 schema + 4 CLI + 5 state) run in ~3 seconds
+- **29 tests** (16 schema + 4 CLI + 9 state) run in ~3 seconds
 - Clear, actionable error messages
 - Easy to add new validation rules
 - Pre-commit hook prevents accidental regressions
@@ -256,23 +262,25 @@ Warnings (2):
 
 ## Files Created/Modified
 
-### Created (9 files)
+### Created (10 files)
 1. `src/utils/schemaValidator.ts` - Core validation logic (520 lines)
 2. `tests/schemaValidator.test.ts` - Schema test suite (580 lines) **[EXPANDED]**
 3. `tests/cliDriverCreation.test.ts` - CLI workflow tests (180 lines)
-4. `tests/stateIntegrity.test.ts` - State sync tests (280 lines) **[NEW]**
+4. `tests/stateIntegrity.test.ts` - State sync tests (730 lines) **[EXPANDED]**
 5. `scripts/validate-schema.ts` - CLI tool (90 lines)
 6. `docs/SCHEMA_VALIDATION.md` - Full documentation (400 lines)
 7. `docs/VALIDATION_QUICK_START.md` - Quick reference (150 lines)
 8. `docs/STATE_INTEGRITY.md` - State sync patterns (280 lines) **[NEW]**
-9. `docs/TEST_HARNESS_SUMMARY.md` - This document
+9. `docs/STATE_SYNC_BUG_FIXES.md` - Bug fix documentation (450 lines) **[NEW]**
+10. `docs/TEST_HARNESS_SUMMARY.md` - This document
 
 ### Modified (3 files)
 1. `src/utils/backendSync.ts` - Added validation hooks
 2. `package.json` - Added npm scripts (test:schema, test:cli, test:state, test:all)
 3. `.husky/pre-commit` - Added state integrity tests to pre-commit hook
+4. `src/screens/ForecastWorkspaceScreen.tsx` - Fixed 11 state sync bugs **[UPDATED]**
 
-**Total:** ~2,800 lines of validation code and documentation
+**Total:** ~3,400 lines of validation code, bug fixes, and documentation
 
 ## Test Coverage
 
@@ -300,14 +308,18 @@ Warnings (2):
 | Required fields present | CLI Test 3 | ✅ Pass |
 | Field types correct | CLI Test 4 | ✅ Pass |
 
-### State Integrity (5 tests)
+### State Integrity (9 tests)
 | Scenario | Test | Status |
 |----------|------|--------|
 | Forecasts appear in /list | State Test 1 | ✅ Pass |
-| Driver sync updates UI | State Test 2 | ✅ Pass |
+| Driver sync updates both state arrays | State Test 2 | ✅ Pass |
 | Simulation updates UI | State Test 3 | ✅ Pass |
 | Resolution updates UI | State Test 4 | ✅ Pass |
 | Local storage cleared | State Test 5 | ✅ Pass |
+| Evidence persists across navigation | State Test 6 | ✅ Pass |
+| Driver removal persists | State Test 7 | ✅ Pass |
+| Question edits persist in /list | State Test 8 | ✅ Pass |
+| Base rate updates persist | State Test 9 | ✅ Pass |
 
 ## Migration Support
 
@@ -333,19 +345,25 @@ node migrate-probability-range.js
 
 ## Conclusion
 
-✅ **Complete test harness built**
+✅ **Complete test harness built and enhanced**
 - **Schema Validation**: 20+ rules across 5 entity types (16 tests)
 - **CLI Workflow**: Ensures CLI-created drivers match schema (4 tests)
-- **State Integrity**: Validates UI/backend synchronization (5 tests)
-- **100% test pass rate** (25/25 tests)
+- **State Integrity**: Validates UI/backend synchronization (9 tests)
+- **100% test pass rate** (29/29 tests)
 - Automatic validation on save/load
 - Pre-commit hooks prevent regressions
 - CLI tools for manual validation
 - Comprehensive documentation
+
+**Recent Updates (Feb 3, 2026):**
+- Fixed 11 state synchronization bugs (evidence, removal, edits, base rate, etc.)
+- Added 4 new state integrity tests to catch navigation-related data loss
+- Enhanced Test 2 to validate both activeForecast AND savedForecasts
+- Created STATE_SYNC_BUG_FIXES.md documenting all fixes
 
 The test harness ensures that future versions of the application maintain:
 1. **Data consistency** (schema validation)
 2. **Workflow correctness** (CLI tests)
 3. **UI/backend synchronization** (state integrity)
 
-This catches bugs early in development before they reach production.
+This catches bugs early in development before they reach production, including the critical "evidence disappearing on mobile" bug reported by users.
