@@ -370,6 +370,29 @@ class ResearchService {
     return response.json();
   }
 
+  // Set base rate for external view
+  async setBaseRate(
+    forecastId: string,
+    baseRate: {
+      referenceClass: string;
+      baseRate: number;
+      source?: string;
+      generatedBy?: "fermi" | "user";
+      confidence?: "high" | "medium" | "low";
+      reasoning?: string;
+      updatedAt?: string;
+    },
+  ): Promise<any> {
+    const response = await this.makeRequest("/forecasts?action=setBaseRate", {
+      method: "POST",
+      body: JSON.stringify({
+        forecastId,
+        baseRate,
+      }),
+    });
+    return response.json();
+  }
+
   // Authentication
   async register(email: string, password: string, name?: string): Promise<any> {
     const response = await this.makeRequest("/auth/register", {

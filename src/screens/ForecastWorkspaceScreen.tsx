@@ -2858,22 +2858,78 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
-      const updatedForecast = {
-        ...activeForecast,
-        externalView: {
-          referenceClass,
-          baseRate: activeForecast.externalView?.baseRate,
-          source: activeForecast.externalView?.source,
-        },
-        grounding: "external" as const,
-        updatedAt: new Date().toISOString(),
+      // Prepare external view data
+      const externalViewData = {
+        referenceClass,
+        baseRate: activeForecast.externalView?.baseRate || 0.5, // Default if not set
+        source: activeForecast.externalView?.source,
+        generatedBy:
+          activeForecast.externalView?.generatedBy || ("user" as const),
+        confidence: activeForecast.externalView?.confidence,
+        reasoning: activeForecast.externalView?.reasoning,
       };
-      setActiveForecast(updatedForecast);
-      // Update savedForecasts so external view appears in /list
-      setSavedForecasts((prev) =>
-        prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
-      );
-      await saveForecast(updatedForecast);
+
+      // Sync to backend first
+      setLoading(true);
+      setProcessingAction("Saving reference class...");
+
+      try {
+        const { setBaseRateWithSync } = await import("../utils/backendSync");
+        const result = await setBaseRateWithSync(
+          activeForecast.id,
+          externalViewData,
+        );
+
+        if (result.success && result.forecast) {
+          // Backend succeeded - use backend data
+          setActiveForecast(result.forecast);
+          setSavedForecasts((prev) =>
+            prev.map((f) => (f.id === activeForecast.id ? result.forecast : f)),
+          );
+          console.log("Reference class synced to backend successfully");
+        } else {
+          // Backend failed - update locally only
+          console.log(
+            "Reference class backend sync failed, saving locally:",
+            result.error,
+          );
+          const updatedForecast = {
+            ...activeForecast,
+            externalView: {
+              ...externalViewData,
+              updatedAt: new Date().toISOString(),
+            },
+            grounding: "external" as const,
+            updatedAt: new Date().toISOString(),
+          };
+          setActiveForecast(updatedForecast);
+          setSavedForecasts((prev) =>
+            prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+          );
+          await saveForecast(updatedForecast);
+        }
+      } catch (err) {
+        console.error("Reference class sync error:", err);
+        // Fallback to local save
+        const updatedForecast = {
+          ...activeForecast,
+          externalView: {
+            ...externalViewData,
+            updatedAt: new Date().toISOString(),
+          },
+          grounding: "external" as const,
+          updatedAt: new Date().toISOString(),
+        };
+        setActiveForecast(updatedForecast);
+        setSavedForecasts((prev) =>
+          prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+        );
+        await saveForecast(updatedForecast);
+      } finally {
+        setLoading(false);
+        setProcessingAction("");
+      }
+
       setCommandInput("");
       setError("");
       return;
@@ -2902,28 +2958,79 @@ export default function ForecastWorkspaceScreen() {
         ? Math.round(activeForecast.externalView.baseRate * 100)
         : null;
 
-      const updatedForecast = {
-        ...activeForecast,
-        externalView: {
-          referenceClass:
-            activeForecast.externalView?.referenceClass ||
-            "User-defined reference class",
-          baseRate: rate / 100, // Convert percentage to 0-1 range
-          source: activeForecast.externalView?.source || "User research",
-          generatedBy: "user" as const, // Mark as user override
-          confidence: activeForecast.externalView?.confidence || "medium",
-          reasoning: activeForecast.externalView?.reasoning,
-          updatedAt: new Date().toISOString(),
-        },
-        grounding: "external" as const,
-        updatedAt: new Date().toISOString(),
+      // Prepare base rate data
+      const baseRateData = {
+        referenceClass:
+          activeForecast.externalView?.referenceClass ||
+          "User-defined reference class",
+        baseRate: rate / 100, // Convert percentage to 0-1 range
+        source: activeForecast.externalView?.source || "User research",
+        generatedBy: "user" as const,
+        confidence: activeForecast.externalView?.confidence || "medium",
+        reasoning: activeForecast.externalView?.reasoning,
       };
-      setActiveForecast(updatedForecast);
-      // Update savedForecasts so base rate appears in /list
-      setSavedForecasts((prev) =>
-        prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
-      );
-      await saveForecast(updatedForecast);
+
+      // Sync to backend first
+      setLoading(true);
+      setProcessingAction("Saving base rate...");
+
+      try {
+        const { setBaseRateWithSync } = await import("../utils/backendSync");
+        const result = await setBaseRateWithSync(
+          activeForecast.id,
+          baseRateData,
+        );
+
+        if (result.success && result.forecast) {
+          // Backend succeeded - use backend data
+          setActiveForecast(result.forecast);
+          setSavedForecasts((prev) =>
+            prev.map((f) => (f.id === activeForecast.id ? result.forecast : f)),
+          );
+          console.log("Base rate synced to backend successfully");
+        } else {
+          // Backend failed - update locally only
+          console.log(
+            "Base rate backend sync failed, saving locally:",
+            result.error,
+          );
+          const updatedForecast = {
+            ...activeForecast,
+            externalView: {
+              ...baseRateData,
+              updatedAt: new Date().toISOString(),
+            },
+            grounding: "external" as const,
+            updatedAt: new Date().toISOString(),
+          };
+          setActiveForecast(updatedForecast);
+          setSavedForecasts((prev) =>
+            prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+          );
+          await saveForecast(updatedForecast);
+        }
+      } catch (err) {
+        console.error("Base rate sync error:", err);
+        // Fallback to local save
+        const updatedForecast = {
+          ...activeForecast,
+          externalView: {
+            ...baseRateData,
+            updatedAt: new Date().toISOString(),
+          },
+          grounding: "external" as const,
+          updatedAt: new Date().toISOString(),
+        };
+        setActiveForecast(updatedForecast);
+        setSavedForecasts((prev) =>
+          prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
+        );
+        await saveForecast(updatedForecast);
+      } finally {
+        setLoading(false);
+        setProcessingAction("");
+      }
+
       setCommandInput("");
 
       // Send Fermi message with different content based on whether this is override or new

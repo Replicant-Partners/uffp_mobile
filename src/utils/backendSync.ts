@@ -473,6 +473,55 @@ export async function resolveForecastWithSync(
 }
 
 /**
+ * Set base rate with backend sync
+ */
+export async function setBaseRateWithSync(
+  forecastId: string,
+  baseRateData: {
+    referenceClass: string;
+    baseRate: number;
+    source?: string;
+    generatedBy?: "fermi" | "user";
+    confidence?: "high" | "medium" | "low";
+    reasoning?: string;
+  },
+): Promise<{
+  success: boolean;
+  forecast?: any;
+  error?: string;
+}> {
+  // Skip if local-only ID
+  if (forecastId.startsWith("local-")) {
+    console.log(
+      "[BackendSync] Skipping base rate sync for local-only forecast",
+    );
+    return { success: false, error: "Cannot sync local-only forecasts" };
+  }
+
+  try {
+    console.log(
+      `[BackendSync] Setting base rate for forecast ${forecastId}...`,
+    );
+    const result = await researchService.setBaseRate(forecastId, {
+      ...baseRateData,
+      updatedAt: new Date().toISOString(),
+    });
+
+    if (result.success && result.forecast) {
+      const forecast = mapBackendToLocal(result.forecast);
+      console.log(`[BackendSync] Base rate updated successfully`);
+      return { success: true, forecast };
+    }
+
+    throw new Error("Backend response invalid");
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error("[BackendSync] Base rate update failed:", errorMsg);
+    return { success: false, error: errorMsg };
+  }
+}
+
+/**
  * Get user stats from backend
  */
 export async function getUserStatsFromBackend(): Promise<{
