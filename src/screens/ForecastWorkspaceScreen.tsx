@@ -1051,6 +1051,7 @@ export default function ForecastWorkspaceScreen() {
 
       // Store result as evidence on the driver being configured
       const newEvidence = {
+        id: idGenerators.evidence(),
         type: "research",
         source: agentBeingConfigured.name,
         summary: result.result?.summary || "Research completed successfully",
@@ -2092,6 +2093,7 @@ export default function ForecastWorkspaceScreen() {
                 evidence: [
                   ...(driverBeingConfigured.evidence || []),
                   {
+                    id: idGenerators.evidence(),
                     type: "research",
                     source: agent.name || agent,
                     summary:
@@ -2107,6 +2109,7 @@ export default function ForecastWorkspaceScreen() {
               const updatedDrivers = activeForecast.drivers.map((d: any) => {
                 if (d.id === targetDriver.id) {
                   const newEvidence = {
+                    id: idGenerators.evidence(),
                     type: "research",
                     source: agent.name || agent,
                     summary:
