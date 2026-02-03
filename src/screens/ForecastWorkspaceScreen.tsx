@@ -344,6 +344,13 @@ export default function ForecastWorkspaceScreen() {
   };
 
   const loadForecast = async (forecast: SavedForecast) => {
+    console.log("[LoadForecast] Loading forecast:", forecast.id);
+    console.log(
+      "[LoadForecast] Drivers in forecast:",
+      forecast.drivers?.length || 0,
+    );
+    console.log("[LoadForecast] Driver details:", forecast.drivers);
+
     setActiveForecast(forecast);
     setActiveQuestion(forecast.question);
     setShowForecastList(false);
