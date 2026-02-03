@@ -100,6 +100,115 @@ Now parse: "${userInput}"`;
   }
 }
 
+/**
+ * Generate AI-powered base rate for a forecast question
+ */
+export async function generateBaseRate(
+  question: string,
+  domain?: string,
+  timeframe?: string
+): Promise<{
+  referenceClass: string;
+  baseRate: number;
+  source: string;
+  confidence: 'high' | 'medium' | 'low';
+  reasoning: string;
+}> {
+  const prompt = `You are an expert forecaster analyzing base rates for predictions.
+
+Question: "${question}"
+Domain: ${domain || 'general'}
+Timeframe: ${timeframe || 'unspecified'}
+
+Your task: Identify an appropriate reference class and estimate the historical base rate.
+
+Instructions:
+1. **Reference Class**: Find similar historical cases (e.g., "Tech stocks reaching 3x growth in 2 years", "New product launches in consumer tech", "Regulatory approvals for similar applications")
+
+2. **Base Rate**: Estimate the historical success rate as a decimal 0-1 (e.g., 0.15 for 15%)
+   - Use actual historical data when possible
+   - Be conservative - it's better to cite real statistics than guess
+   - Consider: Metaculus track records, industry reports, academic studies, market data
+
+3. **Source**: Where this data comes from (e.g., "Metaculus forecasts 2015-2024", "Nasdaq historical analysis", "FDA approval database")
+
+4. **Confidence**: Rate the quality of your base rate
+   - high: Strong historical data, large sample size, very similar cases
+   - medium: Good data but smaller sample or less similar cases
+   - low: Limited data, dissimilar cases, or educated estimate
+
+5. **Reasoning**: Explain your analysis in 2-3 sentences
+
+Domain-specific examples:
+
+**Finance (stock targets):**
+{
+  "referenceClass": "Small-cap tech stocks achieving 200%+ returns within 2 years",
+  "baseRate": 0.12,
+  "source": "Analysis of Russell 2000 tech sector 2010-2023",
+  "confidence": "medium",
+  "reasoning": "Historically, about 12% of small-cap tech stocks double within a 2-year period during bull markets. This rate drops to 5-8% in bear markets. The reference class includes similar market-cap companies in technology sectors."
+}
+
+**Technology (product launches):**
+{
+  "referenceClass": "Consumer hardware products achieving mainstream adoption (>10M users)",
+  "baseRate": 0.23,
+  "source": "Tech Crunch product launch database 2015-2023",
+  "confidence": "medium",
+  "reasoning": "About 23% of heavily-funded consumer hardware products reach mainstream adoption. Success factors include strong brand, clear value prop, and distribution. Most failures occur in first 18 months."
+}
+
+**Regulatory (approvals):**
+{
+  "referenceClass": "FDA Phase 3 drugs receiving approval",
+  "baseRate": 0.58,
+  "source": "FDA CDER approval statistics 2015-2023",
+  "confidence": "high",
+  "reasoning": "Drugs that reach Phase 3 trials have a 58% approval rate. This varies by therapeutic area: oncology (48%), cardiovascular (65%). Orphan drugs have higher approval rates (~70%)."
+}
+
+Now analyze: "${question}"
+
+Respond in this exact JSON format:
+{
+  "referenceClass": "Description of similar historical cases",
+  "baseRate": 0.XX,
+  "source": "Where you got this data",
+  "confidence": "high|medium|low",
+  "reasoning": "2-3 sentence explanation"
+}`;
+
+  const response = await callCoachAgent(prompt);
+
+  try {
+    const parsed = JSON.parse(response);
+
+    // Validate the response
+    if (!parsed.referenceClass || typeof parsed.baseRate !== 'number') {
+      throw new Error('Invalid base rate response');
+    }
+
+    // Ensure baseRate is in valid range
+    if (parsed.baseRate < 0 || parsed.baseRate > 1) {
+      parsed.baseRate = Math.max(0, Math.min(1, parsed.baseRate));
+    }
+
+    return parsed;
+  } catch (e) {
+    // Fallback base rate if parsing fails
+    console.error('Failed to parse base rate:', e);
+    return {
+      referenceClass: `General historical cases similar to: ${question}`,
+      baseRate: 0.30,
+      source: 'General historical analysis',
+      confidence: 'low',
+      reasoning: 'Unable to find specific historical data. Using conservative 30% base rate as starting point.'
+    };
+  }
+}
+
+
 export async function coachBaseRate(context: {
   question: string;
   domain: string;
@@ -495,6 +604,7 @@ function suggestResearchForDriver(driverName: string, domain: string): any[] {
 }
 
 export const coach = {
+  generateBaseRate,
   parseQuestion,
   coachBaseRate,
   coachDriverDecomposition,
