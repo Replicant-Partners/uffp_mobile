@@ -5673,11 +5673,16 @@ export default function ForecastWorkspaceScreen() {
               let messageText = msg.message;
               let suggestions: CommandSuggestion[] = [];
 
+              // Ensure message is a string before processing
+              if (typeof messageText !== "string") {
+                messageText = String(messageText || "");
+              }
+
               if (
                 msg.role === "fermi" &&
-                msg.message.includes("__SUGGESTIONS__:")
+                messageText.includes("__SUGGESTIONS__:")
               ) {
-                const parts = msg.message.split("__SUGGESTIONS__:");
+                const parts = messageText.split("__SUGGESTIONS__:");
                 messageText = parts[0].trim();
                 try {
                   suggestions = JSON.parse(parts[1]);
