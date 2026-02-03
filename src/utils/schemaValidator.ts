@@ -45,6 +45,42 @@ export function validateForecast(forecast: Forecast): ValidationResult {
     });
   }
 
+  // NEW RULE: Check for duplicate driver names
+  if (forecast.drivers && forecast.drivers.length > 0) {
+    const driverNames = new Map<string, string[]>();
+
+    forecast.drivers.forEach((driver) => {
+      const normalizedName = driver.name?.toLowerCase().trim() || "";
+      if (normalizedName) {
+        if (!driverNames.has(normalizedName)) {
+          driverNames.set(normalizedName, []);
+        }
+        driverNames.get(normalizedName)!.push(driver.id);
+      }
+    });
+
+    // Report errors for all duplicates
+    driverNames.forEach((driverIds, name) => {
+      if (driverIds.length > 1) {
+        driverIds.forEach((driverId) => {
+          errors.push({
+            entity: "Driver",
+            entityId: driverId,
+            field: "name",
+            rule: "DUPLICATE_DRIVER_NAME",
+            message: `Driver name "${name}" appears ${driverIds.length} times. Each driver must have a unique name within a forecast.`,
+            severity: "error",
+          });
+        });
+      }
+    });
+  }
+
+  // Validate base rate if present
+  if (forecast.baseRate) {
+    validateBaseRate(forecast, errors, warnings);
+  }
+
   return {
     valid: errors.length === 0,
     errors,
@@ -204,12 +240,22 @@ function validateDriver(
         severity: "error",
       });
     } else if (driver.probability < 0 || driver.probability > 1) {
+      // ENHANCED: Better error messages for probability violations
+      let message = `Binary driver probability must be 0-1, got ${driver.probability}`;
+
+      // Detect 0-100 format and suggest correction
+      if (driver.probability > 1 && driver.probability <= 100) {
+        message += `. Did you mean ${driver.probability / 100}? (0-100 format detected)`;
+      } else if (driver.probability < 0) {
+        message = `Binary driver probability cannot be negative, got ${driver.probability}`;
+      }
+
       errors.push({
         entity: "Driver",
         entityId: driver.id,
         field: "probability",
         rule: "PROBABILITY_RANGE",
-        message: `Binary driver probability must be 0-1, got ${driver.probability}`,
+        message,
         severity: "error",
       });
     }
@@ -624,6 +670,74 @@ function validateEvidence(
       message: `Evidence with type 'url' has invalid URL: ${evidence.content}`,
       severity: "warning",
     });
+  }
+}
+
+/**
+ * Validate base rate data
+ */
+function validateBaseRate(
+  forecast: Forecast,
+  errors: ValidationError[],
+  warnings: ValidationError[],
+): void {
+  const baseRate = forecast.baseRate;
+  if (!baseRate) return;
+
+  // Reference class required
+  if (!baseRate.referenceClass || baseRate.referenceClass.trim() === "") {
+    errors.push({
+      entity: "BaseRate",
+      entityId: forecast.id || "unknown",
+      field: "referenceClass",
+      rule: "REQUIRED_FIELD",
+      message: "BaseRate must have a referenceClass",
+      severity: "error",
+    });
+  }
+
+  // Success rate must be 0-1
+  if (
+    baseRate.successRate !== undefined &&
+    (baseRate.successRate < 0 || baseRate.successRate > 1)
+  ) {
+    errors.push({
+      entity: "BaseRate",
+      entityId: forecast.id || "unknown",
+      field: "successRate",
+      rule: "PROBABILITY_RANGE",
+      message: `BaseRate successRate must be 0-1, got ${baseRate.successRate}`,
+      severity: "error",
+    });
+  }
+
+  // Warn if sample size is suspiciously low
+  if (baseRate.sampleSize !== undefined && baseRate.sampleSize < 5) {
+    warnings.push({
+      entity: "BaseRate",
+      entityId: forecast.id || "unknown",
+      field: "sampleSize",
+      rule: "LOW_SAMPLE_SIZE",
+      message: `BaseRate sampleSize is very low (${baseRate.sampleSize}). Consider finding more data.`,
+      severity: "warning",
+    });
+  }
+
+  // Warn if base rate is stale (> 1 year old)
+  if (baseRate.capturedAt) {
+    const daysSince =
+      (Date.now() - new Date(baseRate.capturedAt).getTime()) /
+      (1000 * 60 * 60 * 24);
+    if (daysSince > 365) {
+      warnings.push({
+        entity: "BaseRate",
+        entityId: forecast.id || "unknown",
+        field: "capturedAt",
+        rule: "STALE_BASE_RATE",
+        message: `BaseRate was captured ${Math.round(daysSince)} days ago. Consider updating.`,
+        severity: "warning",
+      });
+    }
   }
 }
 

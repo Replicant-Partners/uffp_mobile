@@ -370,6 +370,95 @@ function runTests() {
     failed++;
   }
 
+  // Test 9: Duplicate driver names
+  console.log("\n✓ Test 9: Duplicate driver names");
+  const duplicateForecast: Forecast = {
+    ...validForecast,
+    drivers: [
+      {
+        ...validForecast.drivers[0],
+        id: "drv_dup1",
+        name: "Market Conditions",
+      },
+      {
+        ...validForecast.drivers[0],
+        id: "drv_dup2",
+        name: "Market Conditions",
+      },
+    ],
+  };
+
+  const result9 = validateForecast(duplicateForecast);
+  console.log(formatValidationResults(result9));
+  if (
+    !result9.valid &&
+    result9.errors.some((e) => e.rule === "DUPLICATE_DRIVER_NAME")
+  ) {
+    console.log("✅ PASSED: Duplicate driver names detected\n");
+    passed++;
+  } else {
+    console.log("❌ FAILED: Duplicate driver names not detected\n");
+    failed++;
+  }
+
+  // Test 10: Probability 0-100 format detection
+  console.log("✓ Test 10: Probability 0-100 format detection");
+  const oldFormatForecast: Forecast = {
+    ...validForecast,
+    drivers: [
+      {
+        ...validForecast.drivers[0],
+        probability: 75, // Should be 0.75
+      },
+    ],
+  };
+
+  const result10 = validateForecast(oldFormatForecast);
+  console.log(formatValidationResults(result10));
+  if (
+    !result10.valid &&
+    result10.errors.some(
+      (e) =>
+        e.rule === "PROBABILITY_RANGE" && e.message.includes("Did you mean"),
+    )
+  ) {
+    console.log("✅ PASSED: 0-100 format detected with helpful suggestion\n");
+    passed++;
+  } else {
+    console.log("❌ FAILED: 0-100 format not detected\n");
+    failed++;
+  }
+
+  // Test 11: Base rate validation
+  console.log("✓ Test 11: Base rate validation");
+  const invalidBaseRateForecast: Forecast = {
+    ...validForecast,
+    baseRate: {
+      referenceClass: "",
+      successRate: 1.5,
+      sampleSize: 0,
+      reasoning: "From industry report",
+      evidence: [],
+      capturedAt: new Date("2020-01-01").toISOString(),
+    },
+  };
+
+  const result11 = validateForecast(invalidBaseRateForecast);
+  console.log(formatValidationResults(result11));
+  const hasBaseRateErrors = result11.errors.some(
+    (e) =>
+      e.entity === "BaseRate" &&
+      ["REQUIRED_FIELD", "PROBABILITY_RANGE"].includes(e.rule),
+  );
+
+  if (!result11.valid && hasBaseRateErrors) {
+    console.log("✅ PASSED: Invalid base rate detected\n");
+    passed++;
+  } else {
+    console.log("❌ FAILED: Base rate issues not detected\n");
+    failed++;
+  }
+
   // Summary
   console.log("\n" + "=".repeat(60));
   console.log(`\n📊 Test Summary: ${passed} passed, ${failed} failed\n`);
