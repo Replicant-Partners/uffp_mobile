@@ -1,574 +1,702 @@
-# UFFP Backend API Complete Reference
+# UFFP Backend API Reference
 
-**Base URL**: `https://uffp-backend.vercel.app/api`  
-**Dev URL**: `http://localhost:3000/api`
+**Base URL:** `https://uffp-backend.vercel.app/api`  
+**Last Updated:** 2026-02-04  
+**Backend Version:** commit `9bf5068`  
+**Database:** Redis (ioredis) on production  
 
-**Last Updated**: 2026-02-04  
-**Source**: Extracted from `src/services/researchService.ts`
+This document describes the complete UFFP backend API extracted from the actual deployed code.
 
----
+## Architecture Overview
 
-## Authentication Endpoints
+### Storage
+- **Database:** Redis via ioredis package
+- **Connection:** Environment variable `REDIS_URL`
+- **Key Pattern:** 
+  - `forecast:{id}` - Individual forecast data
+  - `user:{userId}:forecasts` - User's forecast IDs (Redis Set)
+  - `forecasts:all` - All forecast IDs (Redis Set)
 
-### POST `/auth/register`
-Register a new user account.
+### Routing
+- **Pattern:** Action-based routing via query parameter
+- **Format:** `/api/forecasts?action={ACTION}`
+- **Method:** Primarily POST, some GET for retrieval
 
-**Request Body**:
+### Response Format
 ```json
 {
-  "email": "user@example.com",
-  "password": "secure_password",
-  "name": "Optional Name"
+  "success": true,
+  "forecast": { /* Forecast object */ }
 }
 ```
 
-**Response**: User object with token
+### Critical Implementation Notes
+
+1. **NO DELETE ENDPOINT** - Backend does not support forecast deletion
+2. **Nested Response** - Response is `{ success, forecast }`, not just the forecast
+3. **Field Mapping** - Backend stores `researchResults`, frontend calls them `agents`
+4. **ID Generation** - Uses `nanoid(12)` for all IDs
+5. **Probability Range** - Drivers use 0-100 range (not 0-1)
 
 ---
 
-### POST `/auth/login`
-Authenticate and get session token.
+## Data Schemas
 
-**Request Body**:
-```json
-{
-  "email": "user@example.com",
-  "password": "password"
+### Forecast
+```typescript
+interface Forecast {
+  id: string;
+  userId?: string;
+  question: string;
+  domain?: string;
+  timeframe?: string;
+  resolutionCriteria: string;
+  
+  // Superforecaster methodology
+  baseRate?: BaseRate;
+  externalView?: ExternalView;
+  drivers: Driver[];
+  evidence: Evidence[];
+  
+  // Probability tracking
+  probability?: number;
+  initialProbability?: number;
+  
+  // Resolution
+  outcome?: boolean;
+  resolvedAt?: Date;
+  brierScore?: number;
+  
+  // Simulation
+  simulations?: Simulation[];
+  
+  // Metadata
+  createdAt: Date;
+  updatedAt: Date;
+  status?: "draft" | "active" | "resolved";
 }
 ```
 
-**Response**: 
-```json
-{
-  "token": "jwt_token_here",
-  "user": { ... }
+### Driver
+```typescript
+interface Driver {
+  id: string;
+  name: string;
+  type: "binary" | "continuous";
+  direction: "increases" | "decreases";
+  description?: string;
+  
+  // Binary probability
+  probability?: number; // 0-100 range
+  
+  // Continuous distribution
+  distribution?: "normal" | "triangular" | "lognormal";
+  p5?: number;
+  p50?: number;
+  p95?: number;
+  
+  // Research
+  agents: Agent[];
+  researchResults: ResearchSnapshot[];
+  evidence: Evidence[];
+  
+  // Versioning
+  version: { major: number; minor: number };
+  versionHistory?: DriverVersion[];
+  
+  // Metadata
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### Agent
+```typescript
+interface Agent {
+  id: string;
+  name: string;
+  promptId?: string;
+  schedule: "daily" | "weekly" | "on-demand";
+  variables?: Record<string, string>;
+}
+```
+
+### Evidence
+```typescript
+interface Evidence {
+  id: string;
+  type: "url" | "quote" | "data" | "reasoning";
+  content: string;
+  source?: string;
+  confidence?: "high" | "medium" | "low";
+  attachedTo: "forecast" | "baseRate" | "driver";
+  attachedToId: string;
+  timestamp: Date;
+  linkPreview?: {
+    url: string;
+    title?: string;
+    description?: string;
+    image?: string;
+    favicon?: string;
+    fetchedAt?: Date;
+  };
+}
+```
+
+### ResearchSnapshot
+```typescript
+interface ResearchSnapshot {
+  id: string;
+  agentId: string;
+  promptId: string;
+  variables: Record<string, string>;
+  
+  // Results
+  summary: string;
+  keyFindings: string[];
+  sources: string[];
+  confidence: "high" | "medium" | "low";
+  fullResponse: string;
+  
+  // Cost
+  cost: number;
+  tokensUsed?: number;
+  
+  // Metadata
+  executedAt: Date;
+  attachedToDriverId?: string;
+}
+```
+
+### BaseRate & ExternalView
+```typescript
+interface BaseRate {
+  referenceClass: string;
+  successRate: number; // 0-1 range
+  sampleSize: number;
+  evidence: Evidence[];
+  capturedAt: Date;
+}
+
+interface ExternalView {
+  referenceClass: string;
+  baseRate?: number;
+  reasoning?: string;
+  source?: string;
+  generatedBy?: "fermi" | "user";
+  confidence?: "high" | "medium" | "low";
+  updatedAt?: Date | string;
 }
 ```
 
 ---
 
-### GET `/auth/me`
-Get current user info.
+## API Endpoints
 
-**Headers**: `Authorization: Bearer {token}`
+### 1. Parse Question
 
-**Response**: User object
+**Endpoint:** `POST /api/forecasts?action=parse`
 
----
-
-## Forecast Endpoints
-
-All forecast endpoints use `/forecasts?action={ACTION}` pattern.
-
-### POST `/forecasts?action=create`
-Create a new forecast.
-
-**Request Body**:
+**Request:**
 ```json
 {
-  "userId": "user_id (optional)",
-  "question": "Will X happen by Y?",
-  "domain": "technology|finance|geopolitics|general",
-  "timeframe": "2026-12-31",
-  "resolutionCriteria": "Forecast resolves when...",
-  "privacy": "private|unlisted|public|organization",
-  "tags": ["tag1", "tag2"]
+  "userInput": "Will I get a promotion in 2026?"
 }
 ```
 
-**Response**:
+**Response:**
+```json
+{
+  "success": true,
+  "question": "Will I get a promotion in 2026?",
+  "domain": "career",
+  "timeframe": "2026",
+  "resolutionCriteria": "Job title changes to senior level or higher"
+}
+```
+
+---
+
+### 2. Create Forecast
+
+**Endpoint:** `POST /api/forecasts?action=create`
+
+**Request:**
+```json
+{
+  "userId": "user_123",
+  "question": "Will I get a promotion in 2026?",
+  "domain": "career",
+  "timeframe": "2026",
+  "resolutionCriteria": "Job title changes to senior level or higher"
+}
+```
+
+**Response:**
 ```json
 {
   "success": true,
   "forecast": {
-    "id": "forecast_id",
-    "question": "...",
-    ...
+    "id": "fct_AbC123XyZ",
+    "userId": "user_123",
+    "question": "Will I get a promotion in 2026?",
+    "domain": "career",
+    "timeframe": "2026",
+    "resolutionCriteria": "Job title changes to senior level or higher",
+    "drivers": [],
+    "evidence": [],
+    "createdAt": "2026-02-04T10:30:00.000Z",
+    "updatedAt": "2026-02-04T10:30:00.000Z",
+    "status": "draft"
   }
 }
 ```
 
-**Note**: Forecast is created WITHOUT drivers. Add drivers separately.
-
 ---
 
-### GET `/forecasts?action=get&id={forecastId}`
-Get a single forecast by ID.
+### 3. Get Forecast
 
-**Response**: Complete forecast object with drivers
+**Endpoint:** `GET /api/forecasts?action=get&id={forecastId}`
 
----
-
-### GET `/forecasts?action=list&userId={userId}&status={status}&limit={N}&offset={N}`
-List forecasts.
-
-**Query Params**:
-- `userId` (optional): Filter by user
-- `status` (optional): `draft|active|resolved`
-- `limit` (optional): Max results (default 50)
-- `offset` (optional): Pagination offset
-
-**Response**:
+**Response:**
 ```json
 {
-  "forecasts": [...],
-  "total": 100
+  "success": true,
+  "forecast": { /* Full Forecast object */ }
+}
+```
+
+**Error (404):**
+```json
+{
+  "error": "Forecast not found"
 }
 ```
 
 ---
 
-### POST `/forecasts?action=addDriver`
-Add a driver to a forecast.
+### 4. List Forecasts
 
-**Request Body**:
+**Endpoint:** `GET /api/forecasts?action=list&userId={userId}&status={status}&limit={limit}&offset={offset}`
+
+**Query Parameters:**
+- `userId` (optional) - Filter by user
+- `status` (optional) - Filter by status: "draft" | "active" | "resolved"
+- `limit` (optional) - Max results (default: 50)
+- `offset` (optional) - Skip first N results (default: 0)
+
+**Response:**
 ```json
 {
-  "forecastId": "forecast_id",
-  "driver": {
-    "name": "Driver Name",
-    "type": "binary|continuous",
-    "direction": "increases|decreases",
-    "probability": 0.75,           // For binary (0-1 range)
-    "p5": 20,                      // For continuous
-    "p50": 50,
-    "p95": 100,
-    "distribution": "triangular|normal|lognormal",
-    "reasoning": "Why this driver matters",
-    "evidence": [],                // Optional
-    "researchResults": [],         // Optional (agents)
-    "version": { "major": 1, "minor": 0 },
-    "versionHistory": []
-  }
-}
-```
-
-**Response**: Updated forecast
-
-**CRITICAL**: Backend expects `researchResults`, NOT `agents`!
-
----
-
-### POST `/forecasts?action=updateDriver`
-Update an existing driver.
-
-**Request Body**:
-```json
-{
-  "forecastId": "forecast_id",
-  "driverId": "driver_id",
-  "updates": {
-    // Any driver fields to update
-  },
-  "changeReason": "Why the update (optional)"
-}
-```
-
-**Response**: Updated forecast
-
----
-
-### POST `/forecasts?action=removeDriver`
-Remove a driver from forecast.
-
-**Request Body**:
-```json
-{
-  "forecastId": "forecast_id",
-  "driverId": "driver_id"
-}
-```
-
-**Response**: Updated forecast
-
----
-
-### POST `/forecasts?action=simulate`
-Run Monte Carlo simulation.
-
-**Request Body (Option 1 - with forecastId)**:
-```json
-{
-  "forecastId": "forecast_id",
-  "iterations": 10000
-}
-```
-
-**Request Body (Option 2 - standalone)**:
-```json
-{
-  "question": "...",
-  "drivers": [...]
-}
-```
-
-**Response**:
-```json
-{
-  "probability": 0.65,
-  "distribution": { ... },
-  "simulations": [...]
+  "success": true,
+  "forecasts": [
+    { /* Forecast 1 */ },
+    { /* Forecast 2 */ }
+  ],
+  "total": 42,
+  "limit": 50,
+  "offset": 0
 }
 ```
 
 ---
 
-### POST `/forecasts?action=update`
-Update forecast metadata (question, domain, etc).
+### 5. Update Forecast
 
-**Request Body**:
+**Endpoint:** `POST /api/forecasts?action=updateForecast`
+
+**Request:**
 ```json
 {
-  "forecastId": "forecast_id",
+  "forecastId": "fct_AbC123XyZ",
   "updates": {
     "question": "Updated question?",
-    "domain": "new_domain",
-    "timeframe": "2027-01-01",
-    "resolutionCriteria": "...",
-    "probability": 0.75,
-    "resolved": false,
-    "actualOutcome": true
+    "status": "active",
+    "probability": 65
   }
 }
 ```
 
-**Response**: Updated forecast
-
----
-
-### POST `/forecasts?action=resolve`
-Mark forecast as resolved with outcome.
-
-**Request Body**:
+**Response:**
 ```json
 {
-  "forecastId": "forecast_id",
-  "actualOutcome": true,
-  "resolvedAt": "2026-02-04T10:00:00Z"
+  "success": true,
+  "forecast": { /* Updated Forecast */ }
 }
 ```
 
-**Response**: Updated forecast with Brier score
-
 ---
 
-### POST `/forecasts?action=setBaseRate`
-Set external view / base rate.
+### 6. Add Driver
 
-**Request Body**:
+**Endpoint:** `POST /api/forecasts?action=addDriver`
+
+**Request:**
 ```json
 {
-  "forecastId": "forecast_id",
-  "baseRate": {
-    "referenceClass": "Similar historical events",
-    "baseRate": 0.45,              // 0-1 range
-    "source": "Data source",
-    "generatedBy": "fermi|user",
-    "confidence": "high|medium|low",
-    "reasoning": "Why this base rate",
-    "updatedAt": "ISO timestamp"
+  "forecastId": "fct_AbC123XyZ",
+  "driver": {
+    "name": "Strong performance reviews",
+    "type": "binary",
+    "direction": "increases",
+    "probability": 75,
+    "agents": [],
+    "researchResults": [],
+    "evidence": [],
+    "version": { "major": 1, "minor": 0 }
   }
 }
 ```
 
-**Response**: Updated forecast
-
----
-
-### POST `/forecasts?action=addEvidence`
-Add evidence to forecast or driver.
-
-**Request Body**:
+**Response:**
 ```json
 {
-  "forecastId": "forecast_id",
-  "driverId": "driver_id (optional)",
-  "evidence": {
-    "id": "evd_xyz",
-    "type": "url|quote|data|reasoning",
-    "content": "Evidence text",
-    "source": "Source name",
-    "confidence": "high|medium|low",
-    "attachedTo": "forecast|driver|baseRate",
-    "attachedToId": "parent_id",
-    "timestamp": "ISO timestamp"
-  }
+  "success": true,
+  "forecast": { /* Forecast with new driver */ }
 }
 ```
 
-**Response**: Updated forecast
+**Notes:**
+- Driver ID is auto-generated if not provided
+- `createdAt` and `updatedAt` timestamps are added automatically
+- Evidence items without IDs get auto-generated IDs
 
 ---
 
-### GET `/forecasts?action=stats&userId={userId}`
-Get user statistics.
+### 7. Update Driver
 
-**Response**:
+**Endpoint:** `POST /api/forecasts?action=updateDriver`
+
+**Request:**
 ```json
 {
-  "totalForecasts": 50,
-  "brierScore": 0.15,
-  "accuracy": 0.85,
-  ...
-}
-```
-
----
-
-### GET `/forecasts?action=stats&leaderboard=true&domain={domain}&limit={N}`
-Get leaderboard.
-
-**Response**: Array of user stats ranked by performance
-
----
-
-### GET `/forecasts/discover?tags={tags}&domain={domain}&limit={N}&offset={N}`
-Discover public forecasts.
-
-**Response**: Array of public forecasts
-
----
-
-## Research Endpoints
-
-### POST `/agents/execute`
-Execute a research agent.
-
-**Request Body**:
-```json
-{
-  "agentId": "market_researcher",
-  "promptId": "analyze_market",
-  "variables": {
-    "market": "EV",
-    "year": "2026"
-  }
-}
-```
-
-**Response**:
-```json
-{
-  "result": {
-    "id": "...",
-    "timestamp": "...",
-    "summary": "...",
-    "keyFindings": [...],
-    "sources": [...],
-    "confidence": "high|medium|low"
-  }
-}
-```
-
----
-
-### GET `/research/results?limit={N}&offset={N}`
-Get research results history.
-
-**Response**:
-```json
-{
-  "results": [...]
-}
-```
-
----
-
-### GET `/research/results?id={id}`
-Get single research result.
-
-**Response**:
-```json
-{
-  "result": { ... }
-}
-```
-
----
-
-### POST `/research/schedule`
-Schedule recurring research.
-
-**Request Body**:
-```json
-{
-  "agentId": "agent_id",
-  "promptId": "prompt_id",
-  "frequency": "daily|weekly|monthly",
-  "variables": { ... },
-  "enabled": true
-}
-```
-
-**Response**:
-```json
-{
-  "scheduledResearch": { ... }
-}
-```
-
----
-
-### GET `/research/schedule`
-Get all scheduled research.
-
-**Response**:
-```json
-{
-  "scheduled": [...]
-}
-```
-
----
-
-## AI Coach Endpoints
-
-### POST `/coach/chat`
-Chat with AI coach.
-
-**Request Body**:
-```json
-{
-  "stage": "review|decompose|evidence|simulation",
-  "context": {
-    "forecastId": "...",
-    ... // Any context data
+  "forecastId": "fct_AbC123XyZ",
+  "driverId": "drv_XyZ789AbC",
+  "updates": {
+    "probability": 80,
+    "evidence": [ /* Updated evidence array */ ]
   },
-  "userMessage": "User's message",
-  "conversationHistory": [
-    { "role": "user", "content": "..." },
-    { "role": "assistant", "content": "..." }
+  "changeReason": "New data from Q4 review"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "forecast": { /* Forecast with updated driver */ }
+}
+```
+
+**Notes:**
+- `changeReason` is extracted but not currently used (future: version history)
+- Updates are partial - only specified fields are changed
+- `updatedAt` timestamp is automatically updated
+
+---
+
+### 8. Remove Driver
+
+**Endpoint:** `POST /api/forecasts?action=removeDriver`
+
+**Request:**
+```json
+{
+  "forecastId": "fct_AbC123XyZ",
+  "driverId": "drv_XyZ789AbC"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "forecast": { /* Forecast without the driver */ }
+}
+```
+
+---
+
+### 9. Add Evidence
+
+**Endpoint:** `POST /api/forecasts?action=addEvidence`
+
+**Request:**
+```json
+{
+  "forecastId": "fct_AbC123XyZ",
+  "evidence": {
+    "type": "url",
+    "content": "https://example.com/article",
+    "source": "Industry Report 2026",
+    "confidence": "high",
+    "attachedTo": "driver",
+    "attachedToId": "drv_XyZ789AbC"
+  },
+  "driverId": "drv_XyZ789AbC"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "forecast": { /* Forecast with new evidence */ }
+}
+```
+
+**Notes:**
+- Evidence ID and timestamp are auto-generated
+- `driverId` parameter is extracted but not currently used
+
+---
+
+### 10. Set Base Rate
+
+**Endpoint:** `POST /api/forecasts?action=setBaseRate`
+
+**Request:**
+```json
+{
+  "forecastId": "fct_AbC123XyZ",
+  "baseRate": {
+    "referenceClass": "Promotions in tech companies for mid-level engineers",
+    "successRate": 0.35,
+    "sampleSize": 1000,
+    "evidence": []
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "forecast": { /* Forecast with base rate */ }
+}
+```
+
+---
+
+### 11. Run Simulation
+
+**Endpoint:** `POST /api/forecasts?action=simulate`
+
+**Request:**
+```json
+{
+  "forecastId": "fct_AbC123XyZ",
+  "iterations": 10000,
+  "reasonForRun": "Updated driver probabilities"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "forecast": { /* Forecast with simulation results */ },
+  "simulation": {
+    "id": "sim_123abc",
+    "forecastId": "fct_AbC123XyZ",
+    "iterations": 10000,
+    "probability": 68.5,
+    "distribution": {
+      "histogram": [/* 100 buckets */],
+      "bins": 100,
+      "p10": 55.2,
+      "p25": 62.1,
+      "p50": 68.5,
+      "p75": 74.8,
+      "p90": 81.3
+    },
+    "cost": 0.02,
+    "runtime": 127,
+    "executedAt": "2026-02-04T11:00:00.000Z"
+  }
+}
+```
+
+**Algorithm:**
+- Monte Carlo simulation with conjunction of binary drivers
+- Each iteration: all drivers must "succeed" (random < probability/100)
+- Currently only supports binary drivers
+- Default iterations: 10000
+
+---
+
+### 12. Get User Stats
+
+**Endpoint:** `GET /api/forecasts?action=stats&userId={userId}`
+
+**Response:**
+```json
+{
+  "success": true,
+  "userId": "user_123",
+  "stats": {
+    "totalForecasts": 15,
+    "resolvedForecasts": 8,
+    "averageBrierScore": 0.18,
+    "calibration": "well-calibrated"
+  }
+}
+```
+
+---
+
+### 13. Get Leaderboard
+
+**Endpoint:** `GET /api/forecasts?action=stats&leaderboard=true`
+
+**Response:**
+```json
+{
+  "success": true,
+  "leaderboard": [
+    {
+      "userId": "user_123",
+      "username": "alice",
+      "averageBrierScore": 0.15,
+      "totalForecasts": 42
+    }
   ]
 }
 ```
 
-**Response**: AI coach message
-
 ---
 
-### POST `/coach/review`
-Get AI review of forecast.
+## Error Responses
 
-**Request Body**:
+All endpoints return standard error format:
+
 ```json
 {
-  "forecastId": "forecast_id",
-  "forecast": {
-    "question": "...",
-    "drivers": [...],
-    "probability": 0.65
-  }
+  "error": "Error message describing what went wrong"
 }
 ```
 
-**Response**: Review feedback
+**Common HTTP Status Codes:**
+- `200` - Success
+- `201` - Created
+- `400` - Bad request (missing fields, invalid data)
+- `404` - Resource not found
+- `500` - Internal server error (Redis, unexpected errors)
 
 ---
 
-### POST `/coach/decompose`
-AI-powered driver decomposition.
+## Special Behaviors
 
-**Request Body**:
-```json
-{
-  "question": "Will X happen?",
-  "forecastId": "forecast_id (optional)",
-  "existingDrivers": [...]
-}
-```
+### 1. No Delete Endpoint
+The backend intentionally does not provide a DELETE operation for forecasts. Use `removeDriver` to remove drivers, but forecasts themselves cannot be deleted once created.
 
-**Response**:
-```json
-{
-  "suggestions": [
-    {
-      "data": {
-        "name": "Driver Name",
-        "description": "...",
-        "type": "binary|continuous",
-        "direction": "increases|decreases"
-      }
+### 2. Nested Response Format
+All responses follow `{ success: boolean, [dataKey]: {...} }` pattern. When fetching a forecast, access it via `response.forecast`, not just `response`.
+
+### 3. Probability Range
+- Drivers use **0-100 range** for probability
+- Base rates use **0-1 range** for successRate
+- This inconsistency is intentional for UX reasons
+
+### 4. Automatic ID Generation
+- Forecasts: `nanoid(12)` 
+- Drivers: `nanoid(12)`
+- Evidence: `nanoid(12)` if not provided
+- All IDs are URL-safe alphanumeric
+
+### 5. Date Handling
+- All dates stored as ISO strings in Redis
+- `createdAt`/`updatedAt` explicitly converted to Date objects
+- Other dates may remain as strings - check type
+
+### 6. Evidence ID Assignment
+Evidence items are checked for missing IDs when added. If `id` field is missing, a new ID is generated automatically using `nanoid(12)`.
+
+### 7. Simulation Cost
+Monte Carlo simulations have a fixed cost of `0.02` per simulation. This is a placeholder value and doesn't reflect actual compute cost.
+
+---
+
+## Complete Example Workflow
+
+```javascript
+// 1. Parse question
+const parseResp = await fetch('/api/forecasts?action=parse', {
+  method: 'POST',
+  body: JSON.stringify({ userInput: "Will I get promoted?" })
+});
+const { question, domain, timeframe, resolutionCriteria } = await parseResp.json();
+
+// 2. Create forecast
+const createResp = await fetch('/api/forecasts?action=create', {
+  method: 'POST',
+  body: JSON.stringify({ question, domain, timeframe, resolutionCriteria })
+});
+const { forecast } = await createResp.json();
+
+// 3. Add driver
+const driverResp = await fetch('/api/forecasts?action=addDriver', {
+  method: 'POST',
+  body: JSON.stringify({
+    forecastId: forecast.id,
+    driver: {
+      name: "Strong performance",
+      type: "binary",
+      direction: "increases",
+      probability: 75,
+      agents: [],
+      researchResults: [],
+      evidence: [],
+      version: { major: 1, minor: 0 }
     }
-  ],
-  "message": "AI explanation"
-}
+  })
+});
+
+// 4. Add evidence
+await fetch('/api/forecasts?action=addEvidence', {
+  method: 'POST',
+  body: JSON.stringify({
+    forecastId: forecast.id,
+    evidence: {
+      type: "data",
+      content: "Exceeded goals by 15%",
+      confidence: "high",
+      attachedTo: "driver",
+      attachedToId: forecast.drivers[0].id
+    }
+  })
+});
+
+// 5. Run simulation
+const simResp = await fetch('/api/forecasts?action=simulate', {
+  method: 'POST',
+  body: JSON.stringify({
+    forecastId: forecast.id,
+    iterations: 10000
+  })
+});
+const { simulation } = await simResp.json();
+console.log(`Probability: ${simulation.probability}%`);
+
+// 6. List all forecasts
+const listResp = await fetch('/api/forecasts?action=list&userId=user_123');
+const { forecasts } = await listResp.json();
 ```
 
 ---
 
-## Utility Endpoints
+## Production Deployment
 
-### POST `/parse-question`
-Parse natural language question into structured format.
+**URL:** `https://uffp-backend.vercel.app`  
+**Platform:** Vercel Serverless Functions  
+**Auto-Deploy:** Pushes to `master` branch in `uffp-backend` repo  
+**Environment Variables Required:**
+- `REDIS_URL` - Redis connection string
+- `ANTHROPIC_API_KEY` - Claude API key (for coach/agents)
+- `DATABASE_URL` - PostgreSQL (for auth features)
 
-**Request Body**:
-```json
-{
-  "userInput": "Will Tesla reach $300 by end of 2026?"
-}
-```
-
-**Response**:
-```json
-{
-  "question": "Normalized question",
-  "domain": "technology",
-  "timeframe": "2026-12-31",
-  "confidence": "high"
-}
-```
+**Health Check:** GET `/api/forecasts?action=list` (returns empty array if healthy)
 
 ---
 
-### GET `/prompts/templates`
-Get available prompt templates for agents.
-
-**Response**:
-```json
-{
-  "prompts": [...]
-}
-```
-
----
-
-## Important Notes
-
-### Schema Requirements
-All entities must follow schema validation:
-
-**Driver**:
-- Required: `id`, `name`, `type`, `direction`, `version`, `createdAt`, `updatedAt`
-- Binary: Must have `probability` (0-1 range)
-- Continuous: Must have `p5`, `p50`, `p95`, `distribution`
-- Direction: Must be "increases" or "decreases"
-
-**Evidence**:
-- Required: `id`, `type`, `content`, `attachedTo`, `attachedToId`, `timestamp`
-- Type: Must be "url", "quote", "data", or "reasoning"
-- NOT "manual" or "research"!
-
-**Agent** (stored as researchResults in backend):
-- Required: `id`, `name`, `schedule`
-- Schedule: Must be "daily", "weekly", or "on-demand"
-
-### Backend Limitations
-- **NO DELETE OPERATION**: Backend doesn't support deleting forecasts via API
-- **Agents vs ResearchResults**: Frontend uses "agents", backend uses "researchResults"
-- **ID Formats**: Backend accepts old IDs without prefixes (warnings only)
-
-### Error Responses
-All endpoints return errors in format:
-```json
-{
-  "error": "Error message",
-  "details": "..."  // Optional
-}
-```
-
-HTTP Status Codes:
-- `200`: Success
-- `400`: Bad request / validation error
-- `401`: Unauthorized
-- `404`: Not found
-- `500`: Server error
+**End of Documentation**
