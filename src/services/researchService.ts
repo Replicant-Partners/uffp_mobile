@@ -205,16 +205,37 @@ class ResearchService {
     // Extract stage and conversationHistory, rest goes into context
     const { stage, conversationHistory, ...contextData } = context || {};
 
+    const payload = {
+      stage: stage || "review",
+      context: contextData,
+      userMessage: message,
+      conversationHistory: conversationHistory || [],
+    };
+
+    console.log("[ResearchService] chatWithCoach payload:", {
+      stage: payload.stage,
+      userMessage: payload.userMessage,
+      contextKeys: Object.keys(contextData),
+      contextSize: JSON.stringify(contextData).length,
+      hasDrivers: !!contextData.drivers,
+      hasForecastStateSummary: !!contextData.forecastStateSummary,
+      hasPowerUserPatterns: !!contextData.powerUserPatterns,
+    });
+
     const response = await this.makeRequest("/coach/chat", {
       method: "POST",
-      body: JSON.stringify({
-        stage: stage || "review",
-        context: contextData,
-        userMessage: message,
-        conversationHistory: conversationHistory || [],
-      }),
+      body: JSON.stringify(payload),
     });
-    return response.json();
+    const result = await response.json();
+
+    console.log("[ResearchService] chatWithCoach response:", {
+      hasMessage: !!result.message,
+      hasResponse: !!result.response,
+      hasSuggestions: !!result.suggestions,
+      responseKeys: Object.keys(result),
+    });
+
+    return result;
   }
 
   async reviewForecast(

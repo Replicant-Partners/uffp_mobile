@@ -923,10 +923,25 @@ export default function ForecastWorkspaceScreen() {
           }
 
           // Call AI backend
+          console.log("[Fermi Coach] Sending context to backend:", {
+            stage: context.stage,
+            hasDrivers: !!context.drivers,
+            driverCount: context.drivers?.length || 0,
+            hasBaseRate: !!context.baseRate,
+            hasForecastStateSummary: !!context.forecastStateSummary,
+            hasAvailableCommands: !!context.availableCommands,
+            hasPowerUserPatterns: !!context.powerUserPatterns,
+            contextKeys: Object.keys(context),
+          });
           const response = await researchService.chatWithCoach(
             userQuery,
             context,
           );
+          console.log("[Fermi Coach] Backend response:", {
+            hasMessage: !!response.message,
+            hasSuggestions: !!response.suggestions,
+            responseKeys: Object.keys(response),
+          });
 
           // Parse suggestions from response if provided
           const suggestions: CommandSuggestion[] =
