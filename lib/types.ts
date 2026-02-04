@@ -11,6 +11,7 @@ export interface Forecast {
 
   // Superforecaster methodology
   baseRate?: BaseRate;
+  externalView?: ExternalView;
   drivers: Driver[];
   evidence: Evidence[];
 
@@ -41,6 +42,16 @@ export interface BaseRate {
   evidence: Evidence[];
   capturedAt: Date;
 }
+export interface ExternalView {
+  referenceClass: string;
+  baseRate?: number;
+  reasoning?: string;
+  source?: string;
+  generatedBy?: "fermi" | "user";
+  confidence?: "high" | "medium" | "low";
+  updatedAt?: Date | string;
+}
+
 
 export interface Agent {
   id: string;

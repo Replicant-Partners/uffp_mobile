@@ -120,8 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const forecast = await updateDriver(
           forecastId,
           driverId,
-          updates,
-          changeReason,
+          updates
         );
         return res.status(200).json({ success: true, forecast });
       }
@@ -140,7 +139,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!forecastId || !evidence)
           return res.status(400).json({ error: "Missing fields" });
 
-        const forecast = await addEvidence(forecastId, evidence, driverId);
+        const forecast = await addEvidence(forecastId, evidence);
         return res.status(200).json({ success: true, forecast });
       }
 

@@ -8,7 +8,7 @@ import { coach } from '../../lib/coach';
  * POST /api/coach/review
  * Body: {
  *   forecastId: string,
- *   forecast: { question, drivers, probability? }
+ *   forecast: { question, drivers, evidence? }
  * }
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -33,13 +33,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const response = await coach.coachReview({
       question: forecast.question,
       drivers: forecast.drivers || [],
-      probability: forecast.probability,
+      evidence: forecast.evidence || [],
     });
 
-    return res.status(200).json({ 
-      success: true, 
-      message: response,
-      review: response 
+    return res.status(200).json({
+      success: true,
+      message: response.message,
+      suggestions: response.suggestions || [],
+      nextStage: response.nextStage
     });
   } catch (error) {
     console.error('Review error:', error);

@@ -1,32 +1,43 @@
 /**
- * Database layer for forecasts
- *
- * For now using in-memory storage.
- * Later will migrate to Vercel KV or PostgreSQL
+ * Database layer using Vercel KV (Redis)
+ * Replaces in-memory Map storage for persistence
  */
 
+import Redis from "ioredis";
 import { nanoid } from "nanoid";
 
+let redisClient: Redis | null = null;
+
+function getRedis(): Redis {
+  if (!redisClient) {
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) throw new Error("REDIS_URL required");
+    redisClient = new Redis(redisUrl);
+  }
+  return redisClient;
+}
 import type {
   Forecast,
   Driver,
   Evidence,
-  ResearchSnapshot,
   Simulation,
-  ForecastVersion,
-  DriverVersion,
 } from "./types";
 
-// In-memory storage (will be replaced with KV)
-const forecasts = new Map<string, Forecast>();
-const researchResults = new Map<string, any>();
-
 /**
- * Generate unique ID using nanoid for better randomness and URL-safety
+ * Generate unique ID using nanoid
  */
 function generateId(): string {
   return nanoid(12);
 }
+
+/**
+ * KV key prefixes for organization
+ */
+const KEYS = {
+  forecast: (id: string) => `forecast:${id}`,
+  userForecasts: (userId: string) => `user:${userId}:forecasts`,
+  allForecasts: () => `forecasts:all`,
+};
 
 /**
  * Create a new forecast
@@ -38,6 +49,7 @@ export async function createForecast(data: {
   timeframe?: string;
   resolutionCriteria: string;
 }): Promise<Forecast> {
+  const redis = getRedis();
   const id = generateId();
 
   const forecast: Forecast = {
@@ -57,63 +69,93 @@ export async function createForecast(data: {
     updatedAt: new Date(),
   };
 
-  forecasts.set(id, forecast);
+  // Save to KV
+  await redis.set(KEYS.forecast(id), JSON.stringify(forecast));
+
+  // Add to user's forecast list
+  if (data.userId) {
+    await redis.sadd(KEYS.userForecasts(data.userId), id);
+  }
+
+  // Add to all forecasts set
+  await redis.sadd(KEYS.allForecasts(), id);
 
   return forecast;
 }
 
 /**
- * Get forecast by ID
+ * Get a forecast by ID
  */
 export async function getForecast(id: string): Promise<Forecast | null> {
-  return forecasts.get(id) || null;
+  const redis = getRedis();
+  const data = await redis.get(KEYS.forecast(id));
+  if (!data) return null;
+  
+  const forecast = JSON.parse(data);
+  
+  // Convert date strings back to Date objects
+  if (forecast.createdAt) forecast.createdAt = new Date(forecast.createdAt);
+  if (forecast.updatedAt) forecast.updatedAt = new Date(forecast.updatedAt);
+  
+  return forecast;
 }
 
 /**
- * List all forecasts (optionally filtered by userId)
+ * List forecasts with filters
  */
-export async function listForecasts(filters?: {
+export async function listForecasts(options?: {
   userId?: string;
-  status?: "draft" | "active" | "resolved";
+  status?: "active" | "resolved" | "all";
   limit?: number;
   offset?: number;
 }): Promise<{ forecasts: Forecast[]; total: number }> {
-  let allForecasts = Array.from(forecasts.values());
+  const { userId, status = "all", limit = 50, offset = 0 } = options || {};
 
-  // Filter by userId
-  if (filters?.userId) {
-    allForecasts = allForecasts.filter((f) => f.userId === filters.userId);
+  const redis = getRedis();
+  // Get forecast IDs
+  let forecastIds: string[];
+  if (userId) {
+    forecastIds = await redis.smembers(KEYS.userForecasts(userId));
+  } else {
+    forecastIds = await redis.smembers(KEYS.allForecasts());
   }
 
-  // Filter by status
-  if (filters?.status) {
-    allForecasts = allForecasts.filter((f) => f.status === filters.status);
+  // Fetch forecasts
+  const forecasts: Forecast[] = [];
+  for (const id of forecastIds) {
+    const forecast = await getForecast(id);
+    if (forecast) {
+      // Filter by status
+      if (status === "active" && forecast.status !== "active") continue;
+      if (status === "resolved" && forecast.status !== "resolved") continue;
+
+      forecasts.push(forecast);
+    }
   }
 
   // Sort by updatedAt desc
-  allForecasts.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  forecasts.sort((a, b) => {
+    const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+    const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+    return bTime - aTime;
+  });
 
-  const total = allForecasts.length;
+  // Apply pagination
+  const total = forecasts.length;
+  const paginated = forecasts.slice(offset, offset + limit);
 
-  // Pagination
-  const limit = filters?.limit || 50;
-  const offset = filters?.offset || 0;
-  const paginated = allForecasts.slice(offset, offset + limit);
-
-  return {
-    forecasts: paginated,
-    total,
-  };
+  return { forecasts: paginated, total };
 }
 
 /**
- * Update forecast
+ * Update a forecast
  */
 export async function updateForecast(
   id: string,
-  updates: Partial<Forecast>,
+  updates: Partial<Forecast>
 ): Promise<Forecast> {
-  const forecast = forecasts.get(id);
+  const redis = getRedis();
+  const forecast = await getForecast(id);
   if (!forecast) {
     throw new Error("Forecast not found");
   }
@@ -124,41 +166,35 @@ export async function updateForecast(
     updatedAt: new Date(),
   };
 
-  forecasts.set(id, updated);
-
+  await redis.set(KEYS.forecast(id), JSON.stringify(updated));
   return updated;
 }
 
 /**
- * Delete forecast
- */
-export async function deleteForecast(id: string): Promise<void> {
-  forecasts.delete(id);
-}
-
-/**
- * Add driver to forecast
+ * Add a driver to a forecast
  */
 export async function addDriver(
   forecastId: string,
-  driver: Omit<
-    Driver,
-    "id" | "createdAt" | "updatedAt" | "currentVersion" | "versions"
-  >,
-): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
+  driver: Omit<Driver, "id" | "createdAt" | "updatedAt">
+): Promise<{ forecast: Forecast; driver: Driver }> {
+  const redis = getRedis();
+  const forecast = await getForecast(forecastId);
   if (!forecast) {
     throw new Error("Forecast not found");
   }
+
+  // Ensure all evidence items have IDs
+  const evidenceWithIds = (driver.evidence || []).map((ev: any) => ({
+    ...ev,
+    id: ev.id || generateId(),
+  }));
 
   const newDriver: Driver = {
     ...driver,
     id: generateId(),
     agents: driver.agents || [],
-    evidence: driver.evidence || [],
+    evidence: evidenceWithIds,
     researchResults: driver.researchResults || [],
-    version: { major: 1, minor: 0 },
-    versionHistory: [],
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -166,21 +202,21 @@ export async function addDriver(
   forecast.drivers.push(newDriver);
   forecast.updatedAt = new Date();
 
-  forecasts.set(forecastId, forecast);
+  await redis.set(KEYS.forecast(forecastId), JSON.stringify(forecast));
 
-  return forecast;
+  return { forecast, driver: newDriver };
 }
 
 /**
- * Update driver
+ * Update a driver
  */
 export async function updateDriver(
   forecastId: string,
   driverId: string,
-  updates: Partial<Driver>,
-  changeReason?: string,
+  updates: Partial<Driver>
 ): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
+  const redis = getRedis();
+  const forecast = await getForecast(forecastId);
   if (!forecast) {
     throw new Error("Forecast not found");
   }
@@ -190,181 +226,48 @@ export async function updateDriver(
     throw new Error("Driver not found");
   }
 
-  const driver = forecast.drivers[driverIndex];
-
-  // Create version snapshot before updating
-  const version: DriverVersion = {
-    version: driver.currentVersion,
-    probability: driver.probability,
-    p5: driver.p5,
-    p50: driver.p50,
-    p95: driver.p95,
-    evidence: [...driver.evidence],
-    research: [...driver.researchResults],
-    changeReason,
-    createdAt: new Date(),
-  };
-
-  driver.versions.push(version);
-
-  // Apply updates
   forecast.drivers[driverIndex] = {
-    ...driver,
+    ...forecast.drivers[driverIndex],
     ...updates,
-    currentVersion: driver.currentVersion + 1,
     updatedAt: new Date(),
   };
-
   forecast.updatedAt = new Date();
-  forecasts.set(forecastId, forecast);
+
+  await redis.set(KEYS.forecast(forecastId), JSON.stringify(forecast));
 
   return forecast;
 }
 
 /**
- * Remove driver
+ * Remove a driver
  */
 export async function removeDriver(
   forecastId: string,
-  driverId: string,
+  driverId: string
 ): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
+  const redis = getRedis();
+  const forecast = await getForecast(forecastId);
   if (!forecast) {
     throw new Error("Forecast not found");
   }
 
-  // Find the driver to get cascade delete info before removing
-  const driver = forecast.drivers.find((d) => d.id === driverId);
-  if (!driver) {
-    throw new Error("Driver not found");
-  }
-
-  // Log what will be cascade deleted
-  const agentsCount = driver.agents?.length || 0;
-  const researchCount = driver.researchResults?.length || 0;
-  const evidenceCount = driver.evidence?.length || 0;
-
-  console.log(`[RemoveDriver] Cascade deleting driver "${driver.name}":`);
-  console.log(`  - ${agentsCount} agent(s)`);
-  console.log(`  - ${researchCount} research result(s)`);
-  console.log(`  - ${evidenceCount} evidence item(s)`);
-
-  // Remove the driver (cascade deletes agents, researchResults, evidence)
   forecast.drivers = forecast.drivers.filter((d) => d.id !== driverId);
   forecast.updatedAt = new Date();
 
-  forecasts.set(forecastId, forecast);
-
-  console.log(`[RemoveDriver] Successfully removed driver and associated data`);
+  await redis.set(KEYS.forecast(forecastId), JSON.stringify(forecast));
 
   return forecast;
 }
 
 /**
- * Add evidence to forecast or driver
- */
-export async function addEvidence(
-  forecastId: string,
-  evidence: Omit<Evidence, "id" | "timestamp">,
-  driverId?: string,
-): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
-  if (!forecast) {
-    throw new Error("Forecast not found");
-  }
-
-  const newEvidence: Evidence = {
-    ...evidence,
-    id: generateId(),
-    timestamp: new Date(),
-  };
-
-  if (driverId) {
-    // Add to specific driver
-    const driver = forecast.drivers.find((d) => d.id === driverId);
-    if (!driver) {
-      throw new Error("Driver not found");
-    }
-    driver.evidence.push(newEvidence);
-  } else if (evidence.attachedTo === "forecast") {
-    // Add to forecast
-    forecast.evidence.push(newEvidence);
-  } else if (evidence.attachedTo === "baseRate" && forecast.baseRate) {
-    // Add to base rate
-    forecast.baseRate.evidence.push(newEvidence);
-  }
-
-  forecast.updatedAt = new Date();
-  forecasts.set(forecastId, forecast);
-
-  return forecast;
-}
-
-/**
- * Set base rate for forecast
- */
-export async function setBaseRate(
-  forecastId: string,
-  baseRate: Omit<import("./types").BaseRate, "capturedAt" | "evidence">,
-): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
-  if (!forecast) {
-    throw new Error("Forecast not found");
-  }
-
-  forecast.baseRate = {
-    ...baseRate,
-    evidence: [],
-    capturedAt: new Date(),
-  };
-
-  forecast.updatedAt = new Date();
-  forecasts.set(forecastId, forecast);
-
-  return forecast;
-}
-
-/**
- * Save research result
- */
-export async function saveResearchResult(result: any): Promise<void> {
-  researchResults.set(result.id, result);
-}
-
-/**
- * Attach research to driver
- */
-export async function attachResearch(
-  forecastId: string,
-  driverId: string,
-  researchSnapshot: ResearchSnapshot,
-): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
-  if (!forecast) {
-    throw new Error("Forecast not found");
-  }
-
-  const driver = forecast.drivers.find((d) => d.id === driverId);
-  if (!driver) {
-    throw new Error("Driver not found");
-  }
-
-  driver.researchResults.push(researchSnapshot);
-  forecast.updatedAt = new Date();
-
-  forecasts.set(forecastId, forecast);
-
-  return forecast;
-}
-
-/**
- * Save simulation result
+ * Save simulation results
  */
 export async function saveSimulation(
   forecastId: string,
-  simulation: Omit<Simulation, "id">,
+  simulation: Omit<Simulation, "id">
 ): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
+  const redis = getRedis();
+  const forecast = await getForecast(forecastId);
   if (!forecast) {
     throw new Error("Forecast not found");
   }
@@ -374,179 +277,93 @@ export async function saveSimulation(
     id: generateId(),
   };
 
+  forecast.simulations = forecast.simulations || [];
   forecast.simulations.push(newSimulation);
   forecast.probability = simulation.probability;
   forecast.updatedAt = new Date();
 
-  forecasts.set(forecastId, forecast);
+  await redis.set(KEYS.forecast(forecastId), JSON.stringify(forecast));
 
   return forecast;
 }
 
 /**
- * Create forecast version snapshot
+ * Set base rate for a forecast
  */
-export async function createForecastVersion(
+export async function setBaseRate(
   forecastId: string,
-  changeReason?: string,
-  changedBy?: "user" | "coach" | "research",
+  baseRate: any
 ): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
+  const redis = getRedis();
+  const forecast = await getForecast(forecastId);
   if (!forecast) {
     throw new Error("Forecast not found");
   }
 
-  const version: ForecastVersion = {
-    version: forecast.currentVersion,
-    probability: forecast.probability,
-    baseRate: forecast.baseRate,
-    drivers: forecast.drivers.map((d) => ({ ...d })),
-    evidence: forecast.evidence.map((e) => ({ ...e })),
-    research: forecast.drivers.flatMap((d) => d.researchResults),
-    changeReason,
-    changedBy,
-    createdAt: new Date(),
+  forecast.baseRate = baseRate;
+  forecast.updatedAt = new Date();
+
+  await redis.set(KEYS.forecast(forecastId), JSON.stringify(forecast));
+
+  return forecast;
+}
+
+/**
+ * Add evidence to a forecast
+ */
+export async function addEvidence(
+  forecastId: string,
+  evidence: Omit<Evidence, "id" | "timestamp">
+): Promise<Forecast> {
+  const redis = getRedis();
+  const forecast = await getForecast(forecastId);
+  if (!forecast) {
+    throw new Error("Forecast not found");
+  }
+
+  const newEvidence: Evidence = {
+    ...evidence,
+    id: generateId(),
+    timestamp: new Date().toISOString() as any,
   };
 
-  forecast.versions.push(version);
-  forecast.currentVersion += 1;
+  forecast.evidence = forecast.evidence || [];
+  forecast.evidence.push(newEvidence);
   forecast.updatedAt = new Date();
 
-  forecasts.set(forecastId, forecast);
+  await redis.set(KEYS.forecast(forecastId), JSON.stringify(forecast));
 
   return forecast;
 }
 
 /**
- * Resolve forecast
+ * Get user stats (placeholder - can be enhanced)
  */
-export async function resolveForecast(
-  forecastId: string,
-  resolution: "yes" | "no" | "ambiguous",
-  actualProbability?: number,
-): Promise<Forecast> {
-  const forecast = forecasts.get(forecastId);
-  if (!forecast) {
-    throw new Error("Forecast not found");
-  }
+export async function getUserStats(userId: string): Promise<any> {
+  const redis = getRedis();
+  const { forecasts } = await listForecasts({ userId });
 
-  forecast.status = "resolved";
-  forecast.resolution = resolution;
-  forecast.resolvedAt = new Date();
-
-  // Calculate Brier score if we have a probability
-  if (forecast.probability !== undefined) {
-    const actual = resolution === "yes" ? 1 : resolution === "no" ? 0 : 0.5;
-    const predicted = forecast.probability;
-    forecast.brierScore = Math.pow(predicted - actual, 2);
-  }
-
-  forecast.updatedAt = new Date();
-  forecasts.set(forecastId, forecast);
-
-  return forecast;
-}
-
-/**
- * Get user statistics
- */
-export async function getUserStats(userId: string): Promise<{
-  totalForecasts: number;
-  resolvedForecasts: number;
-  averageBrierScore: number;
-  byDomain: Record<string, { count: number; avgBrier: number }>;
-}> {
-  const userForecasts = Array.from(forecasts.values()).filter(
-    (f) => f.userId === userId,
+  const resolved = forecasts.filter((f) => f.status === "resolved");
+  const totalBrierScore = resolved.reduce(
+    (sum, f) => sum + (f.brierScore || 0),
+    0
   );
 
-  const resolved = userForecasts.filter((f) => f.status === "resolved");
-  const withBrier = resolved.filter((f) => f.brierScore !== undefined);
-
-  const avgBrier =
-    withBrier.length > 0
-      ? withBrier.reduce((sum, f) => sum + (f.brierScore || 0), 0) /
-        withBrier.length
-      : 0;
-
-  // By domain
-  const byDomain: Record<string, { count: number; avgBrier: number }> = {};
-
-  for (const forecast of resolved) {
-    const domain = forecast.domain || "general";
-    if (!byDomain[domain]) {
-      byDomain[domain] = { count: 0, avgBrier: 0 };
-    }
-    byDomain[domain].count++;
-    if (forecast.brierScore !== undefined) {
-      byDomain[domain].avgBrier += forecast.brierScore;
-    }
-  }
-
-  // Average the Brier scores
-  for (const domain in byDomain) {
-    if (byDomain[domain].count > 0) {
-      byDomain[domain].avgBrier /= byDomain[domain].count;
-    }
-  }
-
   return {
-    totalForecasts: userForecasts.length,
+    totalForecasts: forecasts.length,
     resolvedForecasts: resolved.length,
-    averageBrierScore: avgBrier,
-    byDomain,
+    averageBrierScore: resolved.length > 0 ? totalBrierScore / resolved.length : null,
   };
 }
 
 /**
- * Get leaderboard
+ * Get leaderboard (placeholder)
  */
 export async function getLeaderboard(options?: {
   domain?: string;
   limit?: number;
-}): Promise<
-  Array<{
-    userId: string;
-    brierScore: number;
-    forecastCount: number;
-  }>
-> {
-  const userScores = new Map<string, { total: number; count: number }>();
-
-  for (const forecast of forecasts.values()) {
-    if (
-      !forecast.userId ||
-      forecast.status !== "resolved" ||
-      !forecast.brierScore
-    ) {
-      continue;
-    }
-
-    // Filter by domain if specified
-    if (options?.domain && forecast.domain !== options.domain) {
-      continue;
-    }
-
-    if (!userScores.has(forecast.userId)) {
-      userScores.set(forecast.userId, { total: 0, count: 0 });
-    }
-
-    const score = userScores.get(forecast.userId)!;
-    score.total += forecast.brierScore;
-    score.count++;
-  }
-
-  const leaderboard = Array.from(userScores.entries()).map(
-    ([userId, score]) => ({
-      userId,
-      brierScore: score.total / score.count,
-      forecastCount: score.count,
-    }),
-  );
-
-  // Sort by Brier score (lower is better)
-  leaderboard.sort((a, b) => a.brierScore - b.brierScore);
-
-  const limit = options?.limit || 100;
-  return leaderboard.slice(0, limit);
+}): Promise<any[]> {
+  const redis = getRedis();
+  // For now return empty - can be enhanced later
+  return [];
 }

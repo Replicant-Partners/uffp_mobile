@@ -5,7 +5,7 @@ import { executeResearch } from '../../lib/agents';
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Set CORS headers
   setCorsHeaders(res);
-  
+
   // Handle preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -31,14 +31,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       variables,
     });
 
-    // Save to database (skip for now if KV not configured)
-    try {
-      const { saveResearchResult } = await import('../../lib/database');
-      await saveResearchResult(result);
-    } catch (dbError) {
-      console.warn('Database save skipped:', dbError);
-      // Continue without database save
-    }
+    // TODO: Save to database (saveResearchResult function needs to be implemented)
+    // Database save skipped for now
 
     return res.status(200).json({ success: true, result });
   } catch (error) {
