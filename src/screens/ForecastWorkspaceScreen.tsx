@@ -8512,6 +8512,12 @@ const styles = StyleSheet.create({
   fermiMinimizeText: {
     color: "#928374",
     fontSize: 14,
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
   },
   fermiChatHistory: {
     flex: 1,
@@ -8543,6 +8549,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
     marginBottom: 4,
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
   },
   fermiMessageText: {
     color: "#ebdbb2",
@@ -8559,6 +8571,12 @@ const styles = StyleSheet.create({
     color: "#665c54",
     fontSize: 10,
     marginTop: 4,
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
   },
   fermiWelcome: {
     padding: 16,
@@ -8742,6 +8760,12 @@ const styles = StyleSheet.create({
     color: "#fabd2f",
     fontSize: 14,
     fontStyle: "italic",
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Menlo"
+        : Platform.OS === "android"
+          ? "monospace"
+          : "Courier New, monospace",
   },
   suggestionChipsContainer: {
     flexDirection: "row",
