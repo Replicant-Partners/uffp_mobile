@@ -1142,14 +1142,21 @@ export default function ForecastWorkspaceScreen() {
     const updatedDriver = {
       ...driverBeingConfigured,
       agents: updatedAgents,
+      updatedAt: new Date().toISOString(),
     };
 
     setDriverBeingConfigured(updatedDriver);
     setAgentBeingConfigured(null);
 
+    // Persist to activeForecast and backend immediately
+    await updateDriverInForecast(updatedDriver);
+
     // Show toast and success message
     showToast(actionMessage);
-    setError(actionMessage);
+    await addFermiMessage(
+      `/agent @${agentBeingConfigured.name}`,
+      actionMessage + `\n\nAgent configuration saved to driver.`,
+    );
   };
 
   /**
@@ -3721,8 +3728,16 @@ export default function ForecastWorkspaceScreen() {
         return;
       }
 
-      if (activeForecast.drivers.length === 0) {
-        setError("Add at least one driver before simulating");
+      if (!activeForecast.drivers || activeForecast.drivers.length === 0) {
+        console.error("[/simulate] No drivers found:", {
+          hasForecast: !!activeForecast,
+          forecastId: activeForecast?.id,
+          driversArray: activeForecast?.drivers,
+          driversLength: activeForecast?.drivers?.length,
+        });
+        setError(
+          "Add at least one driver before simulating. Use /driver or /decompose to add drivers.",
+        );
         setCommandInput("");
         return;
       }
@@ -4009,8 +4024,46 @@ export default function ForecastWorkspaceScreen() {
         // Enter config mode for optional refinement
         setDriverBeingConfigured(newDriver);
         showToast(`✓ Driver added: ${newDriver.name}`);
-        setError(
-          `✓ Driver saved with AI defaults!\n\n${recommendation.reasoning}\n\nNext steps (optional):\n• Attach research agent: @research_analyst\n• Adjust values: /p 20 50 80\n• Add evidence: /evidence\n\nType /save when done or /cancel to exit.`,
+
+        // Generate context-aware next steps based on driver type
+        const nextStepSuggestions = [];
+
+        // Add type-specific value adjustment suggestion
+        if (newDriver.type === "binary") {
+          nextStepSuggestions.push({
+            command: "/prob",
+            description: "Set probability (0-100%)",
+          });
+        } else {
+          nextStepSuggestions.push({
+            command: "/p",
+            description: "Set p5/p50/p95 values",
+          });
+          nextStepSuggestions.push({
+            command: "/direction",
+            description: "Set increases/decreases",
+          });
+        }
+
+        // Add common refinement options
+        nextStepSuggestions.push({
+          command: "/agent",
+          description: "Attach research agent",
+        });
+        nextStepSuggestions.push({
+          command: "/evidence",
+          description: "Add supporting evidence",
+        });
+        nextStepSuggestions.push({
+          command: "/save",
+          description: "Save and exit config mode",
+        });
+
+        // Send to CLI with context-aware suggestions
+        await addFermiMessage(
+          `/driver ${newDriver.name}`,
+          `✓ **Driver created: ${newDriver.name}**\n\n${recommendation.reasoning}\n\n**Type:** ${newDriver.type}\n**Current values:** ${newDriver.type === "binary" ? `${(newDriver.probability * 100).toFixed(0)}%` : `p5=${newDriver.p5}, p50=${newDriver.p50}, p95=${newDriver.p95}`}\n\nYou can refine this driver or type /save to finish.`,
+          nextStepSuggestions,
         );
       } catch (err) {
         console.error("[Custom Driver] Analysis failed:", err);
@@ -4392,6 +4445,7 @@ export default function ForecastWorkspaceScreen() {
       setProcessingAction("Parsing question...");
       setError("");
       setShowForecastList(false);
+      setShowLeaderboard(false);
 
       try {
         // Parse question first
@@ -5939,370 +5993,420 @@ export default function ForecastWorkspaceScreen() {
               <Text style={styles.sectionLabel}>
                 Drivers ({activeForecast.drivers.length})
               </Text>
-              {activeForecast.drivers.map((driver: any) => (
-                <TouchableOpacity
-                  key={driver.id}
-                  style={styles.driverCard}
-                  onPress={() => editDriver(driver)}
-                >
-                  <View style={styles.driverHeader}>
-                    <Text style={styles.driverName}>{driver.name}</Text>
-                    {driver.version && (
-                      <View style={styles.versionBadge}>
-                        <Text style={styles.versionText}>
-                          v{driver.version.major}.{driver.version.minor}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.driverDetails}>
-                    {driver.type === "continuous"
-                      ? `P(${driver.p5}-${driver.p50}-${driver.p95}) · ${driver.distribution}`
-                      : `P(${driver.probability != null ? Math.round(driver.probability * 100) + "%" : "not set"})`}{" "}
-                    · {driver.direction}
-                  </Text>
-                  {driver.agents && driver.agents.length > 0 && (
-                    <View style={styles.agentsSection}>
-                      <Text style={styles.evidenceLabel}>
-                        🤖 Agents ({driver.agents.length}):
+              {activeForecast.drivers.map((driver: any) => {
+                // If this driver is being configured, show the configured version
+                const displayDriver =
+                  driverBeingConfigured &&
+                  driverBeingConfigured.id === driver.id
+                    ? driverBeingConfigured
+                    : driver;
+
+                return (
+                  <TouchableOpacity
+                    key={driver.id}
+                    style={styles.driverCard}
+                    onPress={() => editDriver(displayDriver)}
+                  >
+                    <View style={styles.driverHeader}>
+                      <Text style={styles.driverName}>
+                        {displayDriver.name}
                       </Text>
-                      {driver.agents.map((agent: any, idx: number) => (
-                        <View key={idx} style={styles.agentItem}>
-                          <Text style={styles.agentName}>@{agent.name}</Text>
-                          <Text style={styles.agentQuery} numberOfLines={2}>
-                            {agent.query}
-                          </Text>
-                          <Text style={styles.agentSchedule}>
-                            Schedule: {agent.schedule}
+                      {displayDriver.version && (
+                        <View style={styles.versionBadge}>
+                          <Text style={styles.versionText}>
+                            v{displayDriver.version.major}.
+                            {displayDriver.version.minor}
                           </Text>
                         </View>
-                      ))}
+                      )}
                     </View>
-                  )}
-                  {driver.researchResults &&
-                    driver.researchResults.length > 0 && (
-                      <View style={styles.evidenceSection}>
-                        <Text style={styles.evidenceLabel}>
-                          🔬 Research Results ({driver.researchResults.length}):
-                        </Text>
-                        {driver.researchResults.map(
-                          (result: any, idx: number) => {
-                            const resultKey = `${driver.id}-research-${idx}`;
-                            const isExpanded = expandedEvidence.has(resultKey);
-
-                            return (
-                              <TouchableOpacity
-                                key={idx}
-                                style={styles.evidenceItem}
-                                onPress={(e) => {
-                                  e.stopPropagation();
-                                  const newExpanded = new Set(expandedEvidence);
-                                  if (isExpanded) {
-                                    newExpanded.delete(resultKey);
-                                  } else {
-                                    newExpanded.add(resultKey);
-                                  }
-                                  setExpandedEvidence(newExpanded);
-                                }}
-                              >
-                                <View style={styles.evidenceHeader}>
-                                  <Text style={styles.evidenceSource}>
-                                    @{result.agentId} ·{" "}
-                                    {new Date(
-                                      result.executedAt,
-                                    ).toLocaleDateString()}
-                                  </Text>
-                                  <Text style={styles.expandIndicator}>
-                                    {isExpanded ? "▼" : "▶"}
-                                  </Text>
-                                </View>
-                                <Text
-                                  style={styles.evidenceSummary}
-                                  numberOfLines={isExpanded ? undefined : 2}
-                                >
-                                  {result.summary}
+                    <Text style={styles.driverDetails}>
+                      {displayDriver.type === "continuous"
+                        ? `P(${displayDriver.p5}-${displayDriver.p50}-${displayDriver.p95}) · ${displayDriver.distribution}`
+                        : `P(${displayDriver.probability != null ? Math.round(displayDriver.probability * 100) + "%" : "not set"})`}{" "}
+                      · {displayDriver.direction}
+                    </Text>
+                    {displayDriver.agents &&
+                      displayDriver.agents.length > 0 && (
+                        <View style={styles.agentsSection}>
+                          <Text style={styles.evidenceLabel}>
+                            🤖 Agents ({displayDriver.agents.length}):
+                          </Text>
+                          {displayDriver.agents.map(
+                            (agent: any, idx: number) => (
+                              <View key={idx} style={styles.agentItem}>
+                                <Text style={styles.agentName}>
+                                  @{agent.name}
                                 </Text>
-                                {isExpanded && (
-                                  <View style={styles.fullResultSection}>
-                                    <Text style={styles.evidenceLabel}>
-                                      Key Findings:
+                                <Text
+                                  style={styles.agentQuery}
+                                  numberOfLines={2}
+                                >
+                                  {agent.query}
+                                </Text>
+                                <Text style={styles.agentSchedule}>
+                                  Schedule: {agent.schedule}
+                                </Text>
+                              </View>
+                            ),
+                          )}
+                        </View>
+                      )}
+                    {displayDriver.researchResults &&
+                      displayDriver.researchResults.length > 0 && (
+                        <View style={styles.evidenceSection}>
+                          <Text style={styles.evidenceLabel}>
+                            🔬 Research Results (
+                            {displayDriver.researchResults.length}):
+                          </Text>
+                          {displayDriver.researchResults.map(
+                            (result: any, idx: number) => {
+                              const resultKey = `${displayDriver.id}-research-${idx}`;
+                              const isExpanded =
+                                expandedEvidence.has(resultKey);
+
+                              return (
+                                <TouchableOpacity
+                                  key={idx}
+                                  style={styles.evidenceItem}
+                                  onPress={(e) => {
+                                    e.stopPropagation();
+                                    const newExpanded = new Set(
+                                      expandedEvidence,
+                                    );
+                                    if (isExpanded) {
+                                      newExpanded.delete(resultKey);
+                                    } else {
+                                      newExpanded.add(resultKey);
+                                    }
+                                    setExpandedEvidence(newExpanded);
+                                  }}
+                                >
+                                  <View style={styles.evidenceHeader}>
+                                    <Text style={styles.evidenceSource}>
+                                      @{result.agentId} ·{" "}
+                                      {new Date(
+                                        result.executedAt,
+                                      ).toLocaleDateString()}
                                     </Text>
-                                    {result.keyFindings?.map(
-                                      (finding: string, i: number) => (
-                                        <Text key={i} style={styles.keyFinding}>
-                                          • {finding}
-                                        </Text>
-                                      ),
-                                    )}
-                                    <Text style={styles.evidenceLabel}>
-                                      Confidence: {result.confidence}
+                                    <Text style={styles.expandIndicator}>
+                                      {isExpanded ? "▼" : "▶"}
                                     </Text>
                                   </View>
-                                )}
-                              </TouchableOpacity>
-                            );
-                          },
-                        )}
-                      </View>
-                    )}
-                  {driver.evidence && driver.evidence.length > 0 && (
-                    <View style={styles.evidenceSection}>
-                      <Text style={styles.evidenceLabel}>
-                        📚 Evidence ({driver.evidence.length}):
-                      </Text>
-                      {driver.evidence.map((ev: any, idx: number) => {
-                        const evidenceKey = `${driver.id}-${idx}`;
-                        const isExpanded = expandedEvidence.has(evidenceKey);
-
-                        return (
-                          <TouchableOpacity
-                            key={idx}
-                            style={styles.evidenceItem}
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              const newExpanded = new Set(expandedEvidence);
-                              if (isExpanded) {
-                                newExpanded.delete(evidenceKey);
-                              } else {
-                                newExpanded.add(evidenceKey);
-                              }
-                              setExpandedEvidence(newExpanded);
-                            }}
-                          >
-                            <View style={styles.evidenceHeader}>
-                              <Text style={styles.evidenceSource}>
-                                @{ev.source} ·{" "}
-                                {new Date(ev.timestamp).toLocaleDateString()}
-                              </Text>
-                              <Text style={styles.expandIndicator}>
-                                {isExpanded ? "▼" : "▶"}
-                              </Text>
-                            </View>
-                            <Text
-                              style={styles.evidenceSummary}
-                              numberOfLines={isExpanded ? undefined : 2}
-                            >
-                              {ev.summary}
-                            </Text>
-                            {ev.linkPreview && (
-                              <LinkPreviewCard preview={ev.linkPreview} />
-                            )}
-                            {isExpanded && ev.fullResult && (
-                              <View style={styles.fullResultSection}>
-                                <View style={styles.resultHeader}>
-                                  <Text style={styles.fullResultLabel}>
-                                    Full Research:
-                                  </Text>
-                                  <TouchableOpacity
-                                    style={styles.exportButton}
-                                    onPress={(e) => {
-                                      e.stopPropagation();
-                                      // Copy to clipboard or show export dialog
-                                      const jsonStr = JSON.stringify(
-                                        ev.fullResult,
-                                        null,
-                                        2,
-                                      );
-                                      setError(
-                                        `JSON copied to console. Check browser console for full data.`,
-                                      );
-                                      console.log("[Evidence Export]", jsonStr);
-                                    }}
+                                  <Text
+                                    style={styles.evidenceSummary}
+                                    numberOfLines={isExpanded ? undefined : 2}
                                   >
-                                    <Text style={styles.exportButtonText}>
-                                      Export JSON
+                                    {result.summary}
+                                  </Text>
+                                  {isExpanded && (
+                                    <View style={styles.fullResultSection}>
+                                      <Text style={styles.evidenceLabel}>
+                                        Key Findings:
+                                      </Text>
+                                      {result.keyFindings?.map(
+                                        (finding: string, i: number) => (
+                                          <Text
+                                            key={i}
+                                            style={styles.keyFinding}
+                                          >
+                                            • {finding}
+                                          </Text>
+                                        ),
+                                      )}
+                                      <Text style={styles.evidenceLabel}>
+                                        Confidence: {result.confidence}
+                                      </Text>
+                                    </View>
+                                  )}
+                                </TouchableOpacity>
+                              );
+                            },
+                          )}
+                        </View>
+                      )}
+                    {displayDriver.evidence &&
+                      displayDriver.evidence.length > 0 && (
+                        <View style={styles.evidenceSection}>
+                          <Text style={styles.evidenceLabel}>
+                            📚 Evidence ({displayDriver.evidence.length}):
+                          </Text>
+                          {displayDriver.evidence.map(
+                            (ev: any, idx: number) => {
+                              const evidenceKey = `${displayDriver.id}-${idx}`;
+                              const isExpanded =
+                                expandedEvidence.has(evidenceKey);
+
+                              return (
+                                <TouchableOpacity
+                                  key={idx}
+                                  style={styles.evidenceItem}
+                                  onPress={(e) => {
+                                    e.stopPropagation();
+                                    const newExpanded = new Set(
+                                      expandedEvidence,
+                                    );
+                                    if (isExpanded) {
+                                      newExpanded.delete(evidenceKey);
+                                    } else {
+                                      newExpanded.add(evidenceKey);
+                                    }
+                                    setExpandedEvidence(newExpanded);
+                                  }}
+                                >
+                                  <View style={styles.evidenceHeader}>
+                                    <Text style={styles.evidenceSource}>
+                                      @{ev.source} ·{" "}
+                                      {new Date(
+                                        ev.timestamp,
+                                      ).toLocaleDateString()}
                                     </Text>
-                                  </TouchableOpacity>
-                                </View>
-                                {(() => {
-                                  // Extract markdown content from fullResult
-                                  const data = ev.fullResult;
-                                  let markdownContent = "";
+                                    <Text style={styles.expandIndicator}>
+                                      {isExpanded ? "▼" : "▶"}
+                                    </Text>
+                                  </View>
+                                  <Text
+                                    style={styles.evidenceSummary}
+                                    numberOfLines={isExpanded ? undefined : 2}
+                                  >
+                                    {ev.summary}
+                                  </Text>
+                                  {ev.linkPreview && (
+                                    <LinkPreviewCard preview={ev.linkPreview} />
+                                  )}
+                                  {isExpanded && ev.fullResult && (
+                                    <View style={styles.fullResultSection}>
+                                      <View style={styles.resultHeader}>
+                                        <Text style={styles.fullResultLabel}>
+                                          Full Research:
+                                        </Text>
+                                        <TouchableOpacity
+                                          style={styles.exportButton}
+                                          onPress={(e) => {
+                                            e.stopPropagation();
+                                            // Copy to clipboard or show export dialog
+                                            const jsonStr = JSON.stringify(
+                                              ev.fullResult,
+                                              null,
+                                              2,
+                                            );
+                                            setError(
+                                              `JSON copied to console. Check browser console for full data.`,
+                                            );
+                                            console.log(
+                                              "[Evidence Export]",
+                                              jsonStr,
+                                            );
+                                          }}
+                                        >
+                                          <Text style={styles.exportButtonText}>
+                                            Export JSON
+                                          </Text>
+                                        </TouchableOpacity>
+                                      </View>
+                                      {(() => {
+                                        // Extract markdown content from fullResult
+                                        const data = ev.fullResult;
+                                        let markdownContent = "";
 
-                                  if (typeof data === "string") {
-                                    markdownContent = data;
-                                  } else if (
-                                    data.response &&
-                                    typeof data.response === "string"
-                                  ) {
-                                    markdownContent = data.response;
-                                  } else if (
-                                    data.result &&
-                                    data.result.response &&
-                                    typeof data.result.response === "string"
-                                  ) {
-                                    markdownContent = data.result.response;
-                                  } else {
-                                    // Fallback to formatted text for non-markdown content
-
-                                    let formatted = "";
-
-                                    // Legacy handling for other structures
-                                    const result =
-                                      data.result || data.response || data;
-
-                                    // Agent info
-                                    if (data.agentId) {
-                                      formatted += `Agent: ${data.agentId}\n`;
-                                      if (data.promptId)
-                                        formatted += `Prompt: ${data.promptId}\n`;
-                                      formatted += "\n";
-                                    }
-
-                                    // Research response (main content)
-                                    if (typeof result === "string") {
-                                      return result;
-                                    } else if (result) {
-                                      // Try various field names for summary
-                                      if (result.summary) {
-                                        formatted += `Summary:\n${result.summary}\n\n`;
-                                      }
-
-                                      if (result.findings) {
-                                        formatted += `Findings:\n`;
-                                        if (Array.isArray(result.findings)) {
-                                          result.findings.forEach(
-                                            (f: any, i: number) => {
-                                              formatted += `${i + 1}. ${typeof f === "string" ? f : JSON.stringify(f)}\n`;
-                                            },
-                                          );
+                                        if (typeof data === "string") {
+                                          markdownContent = data;
+                                        } else if (
+                                          data.response &&
+                                          typeof data.response === "string"
+                                        ) {
+                                          markdownContent = data.response;
+                                        } else if (
+                                          data.result &&
+                                          data.result.response &&
+                                          typeof data.result.response ===
+                                            "string"
+                                        ) {
+                                          markdownContent =
+                                            data.result.response;
                                         } else {
-                                          formatted += `${result.findings}\n`;
+                                          // Fallback to formatted text for non-markdown content
+
+                                          let formatted = "";
+
+                                          // Legacy handling for other structures
+                                          const result =
+                                            data.result ||
+                                            data.response ||
+                                            data;
+
+                                          // Agent info
+                                          if (data.agentId) {
+                                            formatted += `Agent: ${data.agentId}\n`;
+                                            if (data.promptId)
+                                              formatted += `Prompt: ${data.promptId}\n`;
+                                            formatted += "\n";
+                                          }
+
+                                          // Research response (main content)
+                                          if (typeof result === "string") {
+                                            return result;
+                                          } else if (result) {
+                                            // Try various field names for summary
+                                            if (result.summary) {
+                                              formatted += `Summary:\n${result.summary}\n\n`;
+                                            }
+
+                                            if (result.findings) {
+                                              formatted += `Findings:\n`;
+                                              if (
+                                                Array.isArray(result.findings)
+                                              ) {
+                                                result.findings.forEach(
+                                                  (f: any, i: number) => {
+                                                    formatted += `${i + 1}. ${typeof f === "string" ? f : JSON.stringify(f)}\n`;
+                                                  },
+                                                );
+                                              } else {
+                                                formatted += `${result.findings}\n`;
+                                              }
+                                              formatted += "\n";
+                                            }
+
+                                            if (result.sources) {
+                                              formatted += `Sources:\n`;
+                                              if (
+                                                Array.isArray(result.sources)
+                                              ) {
+                                                result.sources.forEach(
+                                                  (s: any) => {
+                                                    formatted += `• ${typeof s === "string" ? s : s.title || s.url || JSON.stringify(s)}\n`;
+                                                  },
+                                                );
+                                              } else {
+                                                formatted += `${result.sources}\n`;
+                                              }
+                                              formatted += "\n";
+                                            }
+
+                                            if (
+                                              result.confidence !== undefined
+                                            ) {
+                                              formatted += `Confidence: ${result.confidence}\n`;
+                                            }
+                                          }
+
+                                          // Variables used in query
+                                          if (data.variables) {
+                                            formatted += `Query Variables:\n`;
+                                            Object.entries(
+                                              data.variables,
+                                            ).forEach(([key, value]) => {
+                                              formatted += `• ${key}: ${value}\n`;
+                                            });
+                                            formatted += "\n";
+                                          }
+
+                                          // Timestamp
+                                          if (data.timestamp) {
+                                            formatted += `Timestamp: ${new Date(data.timestamp).toLocaleString()}\n`;
+                                          }
+
+                                          // Fallback to JSON if nothing formatted
+                                          markdownContent =
+                                            formatted ||
+                                            JSON.stringify(data, null, 2);
                                         }
-                                        formatted += "\n";
-                                      }
 
-                                      if (result.sources) {
-                                        formatted += `Sources:\n`;
-                                        if (Array.isArray(result.sources)) {
-                                          result.sources.forEach((s: any) => {
-                                            formatted += `• ${typeof s === "string" ? s : s.title || s.url || JSON.stringify(s)}\n`;
-                                          });
-                                        } else {
-                                          formatted += `${result.sources}\n`;
-                                        }
-                                        formatted += "\n";
-                                      }
-
-                                      if (result.confidence !== undefined) {
-                                        formatted += `Confidence: ${result.confidence}\n`;
-                                      }
-                                    }
-
-                                    // Variables used in query
-                                    if (data.variables) {
-                                      formatted += `Query Variables:\n`;
-                                      Object.entries(data.variables).forEach(
-                                        ([key, value]) => {
-                                          formatted += `• ${key}: ${value}\n`;
-                                        },
-                                      );
-                                      formatted += "\n";
-                                    }
-
-                                    // Timestamp
-                                    if (data.timestamp) {
-                                      formatted += `Timestamp: ${new Date(data.timestamp).toLocaleString()}\n`;
-                                    }
-
-                                    // Fallback to JSON if nothing formatted
-                                    markdownContent =
-                                      formatted ||
-                                      JSON.stringify(data, null, 2);
-                                  }
-
-                                  // Render with Markdown component
-                                  return (
-                                    <Markdown
-                                      style={{
-                                        body: {
-                                          color: "#ebdbb2",
-                                          fontSize: 14,
-                                          lineHeight: 20,
-                                        },
-                                        heading1: {
-                                          color: "#fabd2f",
-                                          fontSize: 20,
-                                          fontWeight: "bold",
-                                          marginTop: 16,
-                                          marginBottom: 8,
-                                        },
-                                        heading2: {
-                                          color: "#fabd2f",
-                                          fontSize: 18,
-                                          fontWeight: "bold",
-                                          marginTop: 12,
-                                          marginBottom: 6,
-                                        },
-                                        heading3: {
-                                          color: "#fabd2f",
-                                          fontSize: 16,
-                                          fontWeight: "bold",
-                                          marginTop: 10,
-                                          marginBottom: 4,
-                                        },
-                                        strong: {
-                                          color: "#fabd2f",
-                                          fontWeight: "bold",
-                                        },
-                                        em: {
-                                          color: "#b8bb26",
-                                          fontStyle: "italic",
-                                        },
-                                        bullet_list: {
-                                          marginTop: 4,
-                                          marginBottom: 4,
-                                        },
-                                        ordered_list: {
-                                          marginTop: 4,
-                                          marginBottom: 4,
-                                        },
-                                        list_item: {
-                                          color: "#ebdbb2",
-                                          marginBottom: 2,
-                                        },
-                                        code_inline: {
-                                          color: "#b8bb26",
-                                          backgroundColor: "#3c3836",
-                                          paddingHorizontal: 4,
-                                          paddingVertical: 2,
-                                          borderRadius: 3,
-                                        },
-                                        code_block: {
-                                          color: "#b8bb26",
-                                          backgroundColor: "#3c3836",
-                                          padding: 8,
-                                          borderRadius: 4,
-                                          marginTop: 8,
-                                          marginBottom: 8,
-                                        },
-                                        fence: {
-                                          color: "#b8bb26",
-                                          backgroundColor: "#3c3836",
-                                          padding: 8,
-                                          borderRadius: 4,
-                                          marginTop: 8,
-                                          marginBottom: 8,
-                                        },
-                                        link: {
-                                          color: "#83a598",
-                                          textDecorationLine: "underline",
-                                        },
-                                      }}
-                                    >
-                                      {markdownContent}
-                                    </Markdown>
-                                  );
-                                })()}
-                              </View>
-                            )}
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))}
+                                        // Render with Markdown component
+                                        return (
+                                          <Markdown
+                                            style={{
+                                              body: {
+                                                color: "#ebdbb2",
+                                                fontSize: 14,
+                                                lineHeight: 20,
+                                              },
+                                              heading1: {
+                                                color: "#fabd2f",
+                                                fontSize: 20,
+                                                fontWeight: "bold",
+                                                marginTop: 16,
+                                                marginBottom: 8,
+                                              },
+                                              heading2: {
+                                                color: "#fabd2f",
+                                                fontSize: 18,
+                                                fontWeight: "bold",
+                                                marginTop: 12,
+                                                marginBottom: 6,
+                                              },
+                                              heading3: {
+                                                color: "#fabd2f",
+                                                fontSize: 16,
+                                                fontWeight: "bold",
+                                                marginTop: 10,
+                                                marginBottom: 4,
+                                              },
+                                              strong: {
+                                                color: "#fabd2f",
+                                                fontWeight: "bold",
+                                              },
+                                              em: {
+                                                color: "#b8bb26",
+                                                fontStyle: "italic",
+                                              },
+                                              bullet_list: {
+                                                marginTop: 4,
+                                                marginBottom: 4,
+                                              },
+                                              ordered_list: {
+                                                marginTop: 4,
+                                                marginBottom: 4,
+                                              },
+                                              list_item: {
+                                                color: "#ebdbb2",
+                                                marginBottom: 2,
+                                              },
+                                              code_inline: {
+                                                color: "#b8bb26",
+                                                backgroundColor: "#3c3836",
+                                                paddingHorizontal: 4,
+                                                paddingVertical: 2,
+                                                borderRadius: 3,
+                                              },
+                                              code_block: {
+                                                color: "#b8bb26",
+                                                backgroundColor: "#3c3836",
+                                                padding: 8,
+                                                borderRadius: 4,
+                                                marginTop: 8,
+                                                marginBottom: 8,
+                                              },
+                                              fence: {
+                                                color: "#b8bb26",
+                                                backgroundColor: "#3c3836",
+                                                padding: 8,
+                                                borderRadius: 4,
+                                                marginTop: 8,
+                                                marginBottom: 8,
+                                              },
+                                              link: {
+                                                color: "#83a598",
+                                                textDecorationLine: "underline",
+                                              },
+                                            }}
+                                          >
+                                            {markdownContent}
+                                          </Markdown>
+                                        );
+                                      })()}
+                                    </View>
+                                  )}
+                                </TouchableOpacity>
+                              );
+                            },
+                          )}
+                        </View>
+                      )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
 
@@ -6768,6 +6872,8 @@ export default function ForecastWorkspaceScreen() {
                                     id: idGenerators.driver(),
                                     name: driverData.name,
                                     type: driverType,
+                                    direction:
+                                      driverData.direction || "increases", // Required for backend validation
                                     agents: [] as any[],
                                     evidence: [],
                                     createdAt: new Date().toISOString(),
@@ -6785,8 +6891,6 @@ export default function ForecastWorkspaceScreen() {
                                     newDriver.p5 = driverData.p5 || 30;
                                     newDriver.p50 = driverData.p50 || 50;
                                     newDriver.p95 = driverData.p95 || 70;
-                                    newDriver.direction =
-                                      driverData.direction || "increases";
                                   }
 
                                   // Add driver to forecast
@@ -6826,9 +6930,45 @@ export default function ForecastWorkspaceScreen() {
                                     `✓ Driver added: ${newDriver.name}`,
                                   );
 
-                                  // Show config guidance
-                                  setError(
-                                    `✓ Driver saved with AI defaults!\n\nNext steps (optional):\n• Attach research agent: @research_analyst\n• Adjust values: /p 20 50 80\n• Add evidence: /evidence\n\nType /save when done or /cancel to exit.`,
+                                  // Generate context-aware next steps based on driver type
+                                  const nextSteps = [];
+
+                                  // Add type-specific value adjustment suggestion
+                                  if (newDriver.type === "binary") {
+                                    nextSteps.push({
+                                      command: "/prob",
+                                      description: "Set probability (0-100%)",
+                                    });
+                                  } else {
+                                    nextSteps.push({
+                                      command: "/p",
+                                      description: "Set p5/p50/p95 values",
+                                    });
+                                    nextSteps.push({
+                                      command: "/direction",
+                                      description: "Set increases/decreases",
+                                    });
+                                  }
+
+                                  // Add common refinement options
+                                  nextSteps.push({
+                                    command: "/agent",
+                                    description: "Attach research agent",
+                                  });
+                                  nextSteps.push({
+                                    command: "/evidence",
+                                    description: "Add supporting evidence",
+                                  });
+                                  nextSteps.push({
+                                    command: "/save",
+                                    description: "Save and exit config mode",
+                                  });
+
+                                  // Send context-aware message to CLI
+                                  await addFermiMessage(
+                                    `/driver ${newDriver.name}`,
+                                    `✓ **Driver added: ${newDriver.name}**\n\n**Type:** ${newDriver.type}\n**Direction:** ${newDriver.direction}\n**Current values:** ${newDriver.type === "binary" ? `${(newDriver.probability * 100).toFixed(0)}%` : `p5=${newDriver.p5}, p50=${newDriver.p50}, p95=${newDriver.p95}`}\n\nYou can refine this driver or type /save to finish.`,
+                                    nextSteps,
                                   );
                                 } catch (err) {
                                   console.error(
