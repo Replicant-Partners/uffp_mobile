@@ -3889,7 +3889,14 @@ export default function ForecastWorkspaceScreen() {
           // Backend returns forecast with simulations array already updated
           if (result.forecast) {
             setActiveForecast(result.forecast);
-            // No need to save locally - backend is source of truth
+            // Also update savedForecasts to keep in sync
+            setSavedForecasts((prev) =>
+              prev.map((f) =>
+                f.id === result.forecast.id ? result.forecast : f,
+              ),
+            );
+            // Save to local storage as backup
+            await saveForecast(result.forecast);
           } else {
             // Fallback: update probability only (shouldn't happen with backend-primary)
             const updatedForecast = {
@@ -3908,8 +3915,31 @@ export default function ForecastWorkspaceScreen() {
           }
 
           const simulationCount = result.forecast?.simulations?.length || 1;
+          const probabilityPercent = Math.round(result.probability * 100);
           console.log(
-            `Simulation #${simulationCount} complete: ${result.probability}`,
+            `Simulation #${simulationCount} complete: ${probabilityPercent}%`,
+          );
+
+          // Show success message with results
+          await addFermiMessage(
+            "/simulate",
+            `✓ **Simulation #${simulationCount} Complete**\n\n` +
+              `**Forecast Probability:** ${probabilityPercent}%\n` +
+              `**Iterations:** ${(result.forecast?.simulations?.[simulationCount - 1]?.iterations || 10000).toLocaleString()}\n\n` +
+              `Monte Carlo simulation aggregated ${activeForecast.drivers?.length || 0} driver(s) into a final probability estimate.\n\n` +
+              `Use /review to get AI feedback on your forecast quality.`,
+            [
+              {
+                key: "review",
+                label: "/review",
+                desc: "Get AI feedback",
+              },
+              {
+                key: "driver",
+                label: "/driver ",
+                desc: "Refine with more drivers",
+              },
+            ],
           );
         } else {
           // Handle forecast not found - backend was reset
