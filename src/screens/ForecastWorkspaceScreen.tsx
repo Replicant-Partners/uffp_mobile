@@ -1212,9 +1212,20 @@ export default function ForecastWorkspaceScreen() {
 
     // CRITICAL: Skip backend sync if in config mode (driver being configured)
     // This prevents incomplete data from being synced before user hits /save
-    if (skipBackendSync || driverBeingConfigured?.id === updatedDriver.id) {
+    // Check BOTH current state AND the driver being updated (state may not be synced yet)
+    const isDriverInConfigMode =
+      skipBackendSync ||
+      (driverBeingConfigured && driverBeingConfigured.id === updatedDriver.id);
+
+    if (isDriverInConfigMode) {
       console.log(
-        "[updateDriverInForecast] Skipping backend sync - driver in config mode or explicitly skipped",
+        "[updateDriverInForecast] Skipping backend sync - driver in config mode",
+        {
+          skipBackendSync,
+          driverBeingConfiguredId: driverBeingConfigured?.id,
+          updatedDriverId: updatedDriver.id,
+          match: driverBeingConfigured?.id === updatedDriver.id,
+        },
       );
       await saveForecast(updatedForecast);
       console.log("[updateDriverInForecast] Complete (local only)");
