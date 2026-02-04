@@ -1156,13 +1156,18 @@ export default function ForecastWorkspaceScreen() {
    * Auto-save driver changes immediately (matches chip behavior)
    * Used by driver configuration commands like /p, /dist, /direction
    */
-  const updateDriverInForecast = async (updatedDriver: any) => {
+  const updateDriverInForecast = async (
+    updatedDriver: any,
+    skipBackendSync: boolean = false,
+  ) => {
     if (!activeForecast) return;
 
     console.log(
       "[updateDriverInForecast] Starting update for driver:",
       updatedDriver.id,
       updatedDriver.name,
+      "skipBackendSync:",
+      skipBackendSync,
     );
 
     const existingIndex = activeForecast.drivers?.findIndex(
@@ -1205,6 +1210,17 @@ export default function ForecastWorkspaceScreen() {
       prev.map((f) => (f.id === activeForecast.id ? updatedForecast : f)),
     );
 
+    // CRITICAL: Skip backend sync if in config mode (driver being configured)
+    // This prevents incomplete data from being synced before user hits /save
+    if (skipBackendSync || driverBeingConfigured?.id === updatedDriver.id) {
+      console.log(
+        "[updateDriverInForecast] Skipping backend sync - driver in config mode or explicitly skipped",
+      );
+      await saveForecast(updatedForecast);
+      console.log("[updateDriverInForecast] Complete (local only)");
+      return;
+    }
+
     // Validate forecast before syncing to backend
     const { validateForecast } = await import("../utils/schemaValidator");
     const validationResult = validateForecast(updatedForecast as any);
@@ -1227,6 +1243,7 @@ export default function ForecastWorkspaceScreen() {
           `⚠️ Driver has ${driverErrors.length} validation error(s). Check console for details.`,
         );
         // Still save locally so user doesn't lose work, but don't sync to backend
+        await saveForecast(updatedForecast);
         return;
       }
     }
@@ -1679,24 +1696,30 @@ export default function ForecastWorkspaceScreen() {
 
   // Parse multi-command input (semicolon or newline separated)
   const parseMultiCommand = (input: string): string[] => {
-    // Support newlines, semicolons, or forward slashes as separators
+    // CRITICAL: Don't split URLs! Check if input contains http:// or https://
+    // URLs contain forward slashes but shouldn't be treated as command separators
+    const hasURL = /https?:\/\//.test(input);
+
     let commands: string[] = [];
 
+    // Only support newlines and semicolons as separators
+    // DO NOT split on forward slashes (breaks URLs)
     if (input.includes("\n")) {
       commands = input.split("\n");
     } else if (input.includes(";")) {
       commands = input.split(";");
-    } else if (input.split("/").filter((c) => c.trim()).length > 1) {
-      commands = input.split("/");
     } else {
-      return [input]; // Single command
+      // Single command (don't split on /)
+      return [input];
     }
 
     // Clean and filter
     commands = commands.map((c) => c.trim()).filter((c) => c.length > 0);
 
-    // Ensure all start with /
-    commands = commands.map((cmd) => (cmd.startsWith("/") ? cmd : "/" + cmd));
+    // Ensure all start with / (unless they're continuations)
+    commands = commands.map((cmd) =>
+      cmd.startsWith("/") || cmd.startsWith("@") ? cmd : "/" + cmd,
+    );
 
     return commands;
   };
@@ -3904,16 +3927,19 @@ export default function ForecastWorkspaceScreen() {
 
       setCommandInput("");
 
-      // Check if driver already exists - if so, enter edit mode
+      // Check if driver already exists - if so, BLOCK with error
       const existingDriver = activeForecast.drivers?.find(
         (d: any) => d.name.toLowerCase() === driverName.toLowerCase(),
       );
 
       if (existingDriver) {
-        // Edit mode - load existing driver into config
-        setDriverBeingConfigured({ ...existingDriver });
+        // BLOCK duplicate - don't allow creating drivers with same name
         setError(
-          `📝 Editing driver: ${existingDriver.name}\n\nModify with /p, /dist, /direction, or add agents with @agent_name.\nType /save when done or /cancel to discard changes.`,
+          `❌ Driver "${existingDriver.name}" already exists in this forecast.\n\n` +
+            `Each driver must have a unique name. You can:\n` +
+            `• Use a different name (e.g., "${driverName} (detailed)")\n` +
+            `• Tap the existing driver card above to edit it\n` +
+            `• Type /remove driver ${existingDriver.name} to delete it first`,
         );
         return;
       }
