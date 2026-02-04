@@ -4176,6 +4176,31 @@ export default function ForecastWorkspaceScreen() {
         );
         await saveForecast(updatedForecast);
 
+        // Sync new driver to backend immediately to avoid "driver not found" errors later
+        try {
+          const { addDriverWithSync } = await import("../utils/backendSync");
+          const backendResult = await addDriverWithSync(
+            activeForecast.id,
+            newDriver,
+          );
+          if (backendResult.success && backendResult.forecast) {
+            // Update with backend response to stay in sync
+            setActiveForecast(backendResult.forecast);
+            setSavedForecasts((prev) =>
+              prev.map((f) =>
+                f.id === backendResult.forecast.id ? backendResult.forecast : f,
+              ),
+            );
+            console.log("[/driver] Driver synced to backend successfully");
+          }
+        } catch (backendError) {
+          console.warn(
+            "[/driver] Backend sync failed, driver saved locally only:",
+            backendError,
+          );
+          // Continue anyway - driver is saved locally
+        }
+
         // Enter config mode for optional refinement
         setDriverBeingConfigured(newDriver);
         showToast(`✓ Driver added: ${newDriver.name}`);
