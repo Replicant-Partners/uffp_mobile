@@ -4192,6 +4192,7 @@ export default function ForecastWorkspaceScreen() {
         await saveForecast(updatedForecast);
 
         // Sync new driver to backend immediately to avoid "driver not found" errors later
+        let finalDriver = newDriver; // Track the final driver object (may be updated by backend)
         try {
           const { addDriverWithSync } = await import("../utils/backendSync");
           const backendResult = await addDriverWithSync(
@@ -4207,6 +4208,18 @@ export default function ForecastWorkspaceScreen() {
               ),
             );
             console.log("[/driver] Driver synced to backend successfully");
+
+            // Find the driver in the backend response (it may have been modified)
+            const backendDriver = backendResult.forecast.drivers?.find(
+              (d: any) => d.name === newDriver.name,
+            );
+            if (backendDriver) {
+              finalDriver = backendDriver;
+              console.log(
+                "[/driver] Using backend driver for config mode:",
+                backendDriver.id,
+              );
+            }
           }
         } catch (backendError) {
           console.warn(
@@ -4216,8 +4229,8 @@ export default function ForecastWorkspaceScreen() {
           // Continue anyway - driver is saved locally
         }
 
-        // Enter config mode for optional refinement
-        setDriverBeingConfigured(newDriver);
+        // Enter config mode for optional refinement (use backend driver if available)
+        setDriverBeingConfigured(finalDriver);
         showToast(`✓ Driver added: ${newDriver.name}`);
 
         // Generate context-aware next steps based on driver type
@@ -7144,15 +7157,57 @@ export default function ForecastWorkspaceScreen() {
                                   );
                                   await saveForecast(updatedForecast);
 
+                                  // Sync new driver to backend immediately
+                                  let finalDriver = newDriver;
+                                  try {
+                                    const { addDriverWithSync } =
+                                      await import("../utils/backendSync");
+                                    const backendResult =
+                                      await addDriverWithSync(
+                                        activeForecast.id,
+                                        newDriver,
+                                      );
+                                    if (
+                                      backendResult.success &&
+                                      backendResult.forecast
+                                    ) {
+                                      setActiveForecast(backendResult.forecast);
+                                      setSavedForecasts((prev) =>
+                                        prev.map((f) =>
+                                          f.id === backendResult.forecast.id
+                                            ? backendResult.forecast
+                                            : f,
+                                        ),
+                                      );
+                                      console.log(
+                                        "[Decompose Chip] Driver synced to backend",
+                                      );
+
+                                      // Find the driver in backend response
+                                      const backendDriver =
+                                        backendResult.forecast.drivers?.find(
+                                          (d: any) => d.name === newDriver.name,
+                                        );
+                                      if (backendDriver) {
+                                        finalDriver = backendDriver;
+                                      }
+                                    }
+                                  } catch (backendError) {
+                                    console.warn(
+                                      "[Decompose Chip] Backend sync failed:",
+                                      backendError,
+                                    );
+                                  }
+
                                   // Enter config mode immediately
                                   // Auto-fix: ensure binary drivers have probability set
                                   if (
-                                    newDriver.type === "binary" &&
-                                    newDriver.probability == null
+                                    finalDriver.type === "binary" &&
+                                    finalDriver.probability == null
                                   ) {
-                                    newDriver.probability = 0.5;
+                                    finalDriver.probability = 0.5;
                                   }
-                                  setDriverBeingConfigured(newDriver);
+                                  setDriverBeingConfigured(finalDriver);
                                   setCommandInput("");
 
                                   // Show success toast
