@@ -31,7 +31,8 @@
     "test:e2e-base-rate": "npx tsx tests/e2e-base-rate.test.ts",
     "test:phase2": "npx tsx tests/phase2-ui-integration.test.ts",
     "test:driver-sync": "npx tsx tests/driverSyncFallback.test.ts",
-    "test:command-persist": "npx tsx tests/commandPersistence.test.ts"
+    "test:command-persist": "npx tsx tests/commandPersistence.test.ts",
+    "reset-dev-data": "npx tsx scripts/reset-dev-data.ts"
   },
   "dependencies": {
     "@react-navigation/native": "^7.1.28",
