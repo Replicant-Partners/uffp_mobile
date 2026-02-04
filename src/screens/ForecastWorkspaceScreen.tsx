@@ -8578,7 +8578,7 @@ const styles = StyleSheet.create({
   },
   fermiChatTitle: {
     color: "#ebdbb2",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "normal",
     fontFamily:
       Platform.OS === "ios"
@@ -8593,7 +8593,7 @@ const styles = StyleSheet.create({
   },
   fermiMinimizeText: {
     color: "#928374",
-    fontSize: 14,
+    fontSize: 12,
     fontFamily:
       Platform.OS === "ios"
         ? "Menlo"
@@ -8628,7 +8628,7 @@ const styles = StyleSheet.create({
   },
   fermiMessageRole: {
     color: "#fabd2f",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "bold",
     marginBottom: 4,
     fontFamily:
@@ -8640,8 +8640,8 @@ const styles = StyleSheet.create({
   },
   fermiMessageText: {
     color: "#ebdbb2",
-    fontSize: Platform.OS === "web" ? 13 : 12,
-    lineHeight: Platform.OS === "web" ? 18 : 16,
+    fontSize: Platform.OS === "web" ? 11 : 10,
+    lineHeight: Platform.OS === "web" ? 16 : 14,
     fontFamily:
       Platform.OS === "ios"
         ? "Menlo"
@@ -8651,7 +8651,7 @@ const styles = StyleSheet.create({
   },
   fermiMessageTime: {
     color: "#665c54",
-    fontSize: 10,
+    fontSize: 9,
     marginTop: 4,
     fontFamily:
       Platform.OS === "ios"
@@ -8666,7 +8666,7 @@ const styles = StyleSheet.create({
   },
   fermiWelcomeText: {
     color: "#b8bb26",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "normal",
     marginBottom: 12,
     fontFamily:
@@ -8678,8 +8678,8 @@ const styles = StyleSheet.create({
   },
   fermiWelcomeSubtext: {
     color: "#928374",
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 11,
+    lineHeight: 16,
     fontFamily:
       Platform.OS === "ios"
         ? "Menlo"
@@ -8793,14 +8793,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#3c3836",
     color: "#ebdbb2",
-    padding: Platform.OS === "web" ? 12 : 8,
+    padding: Platform.OS === "web" ? 10 : 8,
     borderRadius: 4,
     borderWidth: 1,
     borderColor: "#665c54",
-    fontSize: Platform.OS === "web" ? 14 : 13,
-    maxHeight: Platform.OS === "web" ? 120 : 100,
+    fontSize: Platform.OS === "web" ? 11 : 10,
+    maxHeight: Platform.OS === "web" ? 100 : 80,
     marginRight: 6,
-    minHeight: Platform.OS === "web" ? 60 : 44,
+    minHeight: Platform.OS === "web" ? 40 : 36,
     fontFamily:
       Platform.OS === "ios"
         ? "Menlo"
@@ -8810,13 +8810,13 @@ const styles = StyleSheet.create({
   },
   fermiSendButton: {
     backgroundColor: "#504945",
-    paddingHorizontal: Platform.OS === "web" ? 18 : 12,
-    paddingVertical: Platform.OS === "web" ? 18 : 12,
+    paddingHorizontal: Platform.OS === "web" ? 12 : 10,
+    paddingVertical: Platform.OS === "web" ? 12 : 10,
     borderRadius: 4,
     justifyContent: "center",
     alignItems: "center",
-    minHeight: Platform.OS === "web" ? 60 : 44,
-    minWidth: Platform.OS === "web" ? 60 : 44,
+    minHeight: Platform.OS === "web" ? 40 : 36,
+    minWidth: Platform.OS === "web" ? 40 : 36,
   },
   fermiSendButtonDisabled: {
     backgroundColor: "#665c54",
@@ -8840,7 +8840,7 @@ const styles = StyleSheet.create({
   },
   fermiThinkingText: {
     color: "#fabd2f",
-    fontSize: 14,
+    fontSize: 11,
     fontStyle: "italic",
     fontFamily:
       Platform.OS === "ios"
