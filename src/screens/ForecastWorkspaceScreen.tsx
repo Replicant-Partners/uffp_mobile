@@ -7197,8 +7197,7 @@ export default function ForecastWorkspaceScreen() {
                                   setProcessingAction("");
                                 }
                               } else {
-                                // Normal chip behavior
-                                setFermiChatInput(commandText);
+                                // Normal chip behavior - execute command directly
                                 // Always use processSingleCommand for commands and @agent mentions
                                 if (
                                   commandText.startsWith("/") ||
