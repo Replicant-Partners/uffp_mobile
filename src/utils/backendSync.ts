@@ -221,8 +221,9 @@ export async function createForecastWithSync(data: {
 }): Promise<{ forecast: any; fromBackend: boolean; error?: string }> {
   if (currentSyncMode === "local-only") {
     // Return local-only forecast
+    const { idGenerators } = await import("./idGenerator");
     const localForecast = {
-      id: `local-${Date.now()}`,
+      id: idGenerators.forecast(),
       question: data.question,
       domain: data.domain || "general",
       timeframe: data.timeframe,
@@ -275,8 +276,9 @@ export async function createForecastWithSync(data: {
     }
 
     // Fall back to local-only forecast
+    const { idGenerators } = await import("./idGenerator");
     const localForecast = {
-      id: `local-${Date.now()}`,
+      id: idGenerators.forecast(),
       question: data.question,
       domain: data.domain || "general",
       timeframe: data.timeframe,
