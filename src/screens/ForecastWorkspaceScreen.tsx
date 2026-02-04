@@ -1661,6 +1661,18 @@ export default function ForecastWorkspaceScreen() {
             }
 
             const { addDriverWithSync } = await import("../utils/backendSync");
+
+            console.log("[SaveDriver] Sending driver to backend ADD:", {
+              driverId: updatedDriver.id,
+              driverName: updatedDriver.name,
+              agentCount: updatedDriver.agents?.length || 0,
+              agentDetails: updatedDriver.agents?.map((a: any) => ({
+                name: a.name,
+                hasQuery: !!a.query,
+                hasId: !!a.id,
+              })),
+            });
+
             const result = await addDriverWithSync(activeForecast.id, {
               id: updatedDriver.id,
               name: updatedDriver.name,
@@ -1706,6 +1718,18 @@ export default function ForecastWorkspaceScreen() {
             // UPDATE existing driver
             const { updateDriverWithSync } =
               await import("../utils/backendSync");
+
+            console.log("[SaveDriver] Sending driver to backend UPDATE:", {
+              driverId: updatedDriver.id,
+              driverName: updatedDriver.name,
+              agentCount: updatedDriver.agents?.length || 0,
+              agentDetails: updatedDriver.agents?.map((a: any) => ({
+                name: a.name,
+                hasQuery: !!a.query,
+                hasId: !!a.id,
+              })),
+            });
+
             const result = await updateDriverWithSync(
               activeForecast.id,
               updatedDriver.id,
@@ -2445,10 +2469,15 @@ export default function ForecastWorkspaceScreen() {
           isLocalForecast: activeForecast?.id?.startsWith("local-"),
         });
 
+        console.log("[Agent Save] BEFORE updateDriverInForecast:", {
+          updatedDriverAgentCount: updatedDriver.agents.length,
+          driverBeingConfiguredSet: !!driverBeingConfigured,
+        });
+
         setDriverBeingConfigured(updatedDriver);
         await updateDriverInForecast(updatedDriver);
 
-        console.log("[Agent Save] updateDriverInForecast completed");
+        console.log("[Agent Save] AFTER updateDriverInForecast completed");
         console.log(
           "[Agent Save] Driver in state now has",
           driverBeingConfigured?.agents?.length,
