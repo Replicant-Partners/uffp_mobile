@@ -662,14 +662,91 @@ export default function ForecastWorkspaceScreen() {
             context.question = activeForecast.question;
             context.domain = activeForecast.domain || "general"; // Backend requires domain for drivers stage
             context.timeframe = activeForecast.timeframe;
-            // Format drivers with percentage display
-            context.drivers = activeForecast.drivers?.map(formatDriverForCoach);
+            // Format drivers with percentage display and include evidence/agent counts
+            context.drivers = activeForecast.drivers?.map((driver) => {
+              const formatted = formatDriverForCoach(driver);
+              // Add metadata about evidence and agents for coaching context
+              formatted.evidenceCount = driver.evidence?.length || 0;
+              formatted.agentCount = driver.agents?.length || 0;
+              formatted.researchResultsCount =
+                driver.researchResults?.length || 0;
+              formatted.hasEvidence = formatted.evidenceCount > 0;
+              formatted.hasAgents = formatted.agentCount > 0;
+              formatted.hasResearch = formatted.researchResultsCount > 0;
+              return formatted;
+            });
             if (activeForecast.probability != null) {
               context.probabilityPercent = Math.round(
                 activeForecast.probability * 100,
               );
               context.probabilityDisplay = `${context.probabilityPercent}%`;
             }
+
+            // Add base rate / external view information
+            if (activeForecast.externalView) {
+              context.baseRate = {
+                referenceClass: activeForecast.externalView.referenceClass,
+                baseRatePercent: activeForecast.externalView.baseRate
+                  ? Math.round(activeForecast.externalView.baseRate * 100)
+                  : undefined,
+                confidence: activeForecast.externalView.confidence,
+                reasoning: activeForecast.externalView.reasoning,
+                source: activeForecast.externalView.source,
+                generatedBy: activeForecast.externalView.generatedBy,
+              };
+            }
+
+            // Add simulation results if available
+            if (
+              activeForecast.simulations &&
+              activeForecast.simulations.length > 0
+            ) {
+              const latestSim =
+                activeForecast.simulations[
+                  activeForecast.simulations.length - 1
+                ];
+              context.simulationResult = {
+                probability: latestSim.probability,
+                iterations: latestSim.iterations,
+                timestamp: latestSim.timestamp,
+              };
+            }
+
+            // Add forecast state summary for intelligent coaching
+            const driverCount = activeForecast.drivers?.length || 0;
+            const totalEvidence =
+              activeForecast.drivers?.reduce(
+                (sum, d) => sum + (d.evidence?.length || 0),
+                0,
+              ) || 0;
+            const totalAgents =
+              activeForecast.drivers?.reduce(
+                (sum, d) => sum + (d.agents?.length || 0),
+                0,
+              ) || 0;
+            const driversWithEvidence =
+              activeForecast.drivers?.filter(
+                (d) => d.evidence && d.evidence.length > 0,
+              ).length || 0;
+            const driversWithAgents =
+              activeForecast.drivers?.filter(
+                (d) => d.agents && d.agents.length > 0,
+              ).length || 0;
+
+            context.forecastStateSummary = {
+              driverCount,
+              totalEvidence,
+              totalAgents,
+              driversWithEvidence,
+              driversWithAgents,
+              hasBaseRate: !!activeForecast.externalView?.baseRate,
+              hasSimulation: !!activeForecast.probability,
+              isReadyForSimulation: driverCount >= 1,
+              needsMoreDrivers: driverCount < 2,
+              needsMoreEvidence: driverCount > 0 && totalEvidence === 0,
+              currentStage: coachStage,
+            };
+
             context.conversationHistory =
               activeForecast.fermiConversation || [];
           } else {
@@ -765,6 +842,54 @@ export default function ForecastWorkspaceScreen() {
             workflow:
               "forecast → drivers → agents attached to drivers → simulation",
           };
+
+          // Add power user workflow patterns and command macros
+          context.powerUserPatterns = {
+            quickDriverSetup:
+              "After /driver, suggest optimal sequence: /type → /p or /prob → /direction → @agent → /evidence → /save",
+            efficientResearch:
+              "Suggest attaching multiple agents at once during driver config for parallel research",
+            calibrationWorkflow:
+              "/decompose → multiple /driver → /simulate → /review cycle",
+            evidenceGathering:
+              "Suggest /evidence with URLs for link preview, agents for automated research",
+            commandChaining:
+              "Users can type multiple commands separated by / for batch operations",
+          };
+
+          // Suggest next best actions based on current state
+          if (activeForecast && context.forecastStateSummary) {
+            const suggestions = [];
+            const summary = context.forecastStateSummary;
+
+            if (summary.needsMoreDrivers) {
+              suggestions.push(
+                "Add more drivers with /driver or /decompose for better calibration",
+              );
+            }
+            if (summary.needsMoreEvidence && summary.driverCount > 0) {
+              suggestions.push(
+                "Add evidence to drivers to support your estimates",
+              );
+            }
+            if (summary.totalAgents === 0 && summary.driverCount > 0) {
+              suggestions.push(
+                "Attach research agents to drivers for automated data gathering",
+              );
+            }
+            if (summary.isReadyForSimulation && !summary.hasSimulation) {
+              suggestions.push("Run /simulate to get a probability forecast");
+            }
+            if (summary.hasSimulation) {
+              suggestions.push(
+                "Use /review to get AI feedback on your forecast quality",
+              );
+            }
+
+            if (suggestions.length > 0) {
+              context.suggestedNextActions = suggestions;
+            }
+          }
 
           // Add contextual insights (proactive coaching)
           if (activeForecast) {
@@ -4047,7 +4172,7 @@ export default function ForecastWorkspaceScreen() {
 
         // Add common refinement options
         nextStepSuggestions.push({
-          command: "/agent",
+          command: "@research_analyst",
           description: "Attach research agent",
         });
         nextStepSuggestions.push({
@@ -6101,22 +6226,57 @@ export default function ForecastWorkspaceScreen() {
                                   </Text>
                                   {isExpanded && (
                                     <View style={styles.fullResultSection}>
-                                      <Text style={styles.evidenceLabel}>
-                                        Key Findings:
-                                      </Text>
-                                      {result.keyFindings?.map(
-                                        (finding: string, i: number) => (
-                                          <Text
-                                            key={i}
-                                            style={styles.keyFinding}
-                                          >
-                                            • {finding}
+                                      {result.response ? (
+                                        // Show full markdown response if available
+                                        <Markdown
+                                          style={{
+                                            body: {
+                                              color: "#ebdbb2",
+                                              fontSize: 14,
+                                              lineHeight: 20,
+                                            },
+                                            heading1: {
+                                              color: "#fabd2f",
+                                              fontSize: 18,
+                                              fontWeight: "bold",
+                                            },
+                                            heading2: {
+                                              color: "#fabd2f",
+                                              fontSize: 16,
+                                              fontWeight: "bold",
+                                            },
+                                            code_inline: {
+                                              color: "#b8bb26",
+                                              backgroundColor: "#3c3836",
+                                            },
+                                            link: {
+                                              color: "#83a598",
+                                            },
+                                          }}
+                                        >
+                                          {result.response}
+                                        </Markdown>
+                                      ) : (
+                                        // Fallback to summary and key findings
+                                        <>
+                                          <Text style={styles.evidenceLabel}>
+                                            Key Findings:
                                           </Text>
-                                        ),
+                                          {result.keyFindings?.map(
+                                            (finding: string, i: number) => (
+                                              <Text
+                                                key={i}
+                                                style={styles.keyFinding}
+                                              >
+                                                • {finding}
+                                              </Text>
+                                            ),
+                                          )}
+                                          <Text style={styles.evidenceLabel}>
+                                            Confidence: {result.confidence}
+                                          </Text>
+                                        </>
                                       )}
-                                      <Text style={styles.evidenceLabel}>
-                                        Confidence: {result.confidence}
-                                      </Text>
                                     </View>
                                   )}
                                 </TouchableOpacity>
@@ -6952,7 +7112,7 @@ export default function ForecastWorkspaceScreen() {
 
                                   // Add common refinement options
                                   nextSteps.push({
-                                    command: "/agent",
+                                    command: "@research_analyst",
                                     description: "Attach research agent",
                                   });
                                   nextSteps.push({
