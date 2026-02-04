@@ -1680,6 +1680,16 @@ export default function ForecastWorkspaceScreen() {
 
             if (result.success && result.forecast) {
               // Backend succeeded - use backend data
+              console.log("[SaveDriver] Backend ADD response:", {
+                forecastId: result.forecast.id,
+                driverCount: result.forecast.drivers?.length,
+                driverNames: result.forecast.drivers?.map((d: any) => d.name),
+                hasOurDriver: result.forecast.drivers?.some(
+                  (d: any) =>
+                    d.id === updatedDriver.id || d.name === updatedDriver.name,
+                ),
+              });
+
               setActiveForecast(result.forecast);
 
               // Update savedForecasts so driver appears in /list
@@ -1718,6 +1728,18 @@ export default function ForecastWorkspaceScreen() {
 
             if (result.success && result.forecast) {
               // Backend succeeded - use backend data
+              console.log("[SaveDriver] Backend UPDATE response:", {
+                forecastId: result.forecast.id,
+                driverCount: result.forecast.drivers?.length,
+                driverNames: result.forecast.drivers?.map((d: any) => d.name),
+                hasOurDriver: result.forecast.drivers?.some(
+                  (d: any) => d.id === updatedDriver.id,
+                ),
+                ourDriverInResponse: result.forecast.drivers?.find(
+                  (d: any) => d.id === updatedDriver.id,
+                ),
+              });
+
               setActiveForecast(result.forecast);
 
               // Update savedForecasts so updates appear in /list
@@ -1774,6 +1796,11 @@ export default function ForecastWorkspaceScreen() {
       }
 
       setDriverBeingConfigured(null);
+      console.log("[SaveDriver] Cleared driverBeingConfigured");
+      console.log("[SaveDriver] Current activeForecast drivers:", {
+        count: activeForecast.drivers?.length,
+        names: activeForecast.drivers?.map((d: any) => d.name),
+      });
 
       // Show toast notification
       showToast(`✓ Driver saved: ${updatedDriver.name}`);
